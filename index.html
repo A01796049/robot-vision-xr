@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Robot Vision XR · Surface Understanding V5</title>
+<title>Robot Vision XR · Robot Navigation Map V6</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02070b;color:#dcf8fc;font-family:monospace}
 *{box-sizing:border-box}button{font:inherit}.home{position:fixed;inset:0;overflow:auto;padding:18px}.wrap{max-width:760px;margin:auto}
@@ -16,7 +16,8 @@ button{width:100%;padding:14px;border-radius:12px;border:1px solid #34e5ff;backg
 #legend{position:fixed;left:8px;top:145px;z-index:6;display:none;background:#031018dd;border:1px solid #34e5ff66;border-radius:10px;padding:8px;font-size:10px;line-height:1.6}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
 #mapbox{position:fixed;right:8px;bottom:62px;width:min(52vw,340px);height:min(46vw,300px);display:none;z-index:7;background:#020a0fdd;border:1px solid #34e5ff;border-radius:13px;overflow:hidden}
-#map{width:100%;height:100%}
+#mapHeader{height:30px;padding:7px 9px;display:flex;justify-content:space-between;border-bottom:1px solid #34e5ff55;color:#34e5ff;font-size:10px}
+#map{width:100%;height:calc(100% - 30px)}
 #controls{position:fixed;left:7px;right:7px;bottom:7px;z-index:8;display:none;gap:5px}
 #controls button{margin:0;padding:9px 4px;font-size:10px}.on{background:#0d3541!important;color:#fff!important}
 small{color:#86aeb8;line-height:1.5}
@@ -25,22 +26,27 @@ small{color:#86aeb8;line-height:1.5}
 <body>
 <canvas id="xr"></canvas>
 <div id="hud">
-<div class="p"><b style="color:#34e5ff">ROBOT VISION XR V5</b><br>tracking <span id="track" class="m">--</span><br>depth <span id="depth" class="m">--</span><br>análisis <span id="analysis" class="m">--</span></div>
-<div class="p" style="text-align:right">horizontales <span id="horiz" class="m">0</span><br>verticales <span id="vert" class="m">0</span><br>inclinadas <span id="slope" class="m">0</span><br>desconocidas <span id="unk" class="m">0</span><br>fps <span id="fps" class="m">0</span></div>
+<div class="p"><b style="color:#34e5ff">ROBOT VISION XR V6</b><br>tracking <span id="track" class="m">--</span><br>depth <span id="depth" class="m">--</span><br>análisis <span id="analysis" class="m">--</span></div>
+<div class="p" style="text-align:right">horizontales <span id="horiz" class="m">0</span><br>verticales <span id="vert" class="m">0</span><br>inclinadas <span id="slope" class="m">0</span><br>desconocidas <span id="unk" class="m">0</span><br>recorrido <span id="distance" class="m">0.0 m</span><br>fps <span id="fps" class="m">0</span></div>
 </div>
 <div id="legend"><div><span class="dot" style="background:#4dff75"></span>Horizontal / piso</div><div><span class="dot" style="background:#38d9ff"></span>Vertical / pared</div><div><span class="dot" style="background:#ffb24d"></span>Inclinada / escalón</div><div><span class="dot" style="background:#a57cff"></span>No clasificada</div></div>
-<div id="mapbox"><canvas id="map" width="680" height="520"></canvas></div>
-<div id="controls"><button id="live" class="on">LIVE</button><button id="surfaces" class="on">SUPERFICIES</button><button id="floorBtn">SUELO OFF</button><button id="mapBtn" class="on">MAPA</button><button id="reset">RESET</button><button id="exit">SALIR</button></div>
-<main id="home" class="home"><div class="wrap"><h1>Surface Understanding V5</h1><p>Clasificación geométrica local de vóxeles confirmados: horizontal, vertical, inclinada o desconocida.</p>
+<div id="mapbox">
+<div id="mapHeader"><span>WORLD MAP · NORTH UP</span><span id="scaleLabel">8 × 6 m</span></div>
+<canvas id="map" width="680" height="480"></canvas>
+</div>
+<div id="controls"><button id="live" class="on">LIVE</button><button id="surfaces" class="on">SUPERFICIES</button><button id="floorBtn">SUELO OFF</button><button id="mapBtn" class="on">MAPA</button><button id="scaleBtn">8 M</button><button id="reset">RESET</button><button id="exit">SALIR</button></div>
+<main id="home" class="home"><div class="wrap"><h1>Robot Navigation Map V6</h1><p>Mapa de navegación fijo en coordenadas del mundo, trayectoria recorrida y orientación del teléfono.</p>
 <div class="card"><div class="row"><span>HTTPS</span><span id="https" class="ok">...</span></div><div class="row"><span>WebXR</span><span id="webxr" class="ok">...</span></div><div class="row"><span>Voxel</span><span class="ok">10 cm</span></div><div class="row"><span>Vecindario</span><span class="ok">30 cm</span></div><div class="row"><span>Confirmación</span><span class="ok">4 observaciones</span></div></div>
-<div class="card"><button id="start" disabled>INICIAR SURFACE UNDERSTANDING</button><small>Prueba escaleras apuntando primero al piso, luego a cada peldaño y finalmente a la pared. Mantén cada superficie visible varios segundos.</small></div>
-<div class="card"><small>Verde: horizontal. Cian: vertical. Naranja: inclinada. Morado: sin suficientes vecinos para clasificar.</small></div></div></main>
+<div class="card"><button id="start" disabled>INICIAR ROBOT NAVIGATION MAP</button><small>Escanea una zona, desplázate a la derecha e izquierda y regresa al punto inicial. El mapa debe permanecer fijo y el indicador del teléfono debe desplazarse sobre él sin efecto espejo.</small></div>
+<div class="card"><small>Verde: horizontal. Cian: vertical. Naranja: inclinada. Morado: sin suficientes vecinos. La línea blanca muestra la trayectoria recorrida.</small></div></div></main>
 <script>
 const $=x=>document.getElementById(x);
 let gl,s,space,prog,pb,cb,paused=false,showFloor=false,showSurfaces=true,showMap=true;
 const CELL=.10,MERGE=.17,MIN_HITS=4,MIN_D=.35,MAX_D=6.5,SX=36,SY=27,MAX=65000;
 const cells=new Map(),pos=new Float32Array(MAX*3),col=new Float32Array(MAX*3);
 let renderN=0,lastCap=0,lastBuild=0,lastMap=0,lastFps=0,frames=0,cx=0,cy=0,cz=0,yaw=0;
+let originX=null,originZ=null,mapRange=8,totalDistance=0,lastPathX=null,lastPathZ=null;
+const pathHistory=[];
 const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.);gl_PointSize=5.;C=c;}`;
 const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.92);}`;
 function sh(t,x){let o=gl.createShader(t);gl.shaderSource(o,x);gl.compileShader(o);return o}
@@ -54,11 +60,93 @@ function classify(c){let n=[];for(let q of cells.values()){if(q===c||q.h<MIN_HIT
 function color(t){return t===0?[.25,1,.42]:t===1?[.12,.82,1]:t===2?[1,.60,.18]:[.62,.38,1]}
 function build(t){renderN=0;let ct=[0,0,0,0];for(let [k,c] of cells){if(t-c.last>18000&&c.h<MIN_HITS){cells.delete(k);continue}if(c.h<MIN_HITS||renderN>=MAX)continue;c.type=classify(c);ct[c.type]++;let i=renderN*3,co=color(c.type),a=Math.min(1,.35+c.h/12);pos[i]=c.x;pos[i+1]=c.y;pos[i+2]=c.z;col[i]=co[0]*a;col[i+1]=co[1]*a;col[i+2]=co[2]*a;renderN++}gl.bindBuffer(gl.ARRAY_BUFFER,pb);gl.bufferData(gl.ARRAY_BUFFER,pos.subarray(0,renderN*3),gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,cb);gl.bufferData(gl.ARRAY_BUFFER,col.subarray(0,renderN*3),gl.DYNAMIC_DRAW);$("horiz").textContent=ct[0];$("vert").textContent=ct[1];$("slope").textContent=ct[2];$("unk").textContent=ct[3];$("analysis").textContent=renderN+" superficies"}
 function draw(v){if(!showSurfaces||!renderN)return;gl.useProgram(prog);gl.uniformMatrix4fv(gl.getUniformLocation(prog,"P"),false,v.projectionMatrix);gl.uniformMatrix4fv(gl.getUniformLocation(prog,"V"),false,v.transform.inverse.matrix);gl.bindBuffer(gl.ARRAY_BUFFER,pb);let ap=gl.getAttribLocation(prog,"p");gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,cb);let ac=gl.getAttribLocation(prog,"c");gl.enableVertexAttribArray(ac);gl.vertexAttribPointer(ac,3,gl.FLOAT,false,0,0);gl.drawArrays(gl.POINTS,0,renderN)}
-function minimap(){if(!showMap)return;let c=$("map"),x=c.getContext("2d"),w=c.width,h=c.height,sc=Math.min(w,h)/8;x.fillStyle="#02090e";x.fillRect(0,0,w,h);x.strokeStyle="#11313a";for(let i=-4;i<=4;i++){x.beginPath();x.moveTo(w/2+i*sc,0);x.lineTo(w/2+i*sc,h);x.stroke();x.beginPath();x.moveTo(0,h/2+i*sc);x.lineTo(w,h/2+i*sc);x.stroke()}for(let q of cells.values()){if(q.h<MIN_HITS)continue;let dx=q.x-cx,dz=q.z-cz;if(Math.abs(dx)>4||Math.abs(dz)>4)continue;x.fillStyle=q.type===0?"#4dff75":q.type===1?"#38d9ff":q.type===2?"#ffb24d":"#a57cff";x.fillRect(w/2+dx*sc-2,h/2+dz*sc-2,4,4)}x.save();x.translate(w/2,h/2);x.rotate(-yaw);x.fillStyle="#fff";x.beginPath();x.moveTo(0,-13);x.lineTo(8,10);x.lineTo(-8,10);x.closePath();x.fill();x.restore()}
-async function start(){gl=$("xr").getContext("webgl",{xrCompatible:true,alpha:true});await gl.makeXRCompatible();prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);pb=gl.createBuffer();cb=gl.createBuffer();gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);s=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["local","depth-sensing","dom-overlay"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});s.updateRenderState({baseLayer:new XRWebGLLayer(s,gl)});space=await s.requestReferenceSpace("local");$("home").style.display="none";$("xr").style.display="block";$("hud").style.display="flex";$("legend").style.display="block";$("controls").style.display="flex";$("mapbox").style.display="block";s.addEventListener("end",end);s.requestAnimationFrame(frame)}
-function frame(t,f){s.requestAnimationFrame(frame);let p=f.getViewerPose(space);if(!p)return;$("track").textContent="activo";let v0=p.views[0],m=v0.transform.matrix;cx=m[12];cy=m[13];cz=m[14];yaw=Math.atan2(-m[8],-m[10]);let l=s.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,l.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);for(let v of p.views){let vp=l.getViewport(v);gl.viewport(vp.x,vp.y,vp.width,vp.height);if(!paused&&t-lastCap>170){try{let d=f.getDepthInformation(v);if(d)capture(v,d,t)}catch(_){}}draw(v)}if(!paused&&t-lastCap>170)lastCap=t;if(t-lastBuild>1000){build(t);lastBuild=t}if(t-lastMap>300){minimap();lastMap=t}frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}}
+function minimap(){
+ if(!showMap)return;
+ const c=$("map"),x=c.getContext("2d"),w=c.width,h=c.height;
+ const rangeX=mapRange,rangeZ=mapRange*(h/w),scX=w/rangeX,scZ=h/rangeZ;
+ x.fillStyle="#02090e";x.fillRect(0,0,w,h);
+
+ // World-fixed metric grid.
+ x.strokeStyle="#11313a";x.lineWidth=1;
+ const meters=Math.ceil(mapRange/2);
+ for(let m=-meters;m<=meters;m++){
+  const gx=w/2+m*scX,gy=h/2-m*scZ;
+  x.beginPath();x.moveTo(gx,0);x.lineTo(gx,h);x.stroke();
+  x.beginPath();x.moveTo(0,gy);x.lineTo(w,gy);x.stroke();
+ }
+ x.strokeStyle="#28515c";x.lineWidth=1.5;
+ x.beginPath();x.moveTo(w/2,0);x.lineTo(w/2,h);x.stroke();
+ x.beginPath();x.moveTo(0,h/2);x.lineTo(w,h/2);x.stroke();
+
+ if(originX===null){originX=cx;originZ=cz}
+
+ // Fixed world map: horizontal axis is +X to the right.
+ // Canvas Y grows downward, therefore world +Z is inverted on screen.
+ function project(wx,wz){
+  return [w/2+(wx-originX)*scX,h/2-(wz-originZ)*scZ];
+ }
+
+ // Trajectory.
+ if(pathHistory.length>1){
+  x.strokeStyle="rgba(255,255,255,.85)";x.lineWidth=3;x.beginPath();
+  pathHistory.forEach((p,i)=>{
+   const q=project(p.x,p.z);
+   if(i===0)x.moveTo(q[0],q[1]);else x.lineTo(q[0],q[1]);
+  });
+  x.stroke();
+ }
+
+ // Surface cells.
+ for(const q of cells.values()){
+  if(q.h<MIN_HITS)continue;
+  const pt=project(q.x,q.z);
+  if(pt[0]<0||pt[0]>w||pt[1]<0||pt[1]>h)continue;
+  x.fillStyle=q.type===0?"#4dff75":q.type===1?"#38d9ff":q.type===2?"#ffb24d":"#a57cff";
+  x.fillRect(pt[0]-2,pt[1]-2,4,4);
+ }
+
+ // Phone position and orientation. yaw is world-relative.
+ const phone=project(cx,cz);
+ x.save();x.translate(phone[0],phone[1]);x.rotate(-yaw);
+ x.fillStyle="#fff";x.strokeStyle="#02070b";x.lineWidth=2;
+ x.beginPath();x.moveTo(0,-14);x.lineTo(9,11);x.lineTo(0,7);x.lineTo(-9,11);x.closePath();x.fill();x.stroke();
+ x.restore();
+
+ // Origin marker.
+ const o=project(originX,originZ);
+ x.strokeStyle="#ff6262";x.lineWidth=2;x.beginPath();x.arc(o[0],o[1],6,0,Math.PI*2);x.stroke();
+ x.fillStyle="#dcf8fc";x.font="16px monospace";x.fillText("START",o[0]+9,o[1]-8);
+
+ // North/world direction indicator.
+ x.fillStyle="#34e5ff";x.font="18px monospace";x.fillText("+Z",12,24);
+ x.strokeStyle="#34e5ff";x.lineWidth=2;x.beginPath();x.moveTo(24,50);x.lineTo(24,29);x.lineTo(18,36);x.moveTo(24,29);x.lineTo(30,36);x.stroke();
+
+ $("scaleLabel").textContent=`${mapRange} × ${(mapRange*h/w).toFixed(1)} m`;
+}async function start(){gl=$("xr").getContext("webgl",{xrCompatible:true,alpha:true});await gl.makeXRCompatible();prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);pb=gl.createBuffer();cb=gl.createBuffer();gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);s=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["local","depth-sensing","dom-overlay"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});s.updateRenderState({baseLayer:new XRWebGLLayer(s,gl)});space=await s.requestReferenceSpace("local");$("home").style.display="none";$("xr").style.display="block";$("hud").style.display="flex";$("legend").style.display="block";$("controls").style.display="flex";$("mapbox").style.display="block";s.addEventListener("end",end);s.requestAnimationFrame(frame)}
+function frame(t,f){s.requestAnimationFrame(frame);let p=f.getViewerPose(space);if(!p)return;$("track").textContent="activo";let v0=p.views[0],m=v0.transform.matrix;cx=m[12];cy=m[13];cz=m[14];yaw=Math.atan2(-m[8],-m[10]);
+if(originX===null){originX=cx;originZ=cz}
+if(lastPathX===null){lastPathX=cx;lastPathZ=cz;pathHistory.push({x:cx,z:cz})}
+else{
+ const step=Math.hypot(cx-lastPathX,cz-lastPathZ);
+ if(step>.06){
+  if(step<1.0)totalDistance+=step;
+  lastPathX=cx;lastPathZ=cz;
+  pathHistory.push({x:cx,z:cz});
+  if(pathHistory.length>800)pathHistory.shift();
+  $("distance").textContent=totalDistance.toFixed(1)+" m";
+ }
+}let l=s.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,l.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);for(let v of p.views){let vp=l.getViewport(v);gl.viewport(vp.x,vp.y,vp.width,vp.height);if(!paused&&t-lastCap>170){try{let d=f.getDepthInformation(v);if(d)capture(v,d,t)}catch(_){}}draw(v)}if(!paused&&t-lastCap>170)lastCap=t;if(t-lastBuild>1000){build(t);lastBuild=t}if(t-lastMap>300){minimap();lastMap=t}frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}}
 function end(){$("home").style.display="block";$("xr").style.display="none";$("hud").style.display="none";$("legend").style.display="none";$("controls").style.display="none";$("mapbox").style.display="none"}
-$("start").onclick=start;$("live").onclick=()=>{paused=!paused;$("live").classList.toggle("on",!paused);$("live").textContent=paused?"PAUSA":"LIVE"};$("surfaces").onclick=()=>{showSurfaces=!showSurfaces;$("surfaces").classList.toggle("on",showSurfaces)};$("floorBtn").onclick=()=>{showFloor=!showFloor;$("floorBtn").classList.toggle("on",showFloor);$("floorBtn").textContent=showFloor?"SUELO ON":"SUELO OFF"};$("mapBtn").onclick=()=>{showMap=!showMap;$("mapbox").style.display=showMap?"block":"none";$("mapBtn").classList.toggle("on",showMap)};$("reset").onclick=()=>{cells.clear();renderN=0;build(performance.now())};$("exit").onclick=()=>s?.end();
+$("start").onclick=start;$("live").onclick=()=>{paused=!paused;$("live").classList.toggle("on",!paused);$("live").textContent=paused?"PAUSA":"LIVE"};$("surfaces").onclick=()=>{showSurfaces=!showSurfaces;$("surfaces").classList.toggle("on",showSurfaces)};$("floorBtn").onclick=()=>{showFloor=!showFloor;$("floorBtn").classList.toggle("on",showFloor);$("floorBtn").textContent=showFloor?"SUELO ON":"SUELO OFF"};$("mapBtn").onclick=()=>{showMap=!showMap;$("mapbox").style.display=showMap?"block":"none";$("mapBtn").classList.toggle("on",showMap)};
+$("scaleBtn").onclick=()=>{
+ mapRange=mapRange===8?12:mapRange===12?20:8;
+ $("scaleBtn").textContent=mapRange+" M";minimap();
+};$("reset").onclick=()=>{
+ cells.clear();renderN=0;pathHistory.length=0;totalDistance=0;
+ originX=cx;originZ=cz;lastPathX=cx;lastPathZ=cz;
+ pathHistory.push({x:cx,z:cz});$("distance").textContent="0.0 m";
+ build(performance.now());minimap();
+};$("exit").onclick=()=>s?.end();
 (async()=>{$("https").textContent=window.isSecureContext?"OK":"NO";if(navigator.xr){let ok=await navigator.xr.isSessionSupported("immersive-ar");$("webxr").textContent=ok?"compatible":"no compatible";$("start").disabled=!ok}else $("webxr").textContent="no disponible"})();
 </script>
 </body>
