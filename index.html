@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Robot Vision XR · Robot Navigation Map V6.1</title>
+<title>Robot Vision XR · Optimized Surface Classifier V7.1</title>
 <style>
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02070b;color:#dcf8fc;font-family:monospace}
 *{box-sizing:border-box}button{font:inherit}.home{position:fixed;inset:0;overflow:auto;padding:18px}.wrap{max-width:760px;margin:auto}
@@ -26,24 +26,26 @@ small{color:#86aeb8;line-height:1.5}
 <body>
 <canvas id="xr"></canvas>
 <div id="hud">
-<div class="p"><b style="color:#34e5ff">ROBOT VISION XR V6.1</b><br>tracking <span id="track" class="m">--</span><br>depth <span id="depth" class="m">--</span><br>análisis <span id="analysis" class="m">--</span></div>
-<div class="p" style="text-align:right">horizontales <span id="horiz" class="m">0</span><br>verticales <span id="vert" class="m">0</span><br>inclinadas <span id="slope" class="m">0</span><br>desconocidas <span id="unk" class="m">0</span><br>recorrido <span id="distance" class="m">0.0 m</span><br>fps <span id="fps" class="m">0</span></div>
+<div class="p"><b style="color:#34e5ff">ROBOT VISION XR V7</b><br>tracking <span id="track" class="m">--</span><br>depth <span id="depth" class="m">--</span><br>análisis <span id="analysis" class="m">--</span></div>
+<div class="p" style="text-align:right">horizontales <span id="horiz" class="m">0</span><br>verticales <span id="vert" class="m">0</span><br>inclinadas <span id="slope" class="m">0</span><br>desconocidas <span id="unk" class="m">0</span><br>recorrido <span id="distance" class="m">0.0 m</span><br>clasificados/s <span id="classRate" class="m">0</span><br>fps <span id="fps" class="m">0</span></div>
 </div>
 <div id="legend"><div><span class="dot" style="background:#4dff75"></span>Horizontal / piso</div><div><span class="dot" style="background:#38d9ff"></span>Vertical / pared</div><div><span class="dot" style="background:#ffb24d"></span>Inclinada / escalón</div><div><span class="dot" style="background:#a57cff"></span>No clasificada</div></div>
 <div id="mapbox">
-<div id="mapHeader"><span>WORLD MAP · AXIS FIX</span><span id="scaleLabel">8 × 6 m</span></div>
+<div id="mapHeader"><span>WORLD MAP · FAST SURFACES</span><span id="scaleLabel">8 × 6 m</span></div>
 <canvas id="map" width="680" height="480"></canvas>
 </div>
 <div id="controls"><button id="live" class="on">LIVE</button><button id="surfaces" class="on">SUPERFICIES</button><button id="floorBtn">SUELO OFF</button><button id="mapBtn" class="on">MAPA</button><button id="scaleBtn">8 M</button><button id="reset">RESET</button><button id="exit">SALIR</button></div>
-<main id="home" class="home"><div class="wrap"><h1>Robot Navigation Map V6.1</h1><p>Mapa de navegación con corrección de lateralidad: giro y desplazamiento a la derecha se representan a la derecha.</p>
+<main id="home" class="home"><div class="wrap"><h1>Optimized Surface Classifier V7.1</h1><p>Mapa de navegación con corrección de lateralidad: giro y desplazamiento a la derecha se representan a la derecha.</p>
 <div class="card"><div class="row"><span>HTTPS</span><span id="https" class="ok">...</span></div><div class="row"><span>WebXR</span><span id="webxr" class="ok">...</span></div><div class="row"><span>Voxel</span><span class="ok">10 cm</span></div><div class="row"><span>Vecindario</span><span class="ok">30 cm</span></div><div class="row"><span>Confirmación</span><span class="ok">4 observaciones</span></div></div>
-<div class="card"><button id="start" disabled>INICIAR ROBOT NAVIGATION MAP</button><small>Escanea una zona, desplázate a la derecha e izquierda y regresa al punto inicial. Al girar o desplazarte a la derecha, la flecha y la nueva geometría deben avanzar hacia la derecha del mapa.</small></div>
-<div class="card"><small>Verde: horizontal. Cian: vertical. Naranja: inclinada. Morado: sin suficientes vecinos. La línea blanca muestra la trayectoria recorrida.</small></div></div></main>
+<div class="card"><button id="start" disabled>INICIAR SURFACE CLASSIFIER V7</button><small>Escanea una zona, desplázate a la derecha e izquierda y regresa al punto inicial. Al girar o desplazarte a la derecha, la flecha y la nueva geometría deben avanzar hacia la derecha del mapa.</small></div>
+<div class="card"><small>V7 evita comparar cada vóxel contra todo el mapa. Solo busca vecinos en celdas próximas y suaviza la clasificación en el tiempo. Verde: horizontal; cian: vertical; naranja: inclinada; morado: insuficiente evidencia.</small></div></div></main>
 <script>
 const $=x=>document.getElementById(x);
 let gl,s,space,prog,pb,cb,paused=false,showFloor=false,showSurfaces=true,showMap=true;
-const CELL=.10,MERGE=.17,MIN_HITS=4,MIN_D=.35,MAX_D=6.5,SX=36,SY=27,MAX=65000;
+const CELL=.10,MERGE=.15,MIN_HITS=4,MIN_D=.35,MAX_D=6.5,SX=34,SY=25,MAX=65000;
 const cells=new Map(),pos=new Float32Array(MAX*3),col=new Float32Array(MAX*3);
+const dirtyQueue=[],dirtySet=new Set();
+let classifiedThisSecond=0;
 let renderN=0,lastCap=0,lastBuild=0,lastMap=0,lastFps=0,frames=0,cx=0,cy=0,cz=0,yaw=0;
 let originX=null,originZ=null,mapRange=8,totalDistance=0,lastPathX=null,lastPathZ=null;
 const pathHistory=[];
@@ -53,12 +55,120 @@ function sh(t,x){let o=gl.createShader(t);gl.shaderSource(o,x);gl.compileShader(
 function inv(a){let o=new Float32Array(16),a00=a[0],a01=a[1],a02=a[2],a03=a[3],a10=a[4],a11=a[5],a12=a[6],a13=a[7],a20=a[8],a21=a[9],a22=a[10],a23=a[11],a30=a[12],a31=a[13],a32=a[14],a33=a[15],b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32,d=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;if(!d)return null;d=1/d;o[0]=(a11*b11-a12*b10+a13*b09)*d;o[1]=(a02*b10-a01*b11-a03*b09)*d;o[2]=(a31*b05-a32*b04+a33*b03)*d;o[3]=(a22*b04-a21*b05-a23*b03)*d;o[4]=(a12*b08-a10*b11-a13*b07)*d;o[5]=(a00*b11-a02*b08+a03*b07)*d;o[6]=(a32*b02-a30*b05-a33*b01)*d;o[7]=(a20*b05-a22*b02+a23*b01)*d;o[8]=(a10*b10-a11*b08+a13*b06)*d;o[9]=(a01*b08-a00*b10-a03*b06)*d;o[10]=(a30*b04-a31*b02+a33*b00)*d;o[11]=(a21*b02-a20*b04-a23*b00)*d;o[12]=(a11*b07-a10*b09-a12*b06)*d;o[13]=(a00*b09-a01*b07+a02*b06)*d;o[14]=(a31*b01-a30*b03-a32*b00)*d;o[15]=(a20*b03-a21*b01-a22*b00)*d;return o}
 function mp(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
 function key(x,y,z){return `${Math.round(x/CELL)},${Math.round(y/CELL)},${Math.round(z/CELL)}`}
+function keyParts(x,y,z){return [Math.round(x/CELL),Math.round(y/CELL),Math.round(z/CELL)]}
+function markDirty(c){
+ if(!c||dirtySet.has(c.key))return;
+ dirtySet.add(c.key);dirtyQueue.push(c.key);
+}
 function near(x,y,z){let ix=Math.round(x/CELL),iy=Math.round(y/CELL),iz=Math.round(z/CELL),best=null,bd=MERGE;for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++)for(let dz=-2;dz<=2;dz++){let c=cells.get(`${ix+dx},${iy+dy},${iz+dz}`);if(!c)continue;let d=Math.hypot(c.x-x,c.y-y,c.z-z);if(d<bd){bd=d;best=c}}return best}
-function add(x,y,z,t){if(!showFloor&&y<cy-1.35)return;let c=near(x,y,z);if(c){let w=Math.min(c.h,18);c.x=(c.x*w+x)/(w+1);c.y=(c.y*w+y)/(w+1);c.z=(c.z*w+z)/(w+1);c.h=Math.min(255,c.h+1);c.last=t}else{let k=key(x,y,z);if(!cells.has(k))cells.set(k,{x,y,z,h:1,last:t,type:3})}}
+function add(x,y,z,t){
+ if(!showFloor&&y<cy-1.35)return;
+ let c=near(x,y,z);
+ if(c){
+  let w=Math.min(c.h,18);
+  c.x=(c.x*w+x)/(w+1);c.y=(c.y*w+y)/(w+1);c.z=(c.z*w+z)/(w+1);
+  c.h=Math.min(255,c.h+1);c.last=t;c.version++;
+  markDirty(c);
+ }else{
+  let k=key(x,y,z);
+  if(!cells.has(k)){
+   const parts=keyParts(x,y,z);
+   c={key:k,ix:parts[0],iy:parts[1],iz:parts[2],x,y,z,h:1,last:t,type:3,score:[0,0,0,1],version:1};
+   cells.set(k,c);markDirty(c);
+  }
+ }
+}
 function capture(v,d,t){let ip=inv(v.projectionMatrix),wm=v.transform.matrix;if(!ip)return;for(let j=0;j<SY;j++)for(let i=0;i<SX;i++){let u=(i+.5)/SX,vv=(j+.5)/SY,z;try{z=d.getDepthInMeters(u,vv)}catch(_){continue}if(!Number.isFinite(z)||z<MIN_D||z>MAX_D)continue;let q=mp(ip,u*2-1,1-vv*2,-1,1),rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3],L=Math.hypot(rx,ry,rz);if(L<1e-6)continue;rx=rx/L*z;ry=ry/L*z;rz=rz/L*z;let p=mp(wm,rx,ry,rz,1);add(p[0],p[1],p[2],t)}$("depth").textContent=d.width+"×"+d.height}
-function classify(c){let n=[];for(let q of cells.values()){if(q===c||q.h<MIN_HITS)continue;if(Math.hypot(q.x-c.x,q.y-c.y,q.z-c.z)<=.30)n.push(q)}if(n.length<5)return 3;let my=0,vy=0,vxz=0;for(let q of n)my+=q.y;my/=n.length;for(let q of n){vy+=(q.y-my)**2;vxz+=(q.x-c.x)**2+(q.z-c.z)**2}vy/=n.length;vxz/=n.length;let r=vy/(vxz+1e-6);if(vy<.004&&vxz>.004)return 0;if(r>1.1)return 1;if(r>.12)return 2;return 3}
+function localNeighbors(c){
+ const out=[];
+ // 40 cm horizontal/vertical search using only nearby hash cells.
+ for(let dx=-4;dx<=4;dx++)for(let dy=-4;dy<=4;dy++)for(let dz=-4;dz<=4;dz++){
+  if(dx===0&&dy===0&&dz===0)continue;
+  const n=cells.get(`${c.ix+dx},${c.iy+dy},${c.iz+dz}`);
+  if(!n||n.h<MIN_HITS)continue;
+  const dd=Math.hypot(n.x-c.x,n.y-c.y,n.z-c.z);
+  if(dd<=.38)out.push(n);
+ }
+ return out;
+}
+function classifyLocal(c){
+ const n=localNeighbors(c);
+ if(n.length<6)return 3;
+
+ // Measure spatial spread along world axes.
+ let mx=0,my=0,mz=0;
+ for(const q of n){mx+=q.x;my+=q.y;mz+=q.z}
+ mx/=n.length;my/=n.length;mz/=n.length;
+
+ let vx=0,vy=0,vz=0,cxy=0,cxz=0,cyz=0;
+ for(const q of n){
+  const x=q.x-mx,y=q.y-my,z=q.z-mz;
+  vx+=x*x;vy+=y*y;vz+=z*z;cxy+=x*y;cxz+=x*z;cyz+=y*z;
+ }
+ vx/=n.length;vy/=n.length;vz/=n.length;
+ cxy/=n.length;cxz/=n.length;cyz/=n.length;
+
+ // Plane orientation heuristic:
+ // Horizontal plane: very little Y spread, substantial X/Z spread.
+ const horizontalSpread=vx+vz;
+ if(vy<.0035 && horizontalSpread>.0055)return 0;
+
+ // Vertical plane: strong Y spread and one dominant horizontal tangent.
+ // A wall typically has Y plus X or Z variation, while thickness remains small.
+ const horizontalMin=Math.min(vx,vz);
+ const horizontalMax=Math.max(vx,vz);
+ if(vy>.006 && horizontalMax>.0045 && horizontalMin<.0045)return 1;
+
+ // Broad vertical structures where perspective/noise expands both X and Z.
+ if(vy>.010 && vy>(horizontalSpread*.35))return 1;
+
+ // Inclined surfaces require meaningful spread in Y and horizontal axes,
+ // but not the strong vertical signature above.
+ if(vy>.0025 && horizontalSpread>.005)return 2;
+
+ return 3;
+}
+function smoothType(c,newType){
+ if(!c.score)c.score=[0,0,0,1];
+ for(let i=0;i<4;i++)c.score[i]*=.72;
+ c.score[newType]+=1;
+ let best=0;
+ for(let i=1;i<4;i++)if(c.score[i]>c.score[best])best=i;
+ c.type=best;
+}
+function processDirty(limit=180){
+ let done=0;
+ while(dirtyQueue.length&&done<limit){
+  const k=dirtyQueue.shift();dirtySet.delete(k);
+  const c=cells.get(k);
+  if(!c||c.h<MIN_HITS)continue;
+  smoothType(c,classifyLocal(c));done++;
+ }
+ classifiedThisSecond+=done;
+ return done;
+}
 function color(t){return t===0?[.25,1,.42]:t===1?[.12,.82,1]:t===2?[1,.60,.18]:[.62,.38,1]}
-function build(t){renderN=0;let ct=[0,0,0,0];for(let [k,c] of cells){if(t-c.last>18000&&c.h<MIN_HITS){cells.delete(k);continue}if(c.h<MIN_HITS||renderN>=MAX)continue;c.type=classify(c);ct[c.type]++;let i=renderN*3,co=color(c.type),a=Math.min(1,.35+c.h/12);pos[i]=c.x;pos[i+1]=c.y;pos[i+2]=c.z;col[i]=co[0]*a;col[i+1]=co[1]*a;col[i+2]=co[2]*a;renderN++}gl.bindBuffer(gl.ARRAY_BUFFER,pb);gl.bufferData(gl.ARRAY_BUFFER,pos.subarray(0,renderN*3),gl.DYNAMIC_DRAW);gl.bindBuffer(gl.ARRAY_BUFFER,cb);gl.bufferData(gl.ARRAY_BUFFER,col.subarray(0,renderN*3),gl.DYNAMIC_DRAW);$("horiz").textContent=ct[0];$("vert").textContent=ct[1];$("slope").textContent=ct[2];$("unk").textContent=ct[3];$("analysis").textContent=renderN+" superficies"}
+function build(t){
+ // Process only changed cells instead of classifying the entire map.
+ processDirty(220);
+
+ renderN=0;let ct=[0,0,0,0];
+ for(let [k,c] of cells){
+  if(t-c.last>18000&&c.h<MIN_HITS){cells.delete(k);dirtySet.delete(k);continue}
+  if(c.h<MIN_HITS||renderN>=MAX)continue;
+  ct[c.type]++;
+  let i=renderN*3,co=color(c.type),a=Math.min(1,.35+c.h/12);
+  pos[i]=c.x;pos[i+1]=c.y;pos[i+2]=c.z;
+  col[i]=co[0]*a;col[i+1]=co[1]*a;col[i+2]=co[2]*a;renderN++;
+ }
+ gl.bindBuffer(gl.ARRAY_BUFFER,pb);
+ gl.bufferData(gl.ARRAY_BUFFER,pos.subarray(0,renderN*3),gl.DYNAMIC_DRAW);
+ gl.bindBuffer(gl.ARRAY_BUFFER,cb);
+ gl.bufferData(gl.ARRAY_BUFFER,col.subarray(0,renderN*3),gl.DYNAMIC_DRAW);
+ $("horiz").textContent=ct[0];$("vert").textContent=ct[1];
+ $("slope").textContent=ct[2];$("unk").textContent=ct[3];
+ $("analysis").textContent=renderN+" superficies";
+}
 function draw(v){if(!showSurfaces||!renderN)return;gl.useProgram(prog);gl.uniformMatrix4fv(gl.getUniformLocation(prog,"P"),false,v.projectionMatrix);gl.uniformMatrix4fv(gl.getUniformLocation(prog,"V"),false,v.transform.inverse.matrix);gl.bindBuffer(gl.ARRAY_BUFFER,pb);let ap=gl.getAttribLocation(prog,"p");gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,cb);let ac=gl.getAttribLocation(prog,"c");gl.enableVertexAttribArray(ac);gl.vertexAttribPointer(ac,3,gl.FLOAT,false,0,0);gl.drawArrays(gl.POINTS,0,renderN)}
 function minimap(){
  if(!showMap)return;
@@ -137,14 +247,14 @@ else{
   if(pathHistory.length>800)pathHistory.shift();
   $("distance").textContent=totalDistance.toFixed(1)+" m";
  }
-}let l=s.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,l.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);for(let v of p.views){let vp=l.getViewport(v);gl.viewport(vp.x,vp.y,vp.width,vp.height);if(!paused&&t-lastCap>170){try{let d=f.getDepthInformation(v);if(d)capture(v,d,t)}catch(_){}}draw(v)}if(!paused&&t-lastCap>170)lastCap=t;if(t-lastBuild>1000){build(t);lastBuild=t}if(t-lastMap>300){minimap();lastMap=t}frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}}
+}let l=s.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,l.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);for(let v of p.views){let vp=l.getViewport(v);gl.viewport(vp.x,vp.y,vp.width,vp.height);if(!paused&&t-lastCap>170){try{let d=f.getDepthInformation(v);if(d)capture(v,d,t)}catch(_){}}draw(v)}if(!paused&&t-lastCap>170)lastCap=t;processDirty(55);if(t-lastBuild>700){build(t);lastBuild=t}if(t-lastMap>300){minimap();lastMap=t}frames++;if(t-lastFps>1000){$("fps").textContent=frames;$("classRate").textContent=classifiedThisSecond;classifiedThisSecond=0;frames=0;lastFps=t}}
 function end(){$("home").style.display="block";$("xr").style.display="none";$("hud").style.display="none";$("legend").style.display="none";$("controls").style.display="none";$("mapbox").style.display="none"}
 $("start").onclick=start;$("live").onclick=()=>{paused=!paused;$("live").classList.toggle("on",!paused);$("live").textContent=paused?"PAUSA":"LIVE"};$("surfaces").onclick=()=>{showSurfaces=!showSurfaces;$("surfaces").classList.toggle("on",showSurfaces)};$("floorBtn").onclick=()=>{showFloor=!showFloor;$("floorBtn").classList.toggle("on",showFloor);$("floorBtn").textContent=showFloor?"SUELO ON":"SUELO OFF"};$("mapBtn").onclick=()=>{showMap=!showMap;$("mapbox").style.display=showMap?"block":"none";$("mapBtn").classList.toggle("on",showMap)};
 $("scaleBtn").onclick=()=>{
  mapRange=mapRange===8?12:mapRange===12?20:8;
  $("scaleBtn").textContent=mapRange+" M";minimap();
 };$("reset").onclick=()=>{
- cells.clear();renderN=0;pathHistory.length=0;totalDistance=0;
+ cells.clear();dirtyQueue.length=0;dirtySet.clear();renderN=0;pathHistory.length=0;totalDistance=0;
  originX=cx;originZ=cz;lastPathX=cx;lastPathZ=cz;
  pathHistory.push({x:cx,z:cz});$("distance").textContent="0.0 m";
  build(performance.now());minimap();
