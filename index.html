@@ -1,265 +1,90 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Robot Vision XR · Optimized Surface Classifier V7.1</title>
-<style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02070b;color:#dcf8fc;font-family:monospace}
-*{box-sizing:border-box}button{font:inherit}.home{position:fixed;inset:0;overflow:auto;padding:18px}.wrap{max-width:760px;margin:auto}
-h1{color:#34e5ff}.card{background:#071118;border:1px solid #1b6472;border-radius:14px;padding:14px;margin:12px 0}
-.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #15313a}.ok{color:#7cff86}
-button{width:100%;padding:14px;border-radius:12px;border:1px solid #34e5ff;background:#0a2731;color:#34e5ff;margin-top:10px}button:disabled{opacity:.45}
-#xr{position:fixed;inset:0;width:100%;height:100%;display:none}
-#hud{position:fixed;left:8px;right:8px;top:8px;z-index:6;display:none;justify-content:space-between;gap:8px;pointer-events:none}
-.p{background:#031018dd;border:1px solid #34e5ff77;border-radius:10px;padding:8px;font-size:11px;line-height:1.5}.m{color:#7cff86}
-#legend{position:fixed;left:8px;top:145px;z-index:6;display:none;background:#031018dd;border:1px solid #34e5ff66;border-radius:10px;padding:8px;font-size:10px;line-height:1.6}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
-#mapbox{position:fixed;right:8px;bottom:62px;width:min(52vw,340px);height:min(46vw,300px);display:none;z-index:7;background:#020a0fdd;border:1px solid #34e5ff;border-radius:13px;overflow:hidden}
-#mapHeader{height:30px;padding:7px 9px;display:flex;justify-content:space-between;border-bottom:1px solid #34e5ff55;color:#34e5ff;font-size:10px}
-#map{width:100%;height:calc(100% - 30px)}
-#controls{position:fixed;left:7px;right:7px;bottom:7px;z-index:8;display:none;gap:5px}
-#controls button{margin:0;padding:9px 4px;font-size:10px}.on{background:#0d3541!important;color:#fff!important}
-small{color:#86aeb8;line-height:1.5}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#02070b">
+  <title>Robot Vision XR · Plane Extraction V8</title>
+  <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
-<canvas id="xr"></canvas>
-<div id="hud">
-<div class="p"><b style="color:#34e5ff">ROBOT VISION XR V7</b><br>tracking <span id="track" class="m">--</span><br>depth <span id="depth" class="m">--</span><br>análisis <span id="analysis" class="m">--</span></div>
-<div class="p" style="text-align:right">horizontales <span id="horiz" class="m">0</span><br>verticales <span id="vert" class="m">0</span><br>inclinadas <span id="slope" class="m">0</span><br>desconocidas <span id="unk" class="m">0</span><br>recorrido <span id="distance" class="m">0.0 m</span><br>clasificados/s <span id="classRate" class="m">0</span><br>fps <span id="fps" class="m">0</span></div>
-</div>
-<div id="legend"><div><span class="dot" style="background:#4dff75"></span>Horizontal / piso</div><div><span class="dot" style="background:#38d9ff"></span>Vertical / pared</div><div><span class="dot" style="background:#ffb24d"></span>Inclinada / escalón</div><div><span class="dot" style="background:#a57cff"></span>No clasificada</div></div>
-<div id="mapbox">
-<div id="mapHeader"><span>WORLD MAP · FAST SURFACES</span><span id="scaleLabel">8 × 6 m</span></div>
-<canvas id="map" width="680" height="480"></canvas>
-</div>
-<div id="controls"><button id="live" class="on">LIVE</button><button id="surfaces" class="on">SUPERFICIES</button><button id="floorBtn">SUELO OFF</button><button id="mapBtn" class="on">MAPA</button><button id="scaleBtn">8 M</button><button id="reset">RESET</button><button id="exit">SALIR</button></div>
-<main id="home" class="home"><div class="wrap"><h1>Optimized Surface Classifier V7.1</h1><p>Mapa de navegación con corrección de lateralidad: giro y desplazamiento a la derecha se representan a la derecha.</p>
-<div class="card"><div class="row"><span>HTTPS</span><span id="https" class="ok">...</span></div><div class="row"><span>WebXR</span><span id="webxr" class="ok">...</span></div><div class="row"><span>Voxel</span><span class="ok">10 cm</span></div><div class="row"><span>Vecindario</span><span class="ok">30 cm</span></div><div class="row"><span>Confirmación</span><span class="ok">4 observaciones</span></div></div>
-<div class="card"><button id="start" disabled>INICIAR SURFACE CLASSIFIER V7</button><small>Escanea una zona, desplázate a la derecha e izquierda y regresa al punto inicial. Al girar o desplazarte a la derecha, la flecha y la nueva geometría deben avanzar hacia la derecha del mapa.</small></div>
-<div class="card"><small>V7 evita comparar cada vóxel contra todo el mapa. Solo busca vecinos en celdas próximas y suaviza la clasificación en el tiempo. Verde: horizontal; cian: vertical; naranja: inclinada; morado: insuficiente evidencia.</small></div></div></main>
-<script>
-const $=x=>document.getElementById(x);
-let gl,s,space,prog,pb,cb,paused=false,showFloor=false,showSurfaces=true,showMap=true;
-const CELL=.10,MERGE=.15,MIN_HITS=4,MIN_D=.35,MAX_D=6.5,SX=34,SY=25,MAX=65000;
-const cells=new Map(),pos=new Float32Array(MAX*3),col=new Float32Array(MAX*3);
-const dirtyQueue=[],dirtySet=new Set();
-let classifiedThisSecond=0;
-let renderN=0,lastCap=0,lastBuild=0,lastMap=0,lastFps=0,frames=0,cx=0,cy=0,cz=0,yaw=0;
-let originX=null,originZ=null,mapRange=8,totalDistance=0,lastPathX=null,lastPathZ=null;
-const pathHistory=[];
-const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.);gl_PointSize=5.;C=c;}`;
-const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.92);}`;
-function sh(t,x){let o=gl.createShader(t);gl.shaderSource(o,x);gl.compileShader(o);return o}
-function inv(a){let o=new Float32Array(16),a00=a[0],a01=a[1],a02=a[2],a03=a[3],a10=a[4],a11=a[5],a12=a[6],a13=a[7],a20=a[8],a21=a[9],a22=a[10],a23=a[11],a30=a[12],a31=a[13],a32=a[14],a33=a[15],b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32,d=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;if(!d)return null;d=1/d;o[0]=(a11*b11-a12*b10+a13*b09)*d;o[1]=(a02*b10-a01*b11-a03*b09)*d;o[2]=(a31*b05-a32*b04+a33*b03)*d;o[3]=(a22*b04-a21*b05-a23*b03)*d;o[4]=(a12*b08-a10*b11-a13*b07)*d;o[5]=(a00*b11-a02*b08+a03*b07)*d;o[6]=(a32*b02-a30*b05-a33*b01)*d;o[7]=(a20*b05-a22*b02+a23*b01)*d;o[8]=(a10*b10-a11*b08+a13*b06)*d;o[9]=(a01*b08-a00*b10-a03*b06)*d;o[10]=(a30*b04-a31*b02+a33*b00)*d;o[11]=(a21*b02-a20*b04-a23*b00)*d;o[12]=(a11*b07-a10*b09-a12*b06)*d;o[13]=(a00*b09-a01*b07+a02*b06)*d;o[14]=(a31*b01-a30*b03-a32*b00)*d;o[15]=(a20*b03-a21*b01-a22*b00)*d;return o}
-function mp(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
-function key(x,y,z){return `${Math.round(x/CELL)},${Math.round(y/CELL)},${Math.round(z/CELL)}`}
-function keyParts(x,y,z){return [Math.round(x/CELL),Math.round(y/CELL),Math.round(z/CELL)]}
-function markDirty(c){
- if(!c||dirtySet.has(c.key))return;
- dirtySet.add(c.key);dirtyQueue.push(c.key);
-}
-function near(x,y,z){let ix=Math.round(x/CELL),iy=Math.round(y/CELL),iz=Math.round(z/CELL),best=null,bd=MERGE;for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++)for(let dz=-2;dz<=2;dz++){let c=cells.get(`${ix+dx},${iy+dy},${iz+dz}`);if(!c)continue;let d=Math.hypot(c.x-x,c.y-y,c.z-z);if(d<bd){bd=d;best=c}}return best}
-function add(x,y,z,t){
- if(!showFloor&&y<cy-1.35)return;
- let c=near(x,y,z);
- if(c){
-  let w=Math.min(c.h,18);
-  c.x=(c.x*w+x)/(w+1);c.y=(c.y*w+y)/(w+1);c.z=(c.z*w+z)/(w+1);
-  c.h=Math.min(255,c.h+1);c.last=t;c.version++;
-  markDirty(c);
- }else{
-  let k=key(x,y,z);
-  if(!cells.has(k)){
-   const parts=keyParts(x,y,z);
-   c={key:k,ix:parts[0],iy:parts[1],iz:parts[2],x,y,z,h:1,last:t,type:3,score:[0,0,0,1],version:1};
-   cells.set(k,c);markDirty(c);
-  }
- }
-}
-function capture(v,d,t){let ip=inv(v.projectionMatrix),wm=v.transform.matrix;if(!ip)return;for(let j=0;j<SY;j++)for(let i=0;i<SX;i++){let u=(i+.5)/SX,vv=(j+.5)/SY,z;try{z=d.getDepthInMeters(u,vv)}catch(_){continue}if(!Number.isFinite(z)||z<MIN_D||z>MAX_D)continue;let q=mp(ip,u*2-1,1-vv*2,-1,1),rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3],L=Math.hypot(rx,ry,rz);if(L<1e-6)continue;rx=rx/L*z;ry=ry/L*z;rz=rz/L*z;let p=mp(wm,rx,ry,rz,1);add(p[0],p[1],p[2],t)}$("depth").textContent=d.width+"×"+d.height}
-function localNeighbors(c){
- const out=[];
- // 40 cm horizontal/vertical search using only nearby hash cells.
- for(let dx=-4;dx<=4;dx++)for(let dy=-4;dy<=4;dy++)for(let dz=-4;dz<=4;dz++){
-  if(dx===0&&dy===0&&dz===0)continue;
-  const n=cells.get(`${c.ix+dx},${c.iy+dy},${c.iz+dz}`);
-  if(!n||n.h<MIN_HITS)continue;
-  const dd=Math.hypot(n.x-c.x,n.y-c.y,n.z-c.z);
-  if(dd<=.38)out.push(n);
- }
- return out;
-}
-function classifyLocal(c){
- const n=localNeighbors(c);
- if(n.length<6)return 3;
+  <canvas id="xrCanvas"></canvas>
 
- // Measure spatial spread along world axes.
- let mx=0,my=0,mz=0;
- for(const q of n){mx+=q.x;my+=q.y;mz+=q.z}
- mx/=n.length;my/=n.length;mz/=n.length;
+  <section id="hud">
+    <div class="panel">
+      <b>ROBOT VISION XR · V8</b><br>
+      tracking <span id="tracking" class="metric">--</span><br>
+      depth <span id="depth" class="metric">--</span><br>
+      modo <span id="modeValue" class="metric">BOTH</span><br>
+      análisis <span id="analysis" class="metric">--</span>
+    </div>
+    <div class="panel right">
+      planos <span id="planes" class="metric">0</span><br>
+      paredes <span id="walls" class="metric">0</span><br>
+      horizontales <span id="floors" class="metric">0</span><br>
+      inclinados <span id="slopes" class="metric">0</span><br>
+      vóxeles <span id="voxels" class="metric">0</span><br>
+      fps <span id="fps" class="metric">0</span>
+    </div>
+  </section>
 
- let vx=0,vy=0,vz=0,cxy=0,cxz=0,cyz=0;
- for(const q of n){
-  const x=q.x-mx,y=q.y-my,z=q.z-mz;
-  vx+=x*x;vy+=y*y;vz+=z*z;cxy+=x*y;cxz+=x*z;cyz+=y*z;
- }
- vx/=n.length;vy/=n.length;vz/=n.length;
- cxy/=n.length;cxz/=n.length;cyz/=n.length;
+  <section id="legend" class="panel">
+    <div><span class="dot horizontal"></span>FLOOR / HORIZONTAL</div>
+    <div><span class="dot vertical"></span>WALL / VERTICAL</div>
+    <div><span class="dot inclined"></span>INCLINED</div>
+    <div><span class="lineSample"></span>PLANE OUTLINE</div>
+  </section>
 
- // Plane orientation heuristic:
- // Horizontal plane: very little Y spread, substantial X/Z spread.
- const horizontalSpread=vx+vz;
- if(vy<.0035 && horizontalSpread>.0055)return 0;
+  <section id="mapBox">
+    <header><span>SCENE GRAPH · WORLD MAP</span><span id="mapScale">12 × 8.5 m</span></header>
+    <canvas id="mapCanvas" width="680" height="480"></canvas>
+  </section>
 
- // Vertical plane: strong Y spread and one dominant horizontal tangent.
- // A wall typically has Y plus X or Z variation, while thickness remains small.
- const horizontalMin=Math.min(vx,vz);
- const horizontalMax=Math.max(vx,vz);
- if(vy>.006 && horizontalMax>.0045 && horizontalMin<.0045)return 1;
+  <section id="planeList" class="panel">
+    <b>DETECTED PLANES</b>
+    <div id="planeItems">Esperando geometría…</div>
+  </section>
 
- // Broad vertical structures where perspective/noise expands both X and Z.
- if(vy>.010 && vy>(horizontalSpread*.35))return 1;
+  <nav id="controls">
+    <button id="liveBtn" class="on">LIVE</button>
+    <button id="modeBtn" class="on">BOTH</button>
+    <button id="floorBtn">SUELO OFF</button>
+    <button id="mapBtn" class="on">MAPA</button>
+    <button id="scaleBtn">12 M</button>
+    <button id="resetBtn">RESET</button>
+    <button id="exitBtn">SALIR</button>
+  </nav>
 
- // Inclined surfaces require meaningful spread in Y and horizontal axes,
- // but not the strong vertical signature above.
- if(vy>.0025 && horizontalSpread>.005)return 2;
+  <main id="home">
+    <div class="wrap">
+      <h1>Plane Extraction Engine V8</h1>
+      <p class="subtitle">Convierte miles de vóxeles en un conjunto reducido de planos horizontales y verticales.</p>
 
- return 3;
-}
-function smoothType(c,newType){
- if(!c.score)c.score=[0,0,0,1];
- for(let i=0;i<4;i++)c.score[i]*=.72;
- c.score[newType]+=1;
- let best=0;
- for(let i=1;i<4;i++)if(c.score[i]>c.score[best])best=i;
- c.type=best;
-}
-function processDirty(limit=180){
- let done=0;
- while(dirtyQueue.length&&done<limit){
-  const k=dirtyQueue.shift();dirtySet.delete(k);
-  const c=cells.get(k);
-  if(!c||c.h<MIN_HITS)continue;
-  smoothType(c,classifyLocal(c));done++;
- }
- classifiedThisSecond+=done;
- return done;
-}
-function color(t){return t===0?[.25,1,.42]:t===1?[.12,.82,1]:t===2?[1,.60,.18]:[.62,.38,1]}
-function build(t){
- // Process only changed cells instead of classifying the entire map.
- processDirty(220);
+      <section class="card">
+        <div class="row"><span>HTTPS</span><span id="httpsStatus" class="ok">comprobando</span></div>
+        <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando</span></div>
+        <div class="row"><span>Depth Sensing</span><span class="ok">CPU optimized</span></div>
+        <div class="row"><span>Voxel base</span><span class="ok">10 cm</span></div>
+        <div class="row"><span>Extracción de planos</span><span class="ok">cada 1.5 s</span></div>
+      </section>
 
- renderN=0;let ct=[0,0,0,0];
- for(let [k,c] of cells){
-  if(t-c.last>18000&&c.h<MIN_HITS){cells.delete(k);dirtySet.delete(k);continue}
-  if(c.h<MIN_HITS||renderN>=MAX)continue;
-  ct[c.type]++;
-  let i=renderN*3,co=color(c.type),a=Math.min(1,.35+c.h/12);
-  pos[i]=c.x;pos[i+1]=c.y;pos[i+2]=c.z;
-  col[i]=co[0]*a;col[i+1]=co[1]*a;col[i+2]=co[2]*a;renderN++;
- }
- gl.bindBuffer(gl.ARRAY_BUFFER,pb);
- gl.bufferData(gl.ARRAY_BUFFER,pos.subarray(0,renderN*3),gl.DYNAMIC_DRAW);
- gl.bindBuffer(gl.ARRAY_BUFFER,cb);
- gl.bufferData(gl.ARRAY_BUFFER,col.subarray(0,renderN*3),gl.DYNAMIC_DRAW);
- $("horiz").textContent=ct[0];$("vert").textContent=ct[1];
- $("slope").textContent=ct[2];$("unk").textContent=ct[3];
- $("analysis").textContent=renderN+" superficies";
-}
-function draw(v){if(!showSurfaces||!renderN)return;gl.useProgram(prog);gl.uniformMatrix4fv(gl.getUniformLocation(prog,"P"),false,v.projectionMatrix);gl.uniformMatrix4fv(gl.getUniformLocation(prog,"V"),false,v.transform.inverse.matrix);gl.bindBuffer(gl.ARRAY_BUFFER,pb);let ap=gl.getAttribLocation(prog,"p");gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);gl.bindBuffer(gl.ARRAY_BUFFER,cb);let ac=gl.getAttribLocation(prog,"c");gl.enableVertexAttribArray(ac);gl.vertexAttribPointer(ac,3,gl.FLOAT,false,0,0);gl.drawArrays(gl.POINTS,0,renderN)}
-function minimap(){
- if(!showMap)return;
- const c=$("map"),x=c.getContext("2d"),w=c.width,h=c.height;
- const rangeX=mapRange,rangeZ=mapRange*(h/w),scX=w/rangeX,scZ=h/rangeZ;
- x.fillStyle="#02090e";x.fillRect(0,0,w,h);
+      <section class="card">
+        <button id="startBtn" disabled>INICIAR PLANE EXTRACTION V8</button>
+        <small>
+          Para la prueba: escanea una pared durante 8 segundos, después activa SUELO ON y apunta al piso o a los peldaños.
+          Usa BOTH para comparar vóxeles y planos; después cambia a PLANES para ver la representación simplificada.
+        </small>
+      </section>
 
- // World-fixed metric grid.
- x.strokeStyle="#11313a";x.lineWidth=1;
- const meters=Math.ceil(mapRange/2);
- for(let m=-meters;m<=meters;m++){
-  const gx=w/2+m*scX,gy=h/2-m*scZ;
-  x.beginPath();x.moveTo(gx,0);x.lineTo(gx,h);x.stroke();
-  x.beginPath();x.moveTo(0,gy);x.lineTo(w,gy);x.stroke();
- }
- x.strokeStyle="#28515c";x.lineWidth=1.5;
- x.beginPath();x.moveTo(w/2,0);x.lineTo(w/2,h);x.stroke();
- x.beginPath();x.moveTo(0,h/2);x.lineTo(w,h/2);x.stroke();
+      <section class="card">
+        <small>
+          V8 realiza extracción geométrica, no reconocimiento visual con IA. Las etiquetas WALL, FLOOR y HORIZONTAL SURFACE
+          se derivan de la orientación y extensión de cada agrupación.
+        </small>
+      </section>
+    </div>
+  </main>
 
- if(originX===null){originX=cx;originZ=cz}
-
- // Fixed world map: horizontal axis is +X to the right.
- // Canvas Y grows downward, therefore world +Z is inverted on screen.
- function project(wx,wz){
-  // WebXR uses a right-handed world. For the phone-held map, screen-right
-  // must correspond to the user's physical right, so world X is mirrored.
-  return [w/2-(wx-originX)*scX,h/2-(wz-originZ)*scZ];
- }
-
- // Trajectory.
- if(pathHistory.length>1){
-  x.strokeStyle="rgba(255,255,255,.85)";x.lineWidth=3;x.beginPath();
-  pathHistory.forEach((p,i)=>{
-   const q=project(p.x,p.z);
-   if(i===0)x.moveTo(q[0],q[1]);else x.lineTo(q[0],q[1]);
-  });
-  x.stroke();
- }
-
- // Surface cells.
- for(const q of cells.values()){
-  if(q.h<MIN_HITS)continue;
-  const pt=project(q.x,q.z);
-  if(pt[0]<0||pt[0]>w||pt[1]<0||pt[1]>h)continue;
-  x.fillStyle=q.type===0?"#4dff75":q.type===1?"#38d9ff":q.type===2?"#ffb24d":"#a57cff";
-  x.fillRect(pt[0]-2,pt[1]-2,4,4);
- }
-
- // Phone position and orientation. yaw is world-relative.
- const phone=project(cx,cz);
- x.save();x.translate(phone[0],phone[1]);x.rotate(yaw);
- x.fillStyle="#fff";x.strokeStyle="#02070b";x.lineWidth=2;
- x.beginPath();x.moveTo(0,-14);x.lineTo(9,11);x.lineTo(0,7);x.lineTo(-9,11);x.closePath();x.fill();x.stroke();
- x.restore();
-
- // Origin marker.
- const o=project(originX,originZ);
- x.strokeStyle="#ff6262";x.lineWidth=2;x.beginPath();x.arc(o[0],o[1],6,0,Math.PI*2);x.stroke();
- x.fillStyle="#dcf8fc";x.font="16px monospace";x.fillText("START",o[0]+9,o[1]-8);
-
- // North/world direction indicator.
- x.fillStyle="#34e5ff";x.font="18px monospace";x.fillText("+Z",12,24);
- x.strokeStyle="#34e5ff";x.lineWidth=2;x.beginPath();x.moveTo(24,50);x.lineTo(24,29);x.lineTo(18,36);x.moveTo(24,29);x.lineTo(30,36);x.stroke();
-
- $("scaleLabel").textContent=`${mapRange} × ${(mapRange*h/w).toFixed(1)} m`;
-}async function start(){gl=$("xr").getContext("webgl",{xrCompatible:true,alpha:true});await gl.makeXRCompatible();prog=gl.createProgram();gl.attachShader(prog,sh(gl.VERTEX_SHADER,vs));gl.attachShader(prog,sh(gl.FRAGMENT_SHADER,fs));gl.linkProgram(prog);pb=gl.createBuffer();cb=gl.createBuffer();gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);s=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["local","depth-sensing","dom-overlay"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});s.updateRenderState({baseLayer:new XRWebGLLayer(s,gl)});space=await s.requestReferenceSpace("local");$("home").style.display="none";$("xr").style.display="block";$("hud").style.display="flex";$("legend").style.display="block";$("controls").style.display="flex";$("mapbox").style.display="block";s.addEventListener("end",end);s.requestAnimationFrame(frame)}
-function frame(t,f){s.requestAnimationFrame(frame);let p=f.getViewerPose(space);if(!p)return;$("track").textContent="activo";let v0=p.views[0],m=v0.transform.matrix;cx=m[12];cy=m[13];cz=m[14];yaw=Math.atan2(-m[8],-m[10]);
-if(originX===null){originX=cx;originZ=cz}
-if(lastPathX===null){lastPathX=cx;lastPathZ=cz;pathHistory.push({x:cx,z:cz})}
-else{
- const step=Math.hypot(cx-lastPathX,cz-lastPathZ);
- if(step>.06){
-  if(step<1.0)totalDistance+=step;
-  lastPathX=cx;lastPathZ=cz;
-  pathHistory.push({x:cx,z:cz});
-  if(pathHistory.length>800)pathHistory.shift();
-  $("distance").textContent=totalDistance.toFixed(1)+" m";
- }
-}let l=s.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,l.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);for(let v of p.views){let vp=l.getViewport(v);gl.viewport(vp.x,vp.y,vp.width,vp.height);if(!paused&&t-lastCap>170){try{let d=f.getDepthInformation(v);if(d)capture(v,d,t)}catch(_){}}draw(v)}if(!paused&&t-lastCap>170)lastCap=t;processDirty(55);if(t-lastBuild>700){build(t);lastBuild=t}if(t-lastMap>300){minimap();lastMap=t}frames++;if(t-lastFps>1000){$("fps").textContent=frames;$("classRate").textContent=classifiedThisSecond;classifiedThisSecond=0;frames=0;lastFps=t}}
-function end(){$("home").style.display="block";$("xr").style.display="none";$("hud").style.display="none";$("legend").style.display="none";$("controls").style.display="none";$("mapbox").style.display="none"}
-$("start").onclick=start;$("live").onclick=()=>{paused=!paused;$("live").classList.toggle("on",!paused);$("live").textContent=paused?"PAUSA":"LIVE"};$("surfaces").onclick=()=>{showSurfaces=!showSurfaces;$("surfaces").classList.toggle("on",showSurfaces)};$("floorBtn").onclick=()=>{showFloor=!showFloor;$("floorBtn").classList.toggle("on",showFloor);$("floorBtn").textContent=showFloor?"SUELO ON":"SUELO OFF"};$("mapBtn").onclick=()=>{showMap=!showMap;$("mapbox").style.display=showMap?"block":"none";$("mapBtn").classList.toggle("on",showMap)};
-$("scaleBtn").onclick=()=>{
- mapRange=mapRange===8?12:mapRange===12?20:8;
- $("scaleBtn").textContent=mapRange+" M";minimap();
-};$("reset").onclick=()=>{
- cells.clear();dirtyQueue.length=0;dirtySet.clear();renderN=0;pathHistory.length=0;totalDistance=0;
- originX=cx;originZ=cz;lastPathX=cx;lastPathZ=cz;
- pathHistory.push({x:cx,z:cz});$("distance").textContent="0.0 m";
- build(performance.now());minimap();
-};$("exit").onclick=()=>s?.end();
-(async()=>{$("https").textContent=window.isSecureContext?"OK":"NO";if(navigator.xr){let ok=await navigator.xr.isSessionSupported("immersive-ar");$("webxr").textContent=ok?"compatible":"no compatible";$("start").disabled=!ok}else $("webxr").textContent="no disponible"})();
-</script>
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>
