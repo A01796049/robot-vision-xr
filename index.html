@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#02070b">
-  <title>Robot Vision XR · Plane Extraction V8</title>
+  <title>Robot Vision XR · Plane Segmentation V9</title>
   <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
@@ -12,17 +12,17 @@
 
   <section id="hud">
     <div class="panel">
-      <b>ROBOT VISION XR · V8</b><br>
+      <b>ROBOT VISION XR · V9</b><br>
       tracking <span id="tracking" class="metric">--</span><br>
       depth <span id="depth" class="metric">--</span><br>
       modo <span id="modeValue" class="metric">BOTH</span><br>
       análisis <span id="analysis" class="metric">--</span>
     </div>
     <div class="panel right">
-      planos <span id="planes" class="metric">0</span><br>
+      entidades <span id="entities" class="metric">0</span><br>planos <span id="planes" class="metric">0</span><br>
       paredes <span id="walls" class="metric">0</span><br>
       horizontales <span id="floors" class="metric">0</span><br>
-      inclinados <span id="slopes" class="metric">0</span><br>
+      inclinados <span id="slopes" class="metric">0</span><br>peldaños <span id="steps" class="metric">0</span><br>
       vóxeles <span id="voxels" class="metric">0</span><br>
       fps <span id="fps" class="metric">0</span>
     </div>
@@ -36,12 +36,17 @@
   </section>
 
   <section id="mapBox">
-    <header><span>SCENE GRAPH · WORLD MAP</span><span id="mapScale">12 × 8.5 m</span></header>
+    <header><span>SCENE GRAPH · STAIRS MAP</span><span id="mapScale">12 × 8.5 m</span></header>
     <canvas id="mapCanvas" width="680" height="480"></canvas>
   </section>
 
   <section id="planeList" class="panel">
-    <b>DETECTED PLANES</b>
+    <b>SCENE GRAPH</b>
+    <div id="stairStatus" class="stairStatus">
+      <span>STAIRS</span>
+      <strong id="stairsState">SEARCHING</strong>
+      <small id="stairsDetail">0 peldaños · -- confianza</small>
+    </div>
     <div id="planeItems">Esperando geometría…</div>
   </section>
 
@@ -58,7 +63,7 @@
   <main id="home">
     <div class="wrap">
       <h1>Plane Extraction Engine V8</h1>
-      <p class="subtitle">Convierte miles de vóxeles en un conjunto reducido de planos horizontales y verticales.</p>
+      <p class="subtitle">Segmenta superficies por orientación y altura, identifica peldaños y construye un Scene Graph geométrico.</p>
 
       <section class="card">
         <div class="row"><span>HTTPS</span><span id="httpsStatus" class="ok">comprobando</span></div>
@@ -69,17 +74,17 @@
       </section>
 
       <section class="card">
-        <button id="startBtn" disabled>INICIAR PLANE EXTRACTION V8</button>
+        <button id="startBtn" disabled>INICIAR PLANE SEGMENTATION V9</button>
         <small>
-          Para la prueba: escanea una pared durante 8 segundos, después activa SUELO ON y apunta al piso o a los peldaños.
+          Para la prueba: activa SUELO ON, escanea desde el piso hacia arriba cubriendo cada peldaño y termina con la pared.
           Usa BOTH para comparar vóxeles y planos; después cambia a PLANES para ver la representación simplificada.
         </small>
       </section>
 
       <section class="card">
         <small>
-          V8 realiza extracción geométrica, no reconocimiento visual con IA. Las etiquetas WALL, FLOOR y HORIZONTAL SURFACE
-          se derivan de la orientación y extensión de cada agrupación.
+          V9 realiza reconocimiento geométrico, no reconocimiento visual con IA. Las etiquetas WALL, FLOOR, STEP, LANDING y STAIRS
+          se derivan de orientación, altura, tamaño y regularidad espacial.
         </small>
       </section>
     </div>

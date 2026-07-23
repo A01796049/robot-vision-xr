@@ -13,3 +13,7 @@ button{width:100%;padding:14px;border-radius:12px;border:1px solid var(--cyan);b
 #planeList{position:fixed;left:8px;bottom:62px;width:min(43vw,295px);max-height:180px;overflow:hidden;z-index:7;display:none}.planeItem{padding:4px 0;border-bottom:1px solid #15313a;color:#c8e9ef}.planeItem span{color:var(--green)}
 #controls{position:fixed;left:7px;right:7px;bottom:calc(env(safe-area-inset-bottom) + 7px);z-index:9;display:none;gap:5px}#controls button{margin:0;padding:9px 3px;font-size:9.3px}.on{background:#0d3541!important;color:#fff!important}
 @media(max-width:480px){#planeList{display:none!important}#legend{top:150px}.panel{font-size:10px}}
+
+.stairStatus{margin:7px 0 8px;padding:7px;border:1px solid #34e5ff55;border-radius:8px;display:grid;grid-template-columns:1fr auto;gap:2px 8px}
+.stairStatus span{color:#34e5ff}.stairStatus strong{color:#ffad42}.stairStatus small{grid-column:1/-1;color:#86aeb8;margin:0}
+.entityWall{color:#34e5ff}.entityStep{color:#ffad42}.entityFloor{color:#55ff78}.entityStairs{color:#fff}
