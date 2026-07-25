@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta name="theme-color" content="#02070b">
-  <title>Robot Vision XR · Plane Segmentation V9</title>
+  <title>Robot Vision XR · Perception Viewer V10</title>
   <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
@@ -12,10 +12,10 @@
 
   <section id="hud">
     <div class="panel">
-      <b>ROBOT VISION XR · V9</b><br>
+      <b>ROBOT VISION XR · V10</b><br>
       tracking <span id="tracking" class="metric">--</span><br>
       depth <span id="depth" class="metric">--</span><br>
-      modo <span id="modeValue" class="metric">BOTH</span><br>
+      vista <span id="modeValue" class="metric">CAMERA</span><br>
       análisis <span id="analysis" class="metric">--</span>
     </div>
     <div class="panel right">
@@ -24,7 +24,7 @@
       horizontales <span id="floors" class="metric">0</span><br>
       inclinados <span id="slopes" class="metric">0</span><br>peldaños <span id="steps" class="metric">0</span><br>
       vóxeles <span id="voxels" class="metric">0</span><br>
-      fps <span id="fps" class="metric">0</span>
+      mapa <span id="mapSizeValue" class="metric">MINI</span><br>fps <span id="fps" class="metric">0</span>
     </div>
   </section>
 
@@ -36,7 +36,13 @@
   </section>
 
   <section id="mapBox">
-    <header><span>SCENE GRAPH · STAIRS MAP</span><span id="mapScale">12 × 8.5 m</span></header>
+    <header><span>PERCEPTION MAP · INTERACTIVE</span><span id="mapScale">12 × 8.5 m</span></header>
+    <div id="mapToolbar">
+      <button id="mapPrevBtn">◀</button>
+      <button id="mapCenterBtn">CENTRAR</button>
+      <button id="mapNextBtn">▶</button>
+      <button id="mapCloseBtn">CERRAR</button>
+    </div>
     <canvas id="mapCanvas" width="680" height="480"></canvas>
   </section>
 
@@ -52,10 +58,10 @@
 
   <nav id="controls">
     <button id="liveBtn" class="on">LIVE</button>
-    <button id="modeBtn" class="on">BOTH</button>
+    <button id="modeBtn" class="on">CAMERA</button>
     <button id="floorBtn">SUELO OFF</button>
-    <button id="mapBtn" class="on">MAPA</button>
-    <button id="scaleBtn">12 M</button>
+    <button id="expandBtn">EXPANDIR</button>
+    <button id="yoloBtn">YOLO OFF</button>
     <button id="resetBtn">RESET</button>
     <button id="exitBtn">SALIR</button>
   </nav>
@@ -63,7 +69,7 @@
   <main id="home">
     <div class="wrap">
       <h1>Plane Extraction Engine V8</h1>
-      <p class="subtitle">Segmenta superficies por orientación y altura, identifica peldaños y construye un Scene Graph geométrico.</p>
+      <p class="subtitle">Selecciona cómo visualizar la percepción: cámara, nube de puntos, vóxeles o planos; amplía el mapa para inspeccionarlo.</p>
 
       <section class="card">
         <div class="row"><span>HTTPS</span><span id="httpsStatus" class="ok">comprobando</span></div>
@@ -74,17 +80,17 @@
       </section>
 
       <section class="card">
-        <button id="startBtn" disabled>INICIAR PLANE SEGMENTATION V9</button>
+        <button id="startBtn" disabled>INICIAR PERCEPTION VIEWER V10</button>
         <small>
-          Para la prueba: activa SUELO ON, escanea desde el piso hacia arriba cubriendo cada peldaño y termina con la pared.
+          Escanea una escena y cambia entre CAMERA, POINTS, VOXELS y PLANES. Usa EXPANDIR para abrir el mapa en tamaño medio o pantalla completa.
           Usa BOTH para comparar vóxeles y planos; después cambia a PLANES para ver la representación simplificada.
         </small>
       </section>
 
       <section class="card">
         <small>
-          V9 realiza reconocimiento geométrico, no reconocimiento visual con IA. Las etiquetas WALL, FLOOR, STEP, LANDING y STAIRS
-          se derivan de orientación, altura, tamaño y regularidad espacial.
+          V10 incorpora varias representaciones del mismo entorno. YOLO se reserva para V11; el botón aparece como preparación de interfaz.
+          La nube de puntos proviene de ARCore Depth, no de un LiDAR físico.
         </small>
       </section>
     </div>

@@ -1,21 +1,7 @@
-# Robot Vision XR V9 — Plane Segmentation & Stair Detection
+# Robot Vision XR V10 — Perception Viewer
 
-## Publicación en GitHub Pages
-Sube a la raíz del repositorio:
-- index.html
-- css/
-- js/
-- README.md
+Modos: CAMERA, POINTS, VOXELS y PLANES.
 
-## Prueba de escaleras
-1. Pulsa RESET.
-2. Activa SUELO ON.
-3. Escanea el piso inferior durante 3–4 segundos.
-4. Recorre visualmente cada huella del escalón desde abajo hacia arriba.
-5. Escanea la pared al final.
-6. Espera varios ciclos de análisis.
+El mapa puede verse en MINI, MEDIUM y FULL. En MEDIUM/FULL se puede arrastrar, centrar y cambiar zoom.
 
-## Interpretación
-- STEP: plano horizontal candidato a peldaño.
-- STAIRS: secuencia de al menos dos planos con subida y avance compatibles.
-- El reconocimiento es geométrico y experimental; no usa un modelo de visión semántica.
+YOLO OFF es un placeholder para V11.

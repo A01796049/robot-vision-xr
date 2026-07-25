@@ -10,7 +10,7 @@ const voxels=new VoxelMap(),nav=new NavigationMap($("mapCanvas"));
 let gl,session,space,renderer,planes=[],scene={entities:[],stairs:null};
 let paused=false,showFloor=false,showMap=true;
 let lastCapture=0,lastPointUpload=0,lastPlaneExtract=0,lastMap=0,lastFps=0,frames=0;
-let cx=0,cy=0,cz=0,yaw=0;const modes=["BOTH","PLANES","POINTS"];let modeIndex=0;
+let cx=0,cy=0,cz=0,yaw=0;const modes=["CAMERA","POINTS","VOXELS","PLANES"];let modeIndex=0;const mapSizes=["mini","medium","full"];let mapSizeIndex=0;
 
 function capture(view,depth,t){
  const inv=invert4(view.projectionMatrix);if(!inv)return;const world=view.transform.matrix;
@@ -86,7 +86,7 @@ function frame(t,f){
  voxels.processDirty(45);voxels.prune(t);
 
  if(t-lastPointUpload>900){
-  renderer.uploadPoints(voxels.cells.values());$("voxels").textContent=renderer.pointCount;lastPointUpload=t
+  renderer.uploadPoints(voxels.cells.values());renderer.uploadVoxels(voxels.cells.values());$("voxels").textContent=renderer.pointCount;lastPointUpload=t
  }
  if(t-lastPlaneExtract>CFG.PLANE_INTERVAL){
   planes=extractPlanes(voxels.confirmed());
@@ -103,7 +103,7 @@ function frame(t,f){
 
 function reset(){
  voxels.clear();planes=[];scene={entities:[],stairs:null};nav.reset(cx,cz);
- renderer.uploadPoints([]);renderer.uploadPlanes({positions:new Float32Array(),colors:new Float32Array()});
+ renderer.uploadPoints([]);renderer.uploadVoxels([]);renderer.uploadPlanes({positions:new Float32Array(),colors:new Float32Array()});
  updateUI()
 }
 function endXR(){
@@ -115,14 +115,15 @@ $("startBtn").onclick=startXR;
 $("liveBtn").onclick=()=>{paused=!paused;$("liveBtn").classList.toggle("on",!paused);$("liveBtn").textContent=paused?"PAUSA":"LIVE"};
 $("modeBtn").onclick=()=>{modeIndex=(modeIndex+1)%modes.length;renderer.setMode(modes[modeIndex]);$("modeBtn").textContent=modes[modeIndex];$("modeValue").textContent=modes[modeIndex]};
 $("floorBtn").onclick=()=>{showFloor=!showFloor;$("floorBtn").classList.toggle("on",showFloor);$("floorBtn").textContent=showFloor?"SUELO ON":"SUELO OFF"};
-$("mapBtn").onclick=()=>{showMap=!showMap;$("mapBox").style.display=showMap?"block":"none";$("mapBtn").classList.toggle("on",showMap)};
-$("scaleBtn").onclick=()=>{nav.range=nav.range===8?12:nav.range===12?20:8;$("scaleBtn").textContent=nav.range+" M"};
+$("expandBtn").onclick=()=>{mapSizeIndex=(mapSizeIndex+1)%mapSizes.length;const size=mapSizes[mapSizeIndex],box=$("mapBox");box.classList.remove("medium","full");if(size!=="mini")box.classList.add(size);$("mapSizeValue").textContent=size.toUpperCase();$("expandBtn").textContent=size==="mini"?"EXPANDIR":size==="medium"?"FULL":"MINI"};
+$("mapCloseBtn").onclick=()=>{mapSizeIndex=0;$("mapBox").classList.remove("medium","full");$("mapSizeValue").textContent="MINI";$("expandBtn").textContent="EXPANDIR"};
+$("mapCenterBtn").onclick=()=>nav.centerOn(cx,cz);
+$("mapPrevBtn").onclick=()=>nav.zoom(.8);
+$("mapNextBtn").onclick=()=>nav.zoom(1.25);
+$("yoloBtn").onclick=()=>alert("YOLO se integrará en V11. En V10 este botón reserva la experiencia de usuario.");
 $("resetBtn").onclick=reset;$("exitBtn").onclick=()=>session?.end();
-
-(async()=>{
- $("httpsStatus").textContent=window.isSecureContext?"OK":"NO";
- if(navigator.xr){
-  const ok=await navigator.xr.isSessionSupported("immersive-ar");
-  $("xrStatus").textContent=ok?"compatible":"no compatible";$("startBtn").disabled=!ok
- }else $("xrStatus").textContent="no disponible"
-})();
+let drag=false,lastX=0,lastY=0;
+$("mapCanvas").addEventListener("pointerdown",e=>{if(mapSizeIndex===0)return;drag=true;lastX=e.clientX;lastY=e.clientY;$("mapCanvas").setPointerCapture(e.pointerId)});
+$("mapCanvas").addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;const metersPerPixel=nav.range/$("mapCanvas").clientWidth;nav.pan(-dx*metersPerPixel,dy*metersPerPixel)});
+$("mapCanvas").addEventListener("pointerup",()=>drag=false);$("mapCanvas").addEventListener("pointercancel",()=>drag=false);
+(async()=>{$("httpsStatus").textContent=window.isSecureContext?"OK":"NO";if(navigator.xr){const ok=await navigator.xr.isSessionSupported("immersive-ar");$("xrStatus").textContent=ok?"compatible":"no compatible";$("startBtn").disabled=!ok}else $("xrStatus").textContent="no disponible"})();
