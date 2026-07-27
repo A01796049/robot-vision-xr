@@ -1,101 +1,30 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#02070b">
-  <title>Robot Vision XR · Perception Viewer V10</title>
-  <link rel="stylesheet" href="./css/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#03080d">
+<title>Robot Vision XR · Depth Viewer V1</title>
+<style>
+:root{--bg:#03080d;--panel:rgba(4,12,18,.82);--line:rgba(52,229,255,.45);--cyan:#34e5ff;--green:#7cff75;--amber:#ffc158;--text:#d8f5fb;--muted:#88aeb9}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}#home{position:fixed;inset:0;overflow:auto;padding:calc(env(safe-area-inset-top) + 18px) 15px calc(env(safe-area-inset-bottom) + 28px)}.wrap{max-width:720px;margin:auto}h1{margin:0 0 5px;color:var(--cyan);font-size:21px}.sub{font-size:12px;line-height:1.5;color:var(--muted);margin-bottom:14px}.card{background:rgba(7,17,24,.88);border:1px solid rgba(52,229,255,.25);border-radius:15px;padding:14px;margin:11px 0}.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid rgba(100,170,190,.13);font-size:12px}.row:last-child{border:0}.value{color:var(--green);text-align:right}button{width:100%;padding:14px;border-radius:13px;border:1px solid var(--cyan);background:#0b2731;color:var(--cyan);font:inherit;font-size:14px;margin-top:10px}button:disabled{opacity:.45}small{display:block;color:var(--muted);font-size:11px;line-height:1.5}pre{white-space:pre-wrap;word-break:break-word;max-height:190px;overflow:auto;color:#b8d7df;font-size:10.5px;line-height:1.45;margin:0}#xrCanvas{position:fixed;inset:0;width:100%;height:100%;display:none}#depthCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:3;pointer-events:none;image-rendering:pixelated;opacity:.72}#scanlines{position:fixed;inset:0;z-index:4;display:none;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(52,229,255,.035) 0,rgba(52,229,255,.035) 1px,transparent 1px,transparent 5px)}#hud{position:fixed;z-index:6;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 9px);display:none;pointer-events:none}.hudrow{display:flex;gap:8px;align-items:flex-start;justify-content:space-between}.panel{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:9px 10px;backdrop-filter:blur(6px);font-size:10.5px;line-height:1.55}.panel b{color:var(--cyan)}.metric{color:var(--green)}#centerMark{position:fixed;z-index:5;left:50%;top:50%;width:42px;height:42px;margin:-21px;display:none;pointer-events:none;border:1px solid rgba(52,229,255,.7);border-radius:50%}#centerMark:before,#centerMark:after{content:"";position:absolute;background:var(--cyan)}#centerMark:before{width:18px;height:1px;left:11px;top:20px}#centerMark:after{height:18px;width:1px;top:11px;left:20px}#controls{position:fixed;z-index:8;left:10px;right:10px;bottom:calc(env(safe-area-inset-bottom) + 10px);display:none;gap:7px}#controls button{margin:0;padding:10px 8px;font-size:11px;background:rgba(4,14,20,.82)}#controls button.on{background:#0c3440;color:#fff}#message{position:fixed;z-index:7;left:50%;bottom:calc(env(safe-area-inset-bottom) + 68px);transform:translateX(-50%);display:none;width:min(88%,430px);padding:9px 12px;text-align:center;border:1px solid rgba(255,193,88,.55);border-radius:10px;background:rgba(20,15,5,.8);color:var(--amber);font-size:10.5px;pointer-events:none}.legend{height:7px;border-radius:5px;background:linear-gradient(90deg,#ff3d35,#ffbd31,#4bea6c,#22d7dd,#3359d6);margin-top:5px}.legendlabels{display:flex;justify-content:space-between;color:var(--muted);font-size:9px}
+</style>
 </head>
 <body>
-  <canvas id="xrCanvas"></canvas>
-
-  <section id="hud">
-    <div class="panel">
-      <b>ROBOT VISION XR · V10</b><br>
-      tracking <span id="tracking" class="metric">--</span><br>
-      depth <span id="depth" class="metric">--</span><br>
-      vista <span id="modeValue" class="metric">CAMERA</span><br>
-      análisis <span id="analysis" class="metric">--</span>
-    </div>
-    <div class="panel right">
-      entidades <span id="entities" class="metric">0</span><br>planos <span id="planes" class="metric">0</span><br>
-      paredes <span id="walls" class="metric">0</span><br>
-      horizontales <span id="floors" class="metric">0</span><br>
-      inclinados <span id="slopes" class="metric">0</span><br>peldaños <span id="steps" class="metric">0</span><br>
-      vóxeles <span id="voxels" class="metric">0</span><br>
-      mapa <span id="mapSizeValue" class="metric">MINI</span><br>fps <span id="fps" class="metric">0</span>
-    </div>
-  </section>
-
-  <section id="legend" class="panel">
-    <div><span class="dot horizontal"></span>FLOOR / HORIZONTAL</div>
-    <div><span class="dot vertical"></span>WALL / VERTICAL</div>
-    <div><span class="dot inclined"></span>INCLINED</div>
-    <div><span class="lineSample"></span>PLANE OUTLINE</div>
-  </section>
-
-  <section id="mapBox">
-    <header><span>PERCEPTION MAP · INTERACTIVE</span><span id="mapScale">12 × 8.5 m</span></header>
-    <div id="mapToolbar">
-      <button id="mapPrevBtn">◀</button>
-      <button id="mapCenterBtn">CENTRAR</button>
-      <button id="mapNextBtn">▶</button>
-      <button id="mapCloseBtn">CERRAR</button>
-    </div>
-    <canvas id="mapCanvas" width="680" height="480"></canvas>
-  </section>
-
-  <section id="planeList" class="panel">
-    <b>SCENE GRAPH</b>
-    <div id="stairStatus" class="stairStatus">
-      <span>STAIRS</span>
-      <strong id="stairsState">SEARCHING</strong>
-      <small id="stairsDetail">0 peldaños · -- confianza</small>
-    </div>
-    <div id="planeItems">Esperando geometría…</div>
-  </section>
-
-  <nav id="controls">
-    <button id="liveBtn" class="on">LIVE</button>
-    <button id="modeBtn" class="on">CAMERA</button>
-    <button id="floorBtn">SUELO OFF</button>
-    <button id="expandBtn">EXPANDIR</button>
-    <button id="yoloBtn">YOLO OFF</button>
-    <button id="resetBtn">RESET</button>
-    <button id="exitBtn">SALIR</button>
-  </nav>
-
-  <main id="home">
-    <div class="wrap">
-      <h1>Plane Extraction Engine V8</h1>
-      <p class="subtitle">Selecciona cómo visualizar la percepción: cámara, nube de puntos, vóxeles o planos; amplía el mapa para inspeccionarlo.</p>
-
-      <section class="card">
-        <div class="row"><span>HTTPS</span><span id="httpsStatus" class="ok">comprobando</span></div>
-        <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando</span></div>
-        <div class="row"><span>Depth Sensing</span><span class="ok">CPU optimized</span></div>
-        <div class="row"><span>Voxel base</span><span class="ok">10 cm</span></div>
-        <div class="row"><span>Extracción de planos</span><span class="ok">cada 1.5 s</span></div>
-      </section>
-
-      <section class="card">
-        <button id="startBtn" disabled>INICIAR PERCEPTION VIEWER V10</button>
-        <small>
-          Escanea una escena y cambia entre CAMERA, POINTS, VOXELS y PLANES. Usa EXPANDIR para abrir el mapa en tamaño medio o pantalla completa.
-          Usa BOTH para comparar vóxeles y planos; después cambia a PLANES para ver la representación simplificada.
-        </small>
-      </section>
-
-      <section class="card">
-        <small>
-          V10 incorpora varias representaciones del mismo entorno. YOLO se reserva para V11; el botón aparece como preparación de interfaz.
-          La nube de puntos proviene de ARCore Depth, no de un LiDAR físico.
-        </small>
-      </section>
-    </div>
-  </main>
-
-  <script type="module" src="./js/app.js"></script>
+<canvas id="xrCanvas"></canvas><canvas id="depthCanvas" width="96" height="72"></canvas><div id="scanlines"></div><div id="centerMark"></div>
+<div id="hud"><div class="hudrow"><div class="panel"><div><b>ROBOT VISION XR</b></div><div>modo: <span id="hMode" class="metric">DEPTH</span></div><div>tracking: <span id="hTracking" class="metric">buscando</span></div><div>depth: <span id="hResolution" class="metric">esperando</span></div></div><div class="panel" style="text-align:right"><div>centro <span id="hCenter" class="metric">-- m</span></div><div>válidos <span id="hValid" class="metric">--%</span></div><div>rango <span id="hRange" class="metric">--</span></div><div>fps depth <span id="hFps" class="metric">0</span></div></div></div><div class="panel" style="margin-top:7px"><div>distancia</div><div class="legend"></div><div class="legendlabels"><span>0.35 m</span><span>1 m</span><span>3 m</span><span>6 m+</span></div></div></div>
+<div id="message">Mueve el teléfono lentamente para que ARCore construya profundidad.</div>
+<div id="controls"><button id="bDepth" type="button" class="on">DEPTH</button><button id="bBlend" type="button">MIX</button><button id="bCamera" type="button">CÁMARA</button><button id="bPause" type="button">PAUSA</button><button id="bExit" type="button">SALIR</button></div>
+<main id="home"><div class="wrap"><h1>Depth Viewer V1</h1><div class="sub">Primera visualización de profundidad real obtenida mediante WebXR + ARCore en el Moto G55.</div><section class="card"><div class="row"><span>Contexto seguro</span><span id="sSecure" class="value">comprobando</span></div><div class="row"><span>WebXR immersive-ar</span><span id="sXR" class="value">comprobando</span></div><div class="row"><span>Depth Sensing CPU</span><span id="sDepth" class="value">se confirma al iniciar</span></div></section><section class="card"><button id="start" type="button" disabled>INICIAR ESCANEO DE PROFUNDIDAD</button><small style="margin-top:10px">Abre esta página directamente en Chrome desde GitHub Pages. Apunta primero a una pared o mueble y mueve el teléfono lentamente de lado a lado.</small></section><section class="card"><small><b style="color:var(--cyan)">Qué valida esta versión</b><br>El mapa debe cambiar según la distancia. Rojo y amarillo representan superficies cercanas; verde y azul, superficies más lejanas. Todavía no conserva geometría al mover el teléfono.</small></section><section class="card"><div style="font-size:12px;color:var(--cyan);margin-bottom:8px">Registro técnico</div><pre id="log">Inicializando…</pre></section></div></main>
+<script>
+const $=id=>document.getElementById(id),logEl=$("log");function log(m){const t=new Date().toLocaleTimeString();logEl.textContent+=`\n[${t}] ${m}`;logEl.scrollTop=logEl.scrollHeight}function et(e){return `${e?.name||"Error"}: ${e?.message||String(e)}`}let session=null,refSpace=null,gl=null,paused=false,viewMode="depth",lastHeatmapTime=0,lastFpsTime=performance.now(),depthUpdates=0,noDepthFrames=0;const lowW=96,lowH=72,dc=$("depthCanvas"),ctx=dc.getContext("2d",{alpha:true}),image=ctx.createImageData(lowW,lowH);
+function color(m){if(!Number.isFinite(m)||m<=0)return[0,0,0,0];let t=Math.max(0,Math.min(1,(m-.35)/5.65));const s=[[0,[255,55,45]],[.16,[255,190,40]],[.42,[65,235,105]],[.68,[25,215,220]],[1,[48,76,205]]];for(let i=1;i<s.length;i++)if(t<=s[i][0]){const a=(t-s[i-1][0])/(s[i][0]-s[i-1][0]),c0=s[i-1][1],c1=s[i][1];return[Math.round(c0[0]+(c1[0]-c0[0])*a),Math.round(c0[1]+(c1[1]-c0[1])*a),Math.round(c0[2]+(c1[2]-c0[2])*a),235]}return[48,76,205,235]}
+function mode(){$("hMode").textContent=viewMode.toUpperCase();$("bDepth").classList.toggle("on",viewMode==="depth");$("bBlend").classList.toggle("on",viewMode==="blend");$("bCamera").classList.toggle("on",viewMode==="camera");if(viewMode==="depth"){dc.style.display="block";dc.style.opacity="1"}else if(viewMode==="blend"){dc.style.display="block";dc.style.opacity=".58"}else dc.style.display="none"}
+async function init(){logEl.textContent="";const secure=window.isSecureContext;$("sSecure").textContent=secure?"OK":"NO — requiere HTTPS";if(!secure)return;if(!navigator.xr){$("sXR").textContent="no disponible";return}try{const ok=await navigator.xr.isSessionSupported("immersive-ar");$("sXR").textContent=ok?"compatible":"no compatible";$("start").disabled=!ok;log(`immersive-ar supported: ${ok}`)}catch(e){$("sXR").textContent="error";log(et(e))}}
+async function startXR(){try{gl=$("xrCanvas").getContext("webgl",{xrCompatible:true,alpha:true,antialias:false});if(!gl)throw new Error("No fue posible crear WebGL");await gl.makeXRCompatible();session=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["local","depth-sensing","dom-overlay"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});refSpace=await session.requestReferenceSpace("local");$("sDepth").textContent=`habilitada · ${session.depthUsage||"cpu"}`;log(`XR iniciada. depthUsage=${session.depthUsage}, format=${session.depthDataFormat}`);$("home").style.display="none";$("xrCanvas").style.display="block";dc.style.display="block";$("scanlines").style.display="block";$("centerMark").style.display="block";$("hud").style.display="block";$("controls").style.display="flex";$("message").style.display="block";mode();session.addEventListener("end",end);session.requestAnimationFrame(frame)}catch(e){log(`No se pudo iniciar XR: ${et(e)}`);alert("No se pudo iniciar la sesión con profundidad.\n\n"+et(e))}}
+function draw(d){let valid=0,min=Infinity,max=0,center=NaN,a=image.data;for(let y=0;y<lowH;y++){const v=(y+.5)/lowH;for(let x=0;x<lowW;x++){const u=(x+.5)/lowW;let m=NaN;try{m=d.getDepthInMeters(u,v)}catch(_){}const i=(y*lowW+x)*4;if(Number.isFinite(m)&&m>.15&&m<20){valid++;min=Math.min(min,m);max=Math.max(max,m);const c=color(m);a[i]=c[0];a[i+1]=c[1];a[i+2]=c[2];a[i+3]=c[3]}else a[i]=a[i+1]=a[i+2]=a[i+3]=0}}try{center=d.getDepthInMeters(.5,.5)}catch(_){}ctx.putImageData(image,0,0);$("hResolution").textContent=`${d.width}×${d.height}`;$("hCenter").textContent=Number.isFinite(center)?`${center.toFixed(2)} m`:"-- m";$("hValid").textContent=`${Math.round(valid/(lowW*lowH)*100)}%`;$("hRange").textContent=valid?`${min.toFixed(1)}–${max.toFixed(1)} m`:"--";$("message").style.display=valid>lowW*lowH*.08?"none":"block";depthUpdates++}
+function frame(t,f){const s=f.session;s.requestAnimationFrame(frame);const p=f.getViewerPose(refSpace);if(!p){$("hTracking").textContent="buscando";return}$("hTracking").textContent="activo";const l=s.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,l.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);for(const v of p.views){const vp=l.getViewport(v);gl.viewport(vp.x,vp.y,vp.width,vp.height);if(paused||t-lastHeatmapTime<100)continue;lastHeatmapTime=t;try{const d=f.getDepthInformation(v);if(d){noDepthFrames=0;draw(d)}else{noDepthFrames++;if(noDepthFrames>25)$("message").style.display="block"}}catch(e){if(++noDepthFrames===1)log(`Error leyendo depth: ${et(e)}`)}}if(t-lastFpsTime>=1000){$("hFps").textContent=depthUpdates;depthUpdates=0;lastFpsTime=t}}
+function end(){$("home").style.display="block";for(const id of["xrCanvas","depthCanvas","scanlines","centerMark","hud","controls","message"])$(id).style.display="none";log("Sesión XR finalizada.");session=null}
+$("start").addEventListener("click",startXR);$("bDepth").addEventListener("click",()=>{viewMode="depth";mode()});$("bBlend").addEventListener("click",()=>{viewMode="blend";mode()});$("bCamera").addEventListener("click",()=>{viewMode="camera";mode()});$("bPause").addEventListener("click",()=>{paused=!paused;$("bPause").textContent=paused?"REANUDAR":"PAUSA";$("bPause").classList.toggle("on",paused)});$("bExit").addEventListener("click",()=>session?.end());init();
+</script>
 </body>
 </html>
