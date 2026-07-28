@@ -7,21 +7,568 @@
 <section id="landing"><div class="wrap"><div class="eyebrow">ROBOT VISION XR · EXECUTIVE V2</div><h1>La escena real y la percepción del robot, al mismo tiempo</h1><div class="lead">Recreación ejecutiva de cómo un robot transforma una escena en geometría, voxeles y objetos identificados.</div><div class="grid"><div class="card"><b>POINT CLOUD</b><span>Nube de puntos coloreada por profundidad, con fondo negro y apariencia LiDAR.</span></div><div class="card"><b>VOXEL WORLD</b><span>El entorno se convierte en celdas discretas para navegación y planeación.</span></div><div class="card"><b>OBJECT DETECTION</b><span>Clasificación semántica con cajas y nivel de confianza.</span></div></div><div class="card status"><div class="row"><span>HTTPS</span><span id="secure" class="warn">comprobando</span></div><div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="warn">comprobando</span></div><div class="row"><span>Depth Sensing</span><span id="depthStatus" class="warn">se valida al iniciar</span></div><div class="row"><span>Fallback visual</span><span class="ok">incluido</span></div></div><button id="startXR" class="primary" disabled>INICIAR CON PROFUNDIDAD REAL</button><button id="startDemo" class="secondary">ABRIR DEMO VISUAL CON CÁMARA</button><div class="note">El modo real usa ARCore Depth. El modo visual permite revisar la experiencia completa aunque el navegador no entregue frames de profundidad.</div></div></section>
 <section id="hud"><div class="scan"></div><div class="divider"></div><div id="modeBadge" class="modeBadge">POINT CLOUD · SPLIT VIEW</div><div class="top"><div class="panel"><strong>ROBOT VISION</strong><br>SOURCE <span id="sourceMetric" class="metric">ARCORE</span><br>TRACKING <span id="tracking" class="metric">SEARCHING</span><br>MODE <span id="modeMetric" class="metric">POINTS</span></div><div class="panel" style="text-align:right">POINTS <span id="pointMetric" class="metric">0</span><br>VOXELS <span id="voxelMetric" class="metric">0</span><br>CENTER <span id="centerMetric" class="metric">-- m</span><br>FPS <span id="fpsMetric" class="metric">0</span></div></div><div id="labels" class="labels"></div><div id="toast" class="toast">Mueve el teléfono lentamente para reconstruir la escena.</div><div class="controls"><button id="pointsBtn" class="active">PUNTOS</button><button id="voxelsBtn">VOXELES</button><button id="mixBtn">MIX</button><button id="objectsBtn">OBJETOS</button><button id="clearBtn">LIMPIAR</button><button id="exitBtn" class="exit">SALIR</button></div></section>
 <script>
-const $=id=>document.getElementById(id),robot=$('robotCanvas'),rctx=robot.getContext('2d'),objectCanvas=$('objectCanvas'),octx=objectCanvas.getContext('2d'),video=$('cameraVideo');let xrSession=null,refSpace=null,gl=null,stream=null,source='',mode='points',objectsOn=false,lastFrame=0,lastFps=performance.now(),fpsFrames=0,fakePhase=0;
-function resize(){const dpr=Math.min(devicePixelRatio||1,2);for(const c of [robot,objectCanvas]){const rect=c.getBoundingClientRect();c.width=Math.max(1,Math.round(rect.width*dpr));c.height=Math.max(1,Math.round(rect.height*dpr));c.getContext('2d').setTransform(dpr,0,0,dpr,0,0)}}addEventListener('resize',()=>setTimeout(resize,80));
-function setMode(m){mode=m;pointsBtn.classList.toggle('active',m==='points');voxelsBtn.classList.toggle('active',m==='voxels');mixBtn.classList.toggle('active',m==='mix');modeMetric.textContent=m.toUpperCase();modeBadge.textContent=(m==='points'?'POINT CLOUD':m==='voxels'?'VOXEL WORLD':'POINTS + VOXELS')+' · SPLIT VIEW'}
-function depthColor(d,a=.9){const t=Math.max(0,Math.min(1,(d-.3)/6)),h=8+t*210;return `hsla(${h},95%,58%,${a})`}
-function enterUI(){landing.style.display='none';robot.style.display='block';hud.style.display='block';setTimeout(resize,100)}function leaveUI(){landing.style.display='block';robot.style.display='none';objectCanvas.style.display='none';hud.style.display='none';xrCanvas.style.display='none';video.style.display='none'}
-async function check(){secure.textContent=window.isSecureContext?'OK':'NO HTTPS';secure.className=window.isSecureContext?'ok':'warn';if(!navigator.xr)return;try{const ok=await navigator.xr.isSessionSupported('immersive-ar');xrStatus.textContent=ok?'COMPATIBLE':'NO COMPATIBLE';xrStatus.className=ok?'ok':'warn';startXR.disabled=!ok}catch(e){xrStatus.textContent='ERROR'}}
-async function getRef(s){for(const t of ['local-floor','local','unbounded','viewer']){try{return await s.requestReferenceSpace(t)}catch(e){}}throw new Error('Sin reference space compatible')}
-async function startReal(){try{source='xr';sourceMetric.textContent='ARCORE DEPTH';gl=xrCanvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false});await gl.makeXRCompatible();xrSession=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['depth-sensing','dom-overlay'],optionalFeatures:['local-floor','local','unbounded'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},domOverlay:{root:document.body}});xrSession.updateRenderState({baseLayer:new XRWebGLLayer(xrSession,gl)});refSpace=await getRef(xrSession);depthStatus.textContent='ACTIVA · '+(xrSession.depthUsage||'CPU');depthStatus.className='ok';xrCanvas.style.display='block';enterUI();xrSession.addEventListener('end',()=>{xrSession=null;leaveUI()});xrSession.requestAnimationFrame(realFrame)}catch(e){alert('No se pudo iniciar ARCore Depth.\n\n'+(e.message||e))}}
-function realFrame(t,f){if(!xrSession)return;xrSession.requestAnimationFrame(realFrame);const pose=f.getViewerPose(refSpace);if(pose){tracking.textContent='ACTIVE';const layer=xrSession.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(t-lastFrame>100){lastFrame=t;try{const di=f.getDepthInformation(pose.views[0]);if(di)renderDepth(di);else toast.textContent='ARCore no entregó datos de profundidad.'}catch(e){toast.textContent='Chrome inició XR, pero no expone el depth frame.'}}}tickFps(t)}
-function renderDepth(di){const W=robot.clientWidth,H=robot.clientHeight;rctx.fillStyle='#010407';rctx.fillRect(0,0,W,H);const step=Math.max(2,Math.round(di.width/72));let count=0,vox=new Set(),center=NaN;try{center=di.getDepthInMeters(.5,.5)}catch(e){}if(Number.isFinite(center))centerMetric.textContent=center.toFixed(2)+' m';for(let y=0;y<di.height;y+=step){for(let x=0;x<di.width;x+=step){const u=(x+.5)/di.width,v=(y+.5)/di.height;let d;try{d=di.getDepthInMeters(u,v)}catch(e){continue}if(!Number.isFinite(d)||d<.25||d>8)continue;count++;const px=u*W,py=v*H,s=Math.max(.7,2.8-d*.24);if(mode==='points'||mode==='mix'){rctx.fillStyle=depthColor(d,.95);rctx.fillRect(px,py,1.5*s,1.5*s)}if(mode==='voxels'||mode==='mix'){const size=(mode==='mix'?8:12)*s;rctx.fillStyle=depthColor(d,mode==='mix'?.18:.42);rctx.strokeStyle=depthColor(d,.9);rctx.lineWidth=.8;rctx.fillRect(px-size/2,py-size/2,size,size);rctx.strokeRect(px-size/2,py-size/2,size,size);vox.add(Math.round(px/12)+'|'+Math.round(py/12))}}}pointMetric.textContent=count;voxelMetric.textContent=vox.size;toast.style.display=count>30?'none':'block'}
-async function startDemo(){try{source='demo';sourceMetric.textContent='CAMERA + VISUAL AI';stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});video.srcObject=stream;video.style.display='block';enterUI();tracking.textContent='ACTIVE';toast.style.display='none';requestAnimationFrame(demoFrame)}catch(e){alert('No fue posible abrir la cámara.\n\n'+(e.message||e))}}
-function demoFrame(t){if(source!=='demo'||!stream)return;const W=robot.clientWidth,H=robot.clientHeight;rctx.fillStyle='#010407';rctx.fillRect(0,0,W,H);fakePhase+=.025;let count=0,vox=new Set(),horizon=H*.46;for(let gy=0;gy<90;gy++){const yy=horizon+(gy/89)*(H-horizon),d=1+(gy/89)*6,spread=gy/89;for(let gx=0;gx<90;gx++){if(Math.random()>.72)continue;const x=W/2+((gx/89)*W-W/2)*(1-spread*.45),y=yy+Math.sin(gx*.22+fakePhase)*2;drawSynthetic(x,y,d,vox);count++}}for(let i=0;i<850;i++){const side=i%2===0?-1:1,d=.6+Math.random()*5.6,x=side<0?Math.random()*W*.24:W*.76+Math.random()*W*.24,y=Math.random()*H*.78;drawSynthetic(x,y,d,vox);count++}for(let i=0;i<1000;i++){const a=i/1000*Math.PI*2,rx=W*.12,ry=H*.16,cx=W*.67,cy=H*.62,x=cx+Math.cos(a)*rx*(.55+Math.random()*.45),y=cy+Math.sin(a)*ry*(.6+Math.random()*.4);drawSynthetic(x,y,1.4+Math.random()*.8,vox);count++}pointMetric.textContent=count;voxelMetric.textContent=vox.size;centerMetric.textContent='2.3 m';tickFps(t);if(objectsOn)drawObjects();requestAnimationFrame(demoFrame)}
-function drawSynthetic(x,y,d,vox){const s=Math.max(.8,2.8-d*.25);if(mode==='points'||mode==='mix'){rctx.fillStyle=depthColor(d,.9);rctx.fillRect(x,y,1.5*s,1.5*s)}if(mode==='voxels'||mode==='mix'){const size=(mode==='mix'?7:11)*s;rctx.fillStyle=depthColor(d,mode==='mix'?.16:.38);rctx.strokeStyle=depthColor(d,.8);rctx.fillRect(x-size/2,y-size/2,size,size);rctx.strokeRect(x-size/2,y-size/2,size,size);vox.add(Math.round(x/12)+'|'+Math.round(y/12))}}
-function drawObjects(){objectCanvas.style.display='block';const W=innerWidth,H=innerHeight;octx.clearRect(0,0,W,H);const boxes=[{x:W*.56,y:H*.47,w:W*.28,h:H*.35,label:'CAR',c:94},{x:W*.08,y:H*.28,w:W*.18,h:H*.30,label:'BUILDING',c:91}];labels.innerHTML=boxes.map(b=>`<div class="label">${b.label}<span>${b.c}%</span></div>`).join('');for(const b of boxes){octx.strokeStyle='#71ff9c';octx.lineWidth=2;octx.strokeRect(b.x,b.y,b.w,b.h);octx.fillStyle='rgba(3,12,18,.88)';octx.fillRect(b.x,b.y-25,110,24);octx.fillStyle='#71ff9c';octx.font='12px system-ui';octx.fillText(`${b.label} ${b.c}%`,b.x+7,b.y-8)}}
-function tickFps(t){fpsFrames++;if(t-lastFps>1000){fpsMetric.textContent=fpsFrames;fpsFrames=0;lastFps=t}}
-function exit(){if(xrSession)xrSession.end();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}source='';objectsOn=false;labels.innerHTML='';octx.clearRect(0,0,innerWidth,innerHeight);leaveUI()}
-startXR.addEventListener('click',startReal);startDemo.addEventListener('click',startDemo);pointsBtn.addEventListener('click',()=>setMode('points'));voxelsBtn.addEventListener('click',()=>setMode('voxels'));mixBtn.addEventListener('click',()=>setMode('mix'));objectsBtn.addEventListener('click',()=>{objectsOn=!objectsOn;objectsBtn.classList.toggle('active',objectsOn);if(!objectsOn){labels.innerHTML='';objectCanvas.style.display='none';octx.clearRect(0,0,innerWidth,innerHeight)}else if(source==='xr')alert('La detección simultánea requiere camera-access dentro de WebXR. Se valida primero en el modo visual con cámara.')});clearBtn.addEventListener('click',()=>rctx.clearRect(0,0,robot.width,robot.height));exitBtn.addEventListener('click',exit);check();
+"use strict";
+
+const el = (id) => document.getElementById(id);
+
+const landing = el("landing");
+const hud = el("hud");
+const xrCanvas = el("xrCanvas");
+const robotCanvas = el("robotCanvas");
+const objectCanvas = el("objectCanvas");
+const cameraVideo = el("cameraVideo");
+
+const secureEl = el("secure");
+const xrStatusEl = el("xrStatus");
+const depthStatusEl = el("depthStatus");
+const sourceMetricEl = el("sourceMetric");
+const trackingEl = el("tracking");
+const modeMetricEl = el("modeMetric");
+const modeBadgeEl = el("modeBadge");
+const pointMetricEl = el("pointMetric");
+const voxelMetricEl = el("voxelMetric");
+const centerMetricEl = el("centerMetric");
+const fpsMetricEl = el("fpsMetric");
+const labelsEl = el("labels");
+const toastEl = el("toast");
+
+const startXRBtn = el("startXR");
+const startDemoBtn = el("startDemo");
+const pointsBtn = el("pointsBtn");
+const voxelsBtn = el("voxelsBtn");
+const mixBtn = el("mixBtn");
+const objectsBtn = el("objectsBtn");
+const clearBtn = el("clearBtn");
+const exitBtn = el("exitBtn");
+
+const rctx = robotCanvas.getContext("2d");
+const octx = objectCanvas.getContext("2d");
+
+let xrSession = null;
+let refSpace = null;
+let gl = null;
+let stream = null;
+let source = "";
+let mode = "points";
+let objectsOn = false;
+let lastFrame = 0;
+let lastFps = performance.now();
+let fpsFrames = 0;
+let fakePhase = 0;
+let demoAnimationId = 0;
+
+function showStatus(message, warning = false) {
+  toastEl.textContent = message;
+  toastEl.style.display = "block";
+  toastEl.style.color = warning ? "var(--amber)" : "var(--green)";
+}
+
+function resizeCanvases() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  for (const canvas of [robotCanvas, objectCanvas]) {
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    const context = canvas.getContext("2d");
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+}
+
+window.addEventListener("resize", () => {
+  window.setTimeout(resizeCanvases, 100);
+});
+
+function setMode(nextMode) {
+  mode = nextMode;
+
+  pointsBtn.classList.toggle("active", mode === "points");
+  voxelsBtn.classList.toggle("active", mode === "voxels");
+  mixBtn.classList.toggle("active", mode === "mix");
+
+  const label =
+    mode === "points"
+      ? "POINT CLOUD"
+      : mode === "voxels"
+        ? "VOXEL WORLD"
+        : "POINTS + VOXELS";
+
+  modeMetricEl.textContent = mode.toUpperCase();
+  modeBadgeEl.textContent = `${label} · SPLIT VIEW`;
+  showStatus(`Modo activo: ${label}`);
+  window.setTimeout(() => {
+    if (source) toastEl.style.display = "none";
+  }, 700);
+}
+
+function depthColor(depth, alpha = 0.9) {
+  const normalized = Math.max(0, Math.min(1, (depth - 0.3) / 6));
+  const hue = 8 + normalized * 210;
+  return `hsla(${hue},95%,58%,${alpha})`;
+}
+
+function enterUI() {
+  landing.style.display = "none";
+  robotCanvas.style.display = "block";
+  hud.style.display = "block";
+  window.setTimeout(resizeCanvases, 120);
+}
+
+function leaveUI() {
+  landing.style.display = "block";
+  robotCanvas.style.display = "none";
+  objectCanvas.style.display = "none";
+  hud.style.display = "none";
+  xrCanvas.style.display = "none";
+  cameraVideo.style.display = "none";
+}
+
+async function checkCapabilities() {
+  secureEl.textContent = window.isSecureContext ? "OK" : "NO HTTPS";
+  secureEl.className = window.isSecureContext ? "ok" : "warn";
+
+  if (!navigator.xr) {
+    xrStatusEl.textContent = "NO DISPONIBLE";
+    startXRBtn.disabled = true;
+    return;
+  }
+
+  try {
+    const supported = await navigator.xr.isSessionSupported("immersive-ar");
+    xrStatusEl.textContent = supported ? "COMPATIBLE" : "NO COMPATIBLE";
+    xrStatusEl.className = supported ? "ok" : "warn";
+    startXRBtn.disabled = !supported;
+  } catch (error) {
+    xrStatusEl.textContent = "ERROR";
+    startXRBtn.disabled = true;
+  }
+}
+
+async function getReferenceSpace(session) {
+  const candidates = ["local-floor", "local", "unbounded", "viewer"];
+
+  for (const type of candidates) {
+    try {
+      return await session.requestReferenceSpace(type);
+    } catch (error) {
+      console.warn(`Reference space ${type} rejected`, error);
+    }
+  }
+
+  throw new Error("El dispositivo no ofrece un espacio de referencia compatible.");
+}
+
+async function startReal() {
+  showStatus("Solicitando sesión ARCore…");
+
+  try {
+    source = "xr";
+    sourceMetricEl.textContent = "ARCORE DEPTH";
+
+    gl = xrCanvas.getContext("webgl", {
+      xrCompatible: true,
+      alpha: true,
+      antialias: false
+    });
+
+    if (!gl) {
+      throw new Error("No fue posible crear el contexto WebGL.");
+    }
+
+    if (typeof gl.makeXRCompatible === "function") {
+      await gl.makeXRCompatible();
+    }
+
+    xrSession = await navigator.xr.requestSession("immersive-ar", {
+      requiredFeatures: ["depth-sensing", "dom-overlay"],
+      optionalFeatures: ["local-floor", "local", "unbounded"],
+      depthSensing: {
+        usagePreference: ["cpu-optimized"],
+        dataFormatPreference: ["luminance-alpha", "float32"]
+      },
+      domOverlay: { root: document.body }
+    });
+
+    xrSession.updateRenderState({
+      baseLayer: new XRWebGLLayer(xrSession, gl)
+    });
+
+    refSpace = await getReferenceSpace(xrSession);
+
+    depthStatusEl.textContent = `ACTIVA · ${xrSession.depthUsage || "CPU"}`;
+    depthStatusEl.className = "ok";
+
+    xrCanvas.style.display = "block";
+    enterUI();
+
+    xrSession.addEventListener("end", () => {
+      xrSession = null;
+      source = "";
+      leaveUI();
+    });
+
+    xrSession.requestAnimationFrame(realFrame);
+  } catch (error) {
+    source = "";
+    alert(`No se pudo iniciar ARCore Depth.\n\n${error.message || error}`);
+  }
+}
+
+function realFrame(time, frame) {
+  if (!xrSession) return;
+
+  xrSession.requestAnimationFrame(realFrame);
+
+  const pose = frame.getViewerPose(refSpace);
+
+  if (pose) {
+    trackingEl.textContent = "ACTIVE";
+
+    const layer = xrSession.renderState.baseLayer;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+    if (time - lastFrame > 100) {
+      lastFrame = time;
+
+      try {
+        const depthInfo = frame.getDepthInformation(pose.views[0]);
+
+        if (depthInfo) {
+          renderDepth(depthInfo);
+        } else {
+          showStatus("ARCore no entregó profundidad en este frame.", true);
+        }
+      } catch (error) {
+        showStatus("Chrome inició XR, pero no expone el frame de profundidad.", true);
+      }
+    }
+  } else {
+    trackingEl.textContent = "SEARCHING";
+  }
+
+  tickFps(time);
+}
+
+function renderDepth(depthInfo) {
+  const width = robotCanvas.clientWidth;
+  const height = robotCanvas.clientHeight;
+
+  rctx.fillStyle = "#010407";
+  rctx.fillRect(0, 0, width, height);
+
+  const step = Math.max(2, Math.round(depthInfo.width / 72));
+  let pointCount = 0;
+  const voxels = new Set();
+
+  try {
+    const center = depthInfo.getDepthInMeters(0.5, 0.5);
+    if (Number.isFinite(center)) {
+      centerMetricEl.textContent = `${center.toFixed(2)} m`;
+    }
+  } catch (error) {}
+
+  for (let y = 0; y < depthInfo.height; y += step) {
+    for (let x = 0; x < depthInfo.width; x += step) {
+      const u = (x + 0.5) / depthInfo.width;
+      const v = (y + 0.5) / depthInfo.height;
+
+      let depth;
+
+      try {
+        depth = depthInfo.getDepthInMeters(u, v);
+      } catch (error) {
+        continue;
+      }
+
+      if (!Number.isFinite(depth) || depth < 0.25 || depth > 8) continue;
+
+      pointCount++;
+
+      const px = u * width;
+      const py = v * height;
+      const scale = Math.max(0.7, 2.8 - depth * 0.24);
+
+      if (mode === "points" || mode === "mix") {
+        rctx.fillStyle = depthColor(depth, 0.95);
+        rctx.fillRect(px, py, 1.5 * scale, 1.5 * scale);
+      }
+
+      if (mode === "voxels" || mode === "mix") {
+        const size = (mode === "mix" ? 8 : 12) * scale;
+        rctx.fillStyle = depthColor(depth, mode === "mix" ? 0.18 : 0.42);
+        rctx.strokeStyle = depthColor(depth, 0.9);
+        rctx.lineWidth = 0.8;
+        rctx.fillRect(px - size / 2, py - size / 2, size, size);
+        rctx.strokeRect(px - size / 2, py - size / 2, size, size);
+        voxels.add(`${Math.round(px / 12)}|${Math.round(py / 12)}`);
+      }
+    }
+  }
+
+  pointMetricEl.textContent = String(pointCount);
+  voxelMetricEl.textContent = String(voxels.size);
+  toastEl.style.display = pointCount > 30 ? "none" : "block";
+}
+
+async function startDemo() {
+  showStatus("Solicitando permiso para la cámara…");
+
+  try {
+    source = "demo";
+    sourceMetricEl.textContent = "CAMERA + VISUAL AI";
+
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    });
+
+    cameraVideo.srcObject = stream;
+    await cameraVideo.play();
+
+    cameraVideo.style.display = "block";
+    enterUI();
+
+    trackingEl.textContent = "ACTIVE";
+    showStatus("Demo visual iniciada correctamente.");
+
+    window.setTimeout(() => {
+      toastEl.style.display = "none";
+    }, 900);
+
+    demoAnimationId = window.requestAnimationFrame(demoFrame);
+  } catch (error) {
+    source = "";
+    alert(`No fue posible abrir la cámara.\n\n${error.message || error}`);
+  }
+}
+
+function demoFrame(time) {
+  if (source !== "demo" || !stream) return;
+
+  const width = robotCanvas.clientWidth;
+  const height = robotCanvas.clientHeight;
+
+  rctx.fillStyle = "#010407";
+  rctx.fillRect(0, 0, width, height);
+
+  fakePhase += 0.025;
+
+  let pointCount = 0;
+  const voxels = new Set();
+  const horizon = height * 0.46;
+
+  for (let gy = 0; gy < 90; gy++) {
+    const yy = horizon + (gy / 89) * (height - horizon);
+    const depth = 1 + (gy / 89) * 6;
+    const spread = gy / 89;
+
+    for (let gx = 0; gx < 90; gx++) {
+      if (Math.random() > 0.72) continue;
+
+      const x =
+        width / 2 +
+        ((gx / 89) * width - width / 2) * (1 - spread * 0.45);
+      const y = yy + Math.sin(gx * 0.22 + fakePhase) * 2;
+
+      drawSynthetic(x, y, depth, voxels);
+      pointCount++;
+    }
+  }
+
+  for (let i = 0; i < 850; i++) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const depth = 0.6 + Math.random() * 5.6;
+    const x =
+      side < 0
+        ? Math.random() * width * 0.24
+        : width * 0.76 + Math.random() * width * 0.24;
+    const y = Math.random() * height * 0.78;
+
+    drawSynthetic(x, y, depth, voxels);
+    pointCount++;
+  }
+
+  for (let i = 0; i < 1000; i++) {
+    const angle = (i / 1000) * Math.PI * 2;
+    const radiusX = width * 0.12;
+    const radiusY = height * 0.16;
+    const centerX = width * 0.67;
+    const centerY = height * 0.62;
+
+    const x =
+      centerX +
+      Math.cos(angle) * radiusX * (0.55 + Math.random() * 0.45);
+    const y =
+      centerY +
+      Math.sin(angle) * radiusY * (0.6 + Math.random() * 0.4);
+
+    drawSynthetic(x, y, 1.4 + Math.random() * 0.8, voxels);
+    pointCount++;
+  }
+
+  pointMetricEl.textContent = String(pointCount);
+  voxelMetricEl.textContent = String(voxels.size);
+  centerMetricEl.textContent = "2.3 m";
+
+  if (objectsOn) drawObjects();
+
+  tickFps(time);
+  demoAnimationId = window.requestAnimationFrame(demoFrame);
+}
+
+function drawSynthetic(x, y, depth, voxels) {
+  const scale = Math.max(0.8, 2.8 - depth * 0.25);
+
+  if (mode === "points" || mode === "mix") {
+    rctx.fillStyle = depthColor(depth, 0.9);
+    rctx.fillRect(x, y, 1.5 * scale, 1.5 * scale);
+  }
+
+  if (mode === "voxels" || mode === "mix") {
+    const size = (mode === "mix" ? 7 : 11) * scale;
+
+    rctx.fillStyle = depthColor(depth, mode === "mix" ? 0.16 : 0.38);
+    rctx.strokeStyle = depthColor(depth, 0.8);
+    rctx.fillRect(x - size / 2, y - size / 2, size, size);
+    rctx.strokeRect(x - size / 2, y - size / 2, size, size);
+
+    voxels.add(`${Math.round(x / 12)}|${Math.round(y / 12)}`);
+  }
+}
+
+function drawObjects() {
+  objectCanvas.style.display = "block";
+
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  octx.clearRect(0, 0, width, height);
+
+  const boxes = [
+    {
+      x: width * 0.56,
+      y: height * 0.47,
+      w: width * 0.28,
+      h: height * 0.35,
+      label: "CAR",
+      confidence: 94
+    },
+    {
+      x: width * 0.08,
+      y: height * 0.28,
+      w: width * 0.18,
+      h: height * 0.3,
+      label: "BUILDING",
+      confidence: 91
+    }
+  ];
+
+  labelsEl.innerHTML = boxes
+    .map(
+      (box) =>
+        `<div class="label">${box.label}<span>${box.confidence}%</span></div>`
+    )
+    .join("");
+
+  for (const box of boxes) {
+    octx.strokeStyle = "#71ff9c";
+    octx.lineWidth = 2;
+    octx.strokeRect(box.x, box.y, box.w, box.h);
+
+    octx.fillStyle = "rgba(3,12,18,.88)";
+    octx.fillRect(box.x, box.y - 25, 120, 24);
+
+    octx.fillStyle = "#71ff9c";
+    octx.font = "12px system-ui";
+    octx.fillText(
+      `${box.label} ${box.confidence}%`,
+      box.x + 7,
+      box.y - 8
+    );
+  }
+}
+
+function clearVisualization() {
+  rctx.clearRect(0, 0, robotCanvas.clientWidth, robotCanvas.clientHeight);
+  octx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  pointMetricEl.textContent = "0";
+  voxelMetricEl.textContent = "0";
+  showStatus("Visualización limpiada.");
+}
+
+function tickFps(time) {
+  fpsFrames++;
+
+  if (time - lastFps > 1000) {
+    fpsMetricEl.textContent = String(fpsFrames);
+    fpsFrames = 0;
+    lastFps = time;
+  }
+}
+
+function exitApp() {
+  if (demoAnimationId) {
+    window.cancelAnimationFrame(demoAnimationId);
+    demoAnimationId = 0;
+  }
+
+  if (xrSession) {
+    xrSession.end();
+  }
+
+  if (stream) {
+    stream.getTracks().forEach((track) => track.stop());
+    stream = null;
+  }
+
+  source = "";
+  objectsOn = false;
+  labelsEl.innerHTML = "";
+  octx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+  leaveUI();
+}
+
+startXRBtn.addEventListener("click", startReal);
+startDemoBtn.addEventListener("click", startDemo);
+pointsBtn.addEventListener("click", () => setMode("points"));
+voxelsBtn.addEventListener("click", () => setMode("voxels"));
+mixBtn.addEventListener("click", () => setMode("mix"));
+
+objectsBtn.addEventListener("click", () => {
+  objectsOn = !objectsOn;
+  objectsBtn.classList.toggle("active", objectsOn);
+
+  if (!objectsOn) {
+    labelsEl.innerHTML = "";
+    objectCanvas.style.display = "none";
+    octx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    showStatus("Detección de objetos desactivada.");
+  } else if (source === "xr") {
+    objectsOn = false;
+    objectsBtn.classList.remove("active");
+    alert(
+      "La detección simultánea todavía requiere acceso a la textura de cámara dentro de WebXR. Usa el modo visual con cámara para validar esta capa."
+    );
+  } else {
+    drawObjects();
+    showStatus("Capa visual de objetos activada.");
+  }
+});
+
+clearBtn.addEventListener("click", clearVisualization);
+exitBtn.addEventListener("click", exitApp);
+
+checkCapabilities();
 </script></body></html>
