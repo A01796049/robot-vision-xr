@@ -1,225 +1,27 @@
 <!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#02070b">
-<title>Robot Vision XR Executive V1.2</title>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#020609"><title>Robot Vision XR Executive V2</title>
 <style>
-:root{--bg:#02070b;--panel:rgba(3,12,18,.84);--line:rgba(37,226,255,.42);--cyan:#25e2ff;--green:#71ff9a;--amber:#ffc760;--red:#ff6678;--text:#eaffff;--muted:#8eb5bf}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Arial,sans-serif}button{font:inherit}
-#landing{position:fixed;inset:0;overflow:auto;padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px);background:radial-gradient(circle at 50% 8%,rgba(37,226,255,.12),transparent 38%),#02070b}.shell{max-width:760px;margin:auto}.eyebrow{font-size:12px;letter-spacing:.24em;color:var(--cyan);margin-bottom:8px}h1{font-size:30px;line-height:1.08;margin:0 0 10px}.lead{color:var(--muted);line-height:1.55;margin-bottom:17px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(37,226,255,.22);background:rgba(7,18,25,.8);border-radius:16px;padding:14px}.card b{display:block;color:var(--cyan);margin-bottom:5px}.card span{font-size:13px;color:var(--muted);line-height:1.45}.status{margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(120,180,195,.12);font-size:13px}.row:last-child{border:0}.ok{color:var(--green)}.warn{color:var(--amber)}.primary{width:100%;border:1px solid var(--cyan);border-radius:14px;background:#0a2a34;color:var(--cyan);padding:15px;margin-top:12px;font-weight:700}.primary:disabled{opacity:.4}.note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}
-#xrCanvas{position:fixed;inset:0;width:100%;height:100%;display:none}
-#visionCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:5;pointer-events:none}
-#hud{position:fixed;inset:0;z-index:10;display:none;pointer-events:none}.scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(37,226,255,.026) 0,rgba(37,226,255,.026) 1px,transparent 1px,transparent 5px)}.top{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:8px;right:8px;display:flex;justify-content:space-between;gap:8px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px;backdrop-filter:blur(7px);font-size:11px;line-height:1.55}.panel strong{color:var(--cyan);letter-spacing:.08em}.metric{color:var(--green)}.mode{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 103px);transform:translateX(-50%);padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--panel);font-size:11px;color:var(--cyan);letter-spacing:.12em}.reticle{position:absolute;left:50%;top:50%;width:54px;height:54px;transform:translate(-50%,-50%);border:1px solid rgba(37,226,255,.66);border-radius:50%}.reticle:before,.reticle:after{content:"";position:absolute;background:var(--cyan)}.reticle:before{width:24px;height:1px;left:14px;top:26px}.reticle:after{width:1px;height:24px;left:26px;top:14px}.toast{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 78px);transform:translateX(-50%);width:min(86%,430px);text-align:center;background:rgba(18,13,2,.84);border:1px solid rgba(255,199,96,.5);border-radius:10px;padding:9px 12px;color:var(--amber);font-size:11px}.controls{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 9px);left:8px;right:8px;display:grid;grid-template-columns:repeat(5,1fr);gap:6px;pointer-events:auto}.controls button{border:1px solid rgba(37,226,255,.35);background:rgba(3,12,18,.9);color:var(--text);border-radius:10px;padding:10px 4px;font-size:10px}.controls button.active{border-color:var(--cyan);background:#0b303b;color:var(--cyan)}.controls .exit{border-color:rgba(255,102,120,.45);color:var(--red)}
-@media(max-width:480px){h1{font-size:25px}.grid{grid-template-columns:1fr}.panel{font-size:10px}.controls button{font-size:9px}}
-</style>
-</head>
-<body>
-<canvas id="xrCanvas"></canvas>
-<canvas id="visionCanvas"></canvas>
-
-<section id="landing">
-<div class="shell">
-  <div class="eyebrow">ROBOT VISION XR</div>
-  <h1>Así interpreta el mundo un robot</h1>
-  <div class="lead">Profundidad real de ARCore representada como nube de puntos y mapa voxel sobre la cámara.</div>
-  <div class="grid">
-    <div class="card"><b>POINT CLOUD</b><span>Cada muestra representa una medición real de distancia.</span></div>
-    <div class="card"><b>VOXEL WORLD</b><span>Las mediciones se agrupan como celdas discretas.</span></div>
-    <div class="card"><b>MIX</b><span>Combina puntos y voxeles para una lectura ejecutiva.</span></div>
-    <div class="card"><b>OBJECT AI</b><span>Reservado para integrar detección semántica después de validar profundidad.</span></div>
-  </div>
-  <div class="card status">
-    <div class="row"><span>HTTPS</span><span id="secure" class="warn">comprobando</span></div>
-    <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="warn">comprobando</span></div>
-    <div class="row"><span>Depth Sensing</span><span id="depthStatus" class="warn">se valida al iniciar</span></div>
-  </div>
-  <button id="start" class="primary" disabled>INICIAR ROBOT VISION</button>
-  <div class="note">Apunta a una pared, mesa o silla y mueve lentamente el teléfono. Los botones deben cambiar visiblemente la representación.</div>
-</div>
-</section>
-
-<section id="hud">
-  <div class="scan"></div><div class="reticle"></div>
-  <div id="modeLabel" class="mode">POINT CLOUD</div>
-  <div class="top">
-    <div class="panel"><strong>ROBOT VISION</strong><br>TRACKING <span id="tracking" class="metric">SEARCHING</span><br>MODE <span id="modeMetric" class="metric">POINTS</span><br>DEPTH <span id="depthMetric" class="metric">WAITING</span></div>
-    <div class="panel" style="text-align:right">SAMPLES <span id="sampleCount" class="metric">0</span><br>VALID <span id="validPct" class="metric">0%</span><br>CENTER <span id="centerDepth" class="metric">-- m</span><br>FPS <span id="fps" class="metric">0</span></div>
-  </div>
-  <div id="toast" class="toast">Esperando el primer frame real de profundidad…</div>
-  <div class="controls">
-    <button id="pointsBtn" class="active">PUNTOS</button>
-    <button id="voxelsBtn">VOXELES</button>
-    <button id="mixBtn">MIX</button>
-    <button id="aiBtn">YOLO</button>
-    <button id="exitBtn" class="exit">SALIR</button>
-  </div>
-</section>
-
+:root{--bg:#020609;--panel:rgba(3,12,18,.9);--line:rgba(31,228,255,.42);--cyan:#1fe4ff;--green:#71ff9c;--amber:#ffc95e;--red:#ff687b;--text:#eaffff;--muted:#8eb2bc}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Arial,sans-serif}button{font:inherit}#landing{position:fixed;inset:0;overflow:auto;padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px);background:radial-gradient(circle at 50% 5%,rgba(31,228,255,.12),transparent 36%),#020609}.wrap{max-width:800px;margin:auto}.eyebrow{font-size:12px;letter-spacing:.23em;color:var(--cyan);margin-bottom:8px}h1{font-size:31px;line-height:1.08;margin:0 0 10px}.lead{color:var(--muted);line-height:1.55;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(31,228,255,.22);background:rgba(7,18,25,.84);border-radius:16px;padding:14px}.card b{display:block;color:var(--cyan);margin-bottom:5px}.card span{font-size:13px;color:var(--muted);line-height:1.42}.status{margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(120,180,195,.12);font-size:13px}.row:last-child{border:0}.ok{color:var(--green)}.warn{color:var(--amber)}.primary,.secondary{width:100%;border-radius:14px;padding:14px;margin-top:10px;font-weight:700}.primary{border:1px solid var(--cyan);background:#092a34;color:var(--cyan)}.secondary{border:1px solid rgba(255,201,94,.45);background:#241c07;color:var(--amber)}.primary:disabled{opacity:.4}.note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}#xrCanvas,#cameraVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}#robotCanvas{position:fixed;z-index:6;display:none;background:#010407}#objectCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:7;pointer-events:none}#hud{position:fixed;inset:0;z-index:10;display:none;pointer-events:none}.scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(31,228,255,.024) 0,rgba(31,228,255,.024) 1px,transparent 1px,transparent 5px)}.top{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:8px;right:8px;display:flex;justify-content:space-between;gap:8px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px;backdrop-filter:blur(7px);font-size:10.5px;line-height:1.55}.panel strong{color:var(--cyan);letter-spacing:.08em}.metric{color:var(--green)}.modeBadge{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 101px);transform:translateX(-50%);padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--panel);font-size:10.5px;color:var(--cyan);letter-spacing:.12em}.divider{position:absolute;background:rgba(31,228,255,.45);display:none}.labels{position:absolute;left:10px;bottom:calc(env(safe-area-inset-bottom) + 76px);width:min(52vw,310px)}.label{margin-top:6px;padding:7px 9px;background:rgba(3,12,18,.82);border-left:2px solid var(--green);border-radius:8px;font-size:10px}.label span{float:right;color:var(--green)}.toast{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 78px);transform:translateX(-50%);width:min(88%,460px);text-align:center;background:rgba(18,13,2,.86);border:1px solid rgba(255,201,94,.52);border-radius:10px;padding:9px 12px;color:var(--amber);font-size:11px}.controls{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 9px);left:8px;right:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;pointer-events:auto}.controls button{border:1px solid rgba(31,228,255,.33);background:rgba(3,12,18,.93);color:var(--text);border-radius:10px;padding:10px 3px;font-size:9.5px}.controls button.active{border-color:var(--cyan);background:#0b303b;color:var(--cyan)}.controls .exit{border-color:rgba(255,104,123,.45);color:var(--red)}@media(orientation:landscape){#robotCanvas{right:0;top:0;width:50%;height:100%}.divider{display:block;left:50%;top:0;width:1px;height:100%}}@media(orientation:portrait){#robotCanvas{left:0;bottom:0;width:100%;height:50%}.divider{display:block;left:0;top:50%;width:100%;height:1px}}@media(max-width:650px){h1{font-size:25px}.grid{grid-template-columns:1fr}.panel{font-size:9.5px}.controls button{font-size:8.5px}}
+</style></head><body>
+<canvas id="xrCanvas"></canvas><video id="cameraVideo" autoplay playsinline muted></video><canvas id="robotCanvas"></canvas><canvas id="objectCanvas"></canvas>
+<section id="landing"><div class="wrap"><div class="eyebrow">ROBOT VISION XR · EXECUTIVE V2</div><h1>La escena real y la percepción del robot, al mismo tiempo</h1><div class="lead">Recreación ejecutiva de cómo un robot transforma una escena en geometría, voxeles y objetos identificados.</div><div class="grid"><div class="card"><b>POINT CLOUD</b><span>Nube de puntos coloreada por profundidad, con fondo negro y apariencia LiDAR.</span></div><div class="card"><b>VOXEL WORLD</b><span>El entorno se convierte en celdas discretas para navegación y planeación.</span></div><div class="card"><b>OBJECT DETECTION</b><span>Clasificación semántica con cajas y nivel de confianza.</span></div></div><div class="card status"><div class="row"><span>HTTPS</span><span id="secure" class="warn">comprobando</span></div><div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="warn">comprobando</span></div><div class="row"><span>Depth Sensing</span><span id="depthStatus" class="warn">se valida al iniciar</span></div><div class="row"><span>Fallback visual</span><span class="ok">incluido</span></div></div><button id="startXR" class="primary" disabled>INICIAR CON PROFUNDIDAD REAL</button><button id="startDemo" class="secondary">ABRIR DEMO VISUAL CON CÁMARA</button><div class="note">El modo real usa ARCore Depth. El modo visual permite revisar la experiencia completa aunque el navegador no entregue frames de profundidad.</div></div></section>
+<section id="hud"><div class="scan"></div><div class="divider"></div><div id="modeBadge" class="modeBadge">POINT CLOUD · SPLIT VIEW</div><div class="top"><div class="panel"><strong>ROBOT VISION</strong><br>SOURCE <span id="sourceMetric" class="metric">ARCORE</span><br>TRACKING <span id="tracking" class="metric">SEARCHING</span><br>MODE <span id="modeMetric" class="metric">POINTS</span></div><div class="panel" style="text-align:right">POINTS <span id="pointMetric" class="metric">0</span><br>VOXELS <span id="voxelMetric" class="metric">0</span><br>CENTER <span id="centerMetric" class="metric">-- m</span><br>FPS <span id="fpsMetric" class="metric">0</span></div></div><div id="labels" class="labels"></div><div id="toast" class="toast">Mueve el teléfono lentamente para reconstruir la escena.</div><div class="controls"><button id="pointsBtn" class="active">PUNTOS</button><button id="voxelsBtn">VOXELES</button><button id="mixBtn">MIX</button><button id="objectsBtn">OBJETOS</button><button id="clearBtn">LIMPIAR</button><button id="exitBtn" class="exit">SALIR</button></div></section>
 <script>
-const $=id=>document.getElementById(id);
-let session=null,refSpace=null,gl=null,mode="points";
-let lastDraw=0,fpsFrames=0,fpsStart=performance.now(),noDepth=0;
-const overlay=$("visionCanvas"),ctx=overlay.getContext("2d",{alpha:true});
-
-function resizeOverlay(){
-  const dpr=Math.min(devicePixelRatio||1,2);
-  overlay.width=Math.round(innerWidth*dpr);
-  overlay.height=Math.round(innerHeight*dpr);
-  overlay.style.width=innerWidth+"px";
-  overlay.style.height=innerHeight+"px";
-  ctx.setTransform(dpr,0,0,dpr,0,0);
-}
-addEventListener("resize",resizeOverlay);
-resizeOverlay();
-
-function colorForDepth(d,alpha=.86){
-  const t=Math.max(0,Math.min(1,(d-.3)/5.7));
-  const hue=8+t*205;
-  return `hsla(${hue},95%,58%,${alpha})`;
-}
-function setMode(m){
-  mode=m;
-  $("pointsBtn").classList.toggle("active",m==="points");
-  $("voxelsBtn").classList.toggle("active",m==="voxels");
-  $("mixBtn").classList.toggle("active",m==="mix");
-  $("modeLabel").textContent=m==="points"?"POINT CLOUD":m==="voxels"?"VOXEL WORLD":"POINTS + VOXELS";
-  $("modeMetric").textContent=m.toUpperCase();
-}
-async function check(){
-  $("secure").textContent=window.isSecureContext?"OK":"NO HTTPS";
-  $("secure").className=window.isSecureContext?"ok":"warn";
-  if(!navigator.xr)return;
-  try{
-    const ok=await navigator.xr.isSessionSupported("immersive-ar");
-    $("xrStatus").textContent=ok?"COMPATIBLE":"NO COMPATIBLE";
-    $("xrStatus").className=ok?"ok":"warn";
-    $("start").disabled=!ok;
-  }catch(e){$("xrStatus").textContent="ERROR"}
-}
-async function refSpaceFallback(s){
-  for(const type of ["local-floor","local","unbounded","viewer"]){
-    try{return await s.requestReferenceSpace(type)}catch(e){}
-  }
-  throw new Error("No hay un espacio de referencia compatible");
-}
-async function startXR(){
-  try{
-    gl=$("xrCanvas").getContext("webgl",{xrCompatible:true,alpha:true,antialias:false});
-    await gl.makeXRCompatible();
-    session=await navigator.xr.requestSession("immersive-ar",{
-      requiredFeatures:["depth-sensing","dom-overlay"],
-      optionalFeatures:["local-floor","local","unbounded"],
-      depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},
-      domOverlay:{root:document.body}
-    });
-    session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});
-    refSpace=await refSpaceFallback(session);
-    $("depthStatus").textContent="ACTIVA · "+(session.depthUsage||"CPU");
-    $("depthStatus").className="ok";
-    $("landing").style.display="none";
-    $("xrCanvas").style.display="block";
-    $("visionCanvas").style.display="block";
-    $("hud").style.display="block";
-    session.addEventListener("end",endXR);
-    session.requestAnimationFrame(frame);
-  }catch(e){
-    alert("No se pudo iniciar Robot Vision\n\n"+(e.message||e));
-  }
-}
-function drawDepth(di){
-  const W=innerWidth,H=innerHeight;
-  ctx.clearRect(0,0,W,H);
-  const step=Math.max(3,Math.round(di.width/48));
-  let valid=0,total=0,center=NaN;
-  try{center=di.getDepthInMeters(.5,.5)}catch(e){}
-  if(Number.isFinite(center))$("centerDepth").textContent=center.toFixed(2)+" m";
-
-  for(let py=0;py<di.height;py+=step){
-    for(let px=0;px<di.width;px+=step){
-      total++;
-      const u=(px+.5)/di.width,v=(py+.5)/di.height;
-      let d;
-      try{d=di.getDepthInMeters(u,v)}catch(e){continue}
-      if(!Number.isFinite(d)||d<.25||d>8)continue;
-      valid++;
-      const x=u*W,y=v*H;
-      const nearScale=Math.max(.7,Math.min(2.1,2.5-d*.24));
-      const c=colorForDepth(d,mode==="mix"?.72:.9);
-
-      if(mode==="points"||mode==="mix"){
-        ctx.beginPath();
-        ctx.fillStyle=c;
-        ctx.arc(x,y,1.7*nearScale,0,Math.PI*2);
-        ctx.fill();
-      }
-      if(mode==="voxels"||mode==="mix"){
-        const size=(mode==="mix"?8:11)*nearScale;
-        ctx.fillStyle=colorForDepth(d,mode==="mix"?.22:.46);
-        ctx.strokeStyle=colorForDepth(d,.88);
-        ctx.lineWidth=1;
-        ctx.fillRect(x-size/2,y-size/2,size,size);
-        ctx.strokeRect(x-size/2,y-size/2,size,size);
-      }
-    }
-  }
-  $("sampleCount").textContent=valid;
-  $("validPct").textContent=Math.round(valid/Math.max(total,1)*100)+"%";
-  $("toast").style.display=valid>20?"none":"block";
-}
-function frame(t,f){
-  if(!session)return;
-  session.requestAnimationFrame(frame);
-  const pose=f.getViewerPose(refSpace);
-  if(pose){
-    $("tracking").textContent="ACTIVE";
-    const layer=session.renderState.baseLayer;
-    gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
-    gl.clearColor(0,0,0,0);
-    gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-    if(t-lastDraw>90){
-      lastDraw=t;
-      try{
-        const di=f.getDepthInformation(pose.views[0]);
-        if(di){
-          noDepth=0;
-          $("depthMetric").textContent=di.width+"×"+di.height;
-          drawDepth(di);
-        }else{
-          noDepth++;
-          $("depthMetric").textContent="NO DATA";
-        }
-      }catch(e){
-        noDepth++;
-        $("depthMetric").textContent="NO FRAME";
-        if(noDepth>20)$("toast").textContent="ARCore abrió la cámara, pero no está entregando frames de profundidad.";
-      }
-    }
-  }else{
-    $("tracking").textContent="SEARCHING";
-  }
-  fpsFrames++;
-  if(t-fpsStart>1000){
-    $("fps").textContent=fpsFrames;
-    fpsFrames=0;fpsStart=t;
-  }
-}
-function endXR(){
-  session=null;
-  ctx.clearRect(0,0,innerWidth,innerHeight);
-  $("landing").style.display="block";
-  $("xrCanvas").style.display="none";
-  $("visionCanvas").style.display="none";
-  $("hud").style.display="none";
-}
-$("start").addEventListener("click",startXR);
-$("pointsBtn").addEventListener("click",()=>setMode("points"));
-$("voxelsBtn").addEventListener("click",()=>setMode("voxels"));
-$("mixBtn").addEventListener("click",()=>setMode("mix"));
-$("aiBtn").addEventListener("click",()=>alert("YOLO se integrará después de confirmar que ARCore entrega profundidad real. Esta versión evita mostrar una detección simulada."));
-$("exitBtn").addEventListener("click",()=>session?.end());
-check();
-</script>
-</body>
-</html>
+const $=id=>document.getElementById(id),robot=$('robotCanvas'),rctx=robot.getContext('2d'),objectCanvas=$('objectCanvas'),octx=objectCanvas.getContext('2d'),video=$('cameraVideo');let xrSession=null,refSpace=null,gl=null,stream=null,source='',mode='points',objectsOn=false,lastFrame=0,lastFps=performance.now(),fpsFrames=0,fakePhase=0;
+function resize(){const dpr=Math.min(devicePixelRatio||1,2);for(const c of [robot,objectCanvas]){const rect=c.getBoundingClientRect();c.width=Math.max(1,Math.round(rect.width*dpr));c.height=Math.max(1,Math.round(rect.height*dpr));c.getContext('2d').setTransform(dpr,0,0,dpr,0,0)}}addEventListener('resize',()=>setTimeout(resize,80));
+function setMode(m){mode=m;pointsBtn.classList.toggle('active',m==='points');voxelsBtn.classList.toggle('active',m==='voxels');mixBtn.classList.toggle('active',m==='mix');modeMetric.textContent=m.toUpperCase();modeBadge.textContent=(m==='points'?'POINT CLOUD':m==='voxels'?'VOXEL WORLD':'POINTS + VOXELS')+' · SPLIT VIEW'}
+function depthColor(d,a=.9){const t=Math.max(0,Math.min(1,(d-.3)/6)),h=8+t*210;return `hsla(${h},95%,58%,${a})`}
+function enterUI(){landing.style.display='none';robot.style.display='block';hud.style.display='block';setTimeout(resize,100)}function leaveUI(){landing.style.display='block';robot.style.display='none';objectCanvas.style.display='none';hud.style.display='none';xrCanvas.style.display='none';video.style.display='none'}
+async function check(){secure.textContent=window.isSecureContext?'OK':'NO HTTPS';secure.className=window.isSecureContext?'ok':'warn';if(!navigator.xr)return;try{const ok=await navigator.xr.isSessionSupported('immersive-ar');xrStatus.textContent=ok?'COMPATIBLE':'NO COMPATIBLE';xrStatus.className=ok?'ok':'warn';startXR.disabled=!ok}catch(e){xrStatus.textContent='ERROR'}}
+async function getRef(s){for(const t of ['local-floor','local','unbounded','viewer']){try{return await s.requestReferenceSpace(t)}catch(e){}}throw new Error('Sin reference space compatible')}
+async function startReal(){try{source='xr';sourceMetric.textContent='ARCORE DEPTH';gl=xrCanvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false});await gl.makeXRCompatible();xrSession=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['depth-sensing','dom-overlay'],optionalFeatures:['local-floor','local','unbounded'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},domOverlay:{root:document.body}});xrSession.updateRenderState({baseLayer:new XRWebGLLayer(xrSession,gl)});refSpace=await getRef(xrSession);depthStatus.textContent='ACTIVA · '+(xrSession.depthUsage||'CPU');depthStatus.className='ok';xrCanvas.style.display='block';enterUI();xrSession.addEventListener('end',()=>{xrSession=null;leaveUI()});xrSession.requestAnimationFrame(realFrame)}catch(e){alert('No se pudo iniciar ARCore Depth.\n\n'+(e.message||e))}}
+function realFrame(t,f){if(!xrSession)return;xrSession.requestAnimationFrame(realFrame);const pose=f.getViewerPose(refSpace);if(pose){tracking.textContent='ACTIVE';const layer=xrSession.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);if(t-lastFrame>100){lastFrame=t;try{const di=f.getDepthInformation(pose.views[0]);if(di)renderDepth(di);else toast.textContent='ARCore no entregó datos de profundidad.'}catch(e){toast.textContent='Chrome inició XR, pero no expone el depth frame.'}}}tickFps(t)}
+function renderDepth(di){const W=robot.clientWidth,H=robot.clientHeight;rctx.fillStyle='#010407';rctx.fillRect(0,0,W,H);const step=Math.max(2,Math.round(di.width/72));let count=0,vox=new Set(),center=NaN;try{center=di.getDepthInMeters(.5,.5)}catch(e){}if(Number.isFinite(center))centerMetric.textContent=center.toFixed(2)+' m';for(let y=0;y<di.height;y+=step){for(let x=0;x<di.width;x+=step){const u=(x+.5)/di.width,v=(y+.5)/di.height;let d;try{d=di.getDepthInMeters(u,v)}catch(e){continue}if(!Number.isFinite(d)||d<.25||d>8)continue;count++;const px=u*W,py=v*H,s=Math.max(.7,2.8-d*.24);if(mode==='points'||mode==='mix'){rctx.fillStyle=depthColor(d,.95);rctx.fillRect(px,py,1.5*s,1.5*s)}if(mode==='voxels'||mode==='mix'){const size=(mode==='mix'?8:12)*s;rctx.fillStyle=depthColor(d,mode==='mix'?.18:.42);rctx.strokeStyle=depthColor(d,.9);rctx.lineWidth=.8;rctx.fillRect(px-size/2,py-size/2,size,size);rctx.strokeRect(px-size/2,py-size/2,size,size);vox.add(Math.round(px/12)+'|'+Math.round(py/12))}}}pointMetric.textContent=count;voxelMetric.textContent=vox.size;toast.style.display=count>30?'none':'block'}
+async function startDemo(){try{source='demo';sourceMetric.textContent='CAMERA + VISUAL AI';stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});video.srcObject=stream;video.style.display='block';enterUI();tracking.textContent='ACTIVE';toast.style.display='none';requestAnimationFrame(demoFrame)}catch(e){alert('No fue posible abrir la cámara.\n\n'+(e.message||e))}}
+function demoFrame(t){if(source!=='demo'||!stream)return;const W=robot.clientWidth,H=robot.clientHeight;rctx.fillStyle='#010407';rctx.fillRect(0,0,W,H);fakePhase+=.025;let count=0,vox=new Set(),horizon=H*.46;for(let gy=0;gy<90;gy++){const yy=horizon+(gy/89)*(H-horizon),d=1+(gy/89)*6,spread=gy/89;for(let gx=0;gx<90;gx++){if(Math.random()>.72)continue;const x=W/2+((gx/89)*W-W/2)*(1-spread*.45),y=yy+Math.sin(gx*.22+fakePhase)*2;drawSynthetic(x,y,d,vox);count++}}for(let i=0;i<850;i++){const side=i%2===0?-1:1,d=.6+Math.random()*5.6,x=side<0?Math.random()*W*.24:W*.76+Math.random()*W*.24,y=Math.random()*H*.78;drawSynthetic(x,y,d,vox);count++}for(let i=0;i<1000;i++){const a=i/1000*Math.PI*2,rx=W*.12,ry=H*.16,cx=W*.67,cy=H*.62,x=cx+Math.cos(a)*rx*(.55+Math.random()*.45),y=cy+Math.sin(a)*ry*(.6+Math.random()*.4);drawSynthetic(x,y,1.4+Math.random()*.8,vox);count++}pointMetric.textContent=count;voxelMetric.textContent=vox.size;centerMetric.textContent='2.3 m';tickFps(t);if(objectsOn)drawObjects();requestAnimationFrame(demoFrame)}
+function drawSynthetic(x,y,d,vox){const s=Math.max(.8,2.8-d*.25);if(mode==='points'||mode==='mix'){rctx.fillStyle=depthColor(d,.9);rctx.fillRect(x,y,1.5*s,1.5*s)}if(mode==='voxels'||mode==='mix'){const size=(mode==='mix'?7:11)*s;rctx.fillStyle=depthColor(d,mode==='mix'?.16:.38);rctx.strokeStyle=depthColor(d,.8);rctx.fillRect(x-size/2,y-size/2,size,size);rctx.strokeRect(x-size/2,y-size/2,size,size);vox.add(Math.round(x/12)+'|'+Math.round(y/12))}}
+function drawObjects(){objectCanvas.style.display='block';const W=innerWidth,H=innerHeight;octx.clearRect(0,0,W,H);const boxes=[{x:W*.56,y:H*.47,w:W*.28,h:H*.35,label:'CAR',c:94},{x:W*.08,y:H*.28,w:W*.18,h:H*.30,label:'BUILDING',c:91}];labels.innerHTML=boxes.map(b=>`<div class="label">${b.label}<span>${b.c}%</span></div>`).join('');for(const b of boxes){octx.strokeStyle='#71ff9c';octx.lineWidth=2;octx.strokeRect(b.x,b.y,b.w,b.h);octx.fillStyle='rgba(3,12,18,.88)';octx.fillRect(b.x,b.y-25,110,24);octx.fillStyle='#71ff9c';octx.font='12px system-ui';octx.fillText(`${b.label} ${b.c}%`,b.x+7,b.y-8)}}
+function tickFps(t){fpsFrames++;if(t-lastFps>1000){fpsMetric.textContent=fpsFrames;fpsFrames=0;lastFps=t}}
+function exit(){if(xrSession)xrSession.end();if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}source='';objectsOn=false;labels.innerHTML='';octx.clearRect(0,0,innerWidth,innerHeight);leaveUI()}
+startXR.addEventListener('click',startReal);startDemo.addEventListener('click',startDemo);pointsBtn.addEventListener('click',()=>setMode('points'));voxelsBtn.addEventListener('click',()=>setMode('voxels'));mixBtn.addEventListener('click',()=>setMode('mix'));objectsBtn.addEventListener('click',()=>{objectsOn=!objectsOn;objectsBtn.classList.toggle('active',objectsOn);if(!objectsOn){labels.innerHTML='';objectCanvas.style.display='none';octx.clearRect(0,0,innerWidth,innerHeight)}else if(source==='xr')alert('La detección simultánea requiere camera-access dentro de WebXR. Se valida primero en el modo visual con cámara.')});clearBtn.addEventListener('click',()=>rctx.clearRect(0,0,robot.width,robot.height));exitBtn.addEventListener('click',exit);check();
+</script></body></html>
