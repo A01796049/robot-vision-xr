@@ -1,574 +1,237 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><meta name="theme-color" content="#020609"><title>Robot Vision XR Executive V2</title>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#010508">
+<title>Robot Vision XR V3 — True 3D Reconstruction</title>
 <style>
-:root{--bg:#020609;--panel:rgba(3,12,18,.9);--line:rgba(31,228,255,.42);--cyan:#1fe4ff;--green:#71ff9c;--amber:#ffc95e;--red:#ff687b;--text:#eaffff;--muted:#8eb2bc}*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Arial,sans-serif}button{font:inherit}#landing{position:fixed;inset:0;overflow:auto;padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px);background:radial-gradient(circle at 50% 5%,rgba(31,228,255,.12),transparent 36%),#020609}.wrap{max-width:800px;margin:auto}.eyebrow{font-size:12px;letter-spacing:.23em;color:var(--cyan);margin-bottom:8px}h1{font-size:31px;line-height:1.08;margin:0 0 10px}.lead{color:var(--muted);line-height:1.55;margin-bottom:18px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(31,228,255,.22);background:rgba(7,18,25,.84);border-radius:16px;padding:14px}.card b{display:block;color:var(--cyan);margin-bottom:5px}.card span{font-size:13px;color:var(--muted);line-height:1.42}.status{margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(120,180,195,.12);font-size:13px}.row:last-child{border:0}.ok{color:var(--green)}.warn{color:var(--amber)}.primary,.secondary{width:100%;border-radius:14px;padding:14px;margin-top:10px;font-weight:700}.primary{border:1px solid var(--cyan);background:#092a34;color:var(--cyan)}.secondary{border:1px solid rgba(255,201,94,.45);background:#241c07;color:var(--amber)}.primary:disabled{opacity:.4}.note{font-size:12px;color:var(--muted);line-height:1.45;margin-top:10px}#xrCanvas,#cameraVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}#robotCanvas{position:fixed;z-index:6;display:none;background:#010407}#objectCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:7;pointer-events:none}#hud{position:fixed;inset:0;z-index:10;display:none;pointer-events:none}.scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(31,228,255,.024) 0,rgba(31,228,255,.024) 1px,transparent 1px,transparent 5px)}.top{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:8px;right:8px;display:flex;justify-content:space-between;gap:8px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px;backdrop-filter:blur(7px);font-size:10.5px;line-height:1.55}.panel strong{color:var(--cyan);letter-spacing:.08em}.metric{color:var(--green)}.modeBadge{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 101px);transform:translateX(-50%);padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--panel);font-size:10.5px;color:var(--cyan);letter-spacing:.12em}.divider{position:absolute;background:rgba(31,228,255,.45);display:none}.labels{position:absolute;left:10px;bottom:calc(env(safe-area-inset-bottom) + 76px);width:min(52vw,310px)}.label{margin-top:6px;padding:7px 9px;background:rgba(3,12,18,.82);border-left:2px solid var(--green);border-radius:8px;font-size:10px}.label span{float:right;color:var(--green)}.toast{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 78px);transform:translateX(-50%);width:min(88%,460px);text-align:center;background:rgba(18,13,2,.86);border:1px solid rgba(255,201,94,.52);border-radius:10px;padding:9px 12px;color:var(--amber);font-size:11px}.controls{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 9px);left:8px;right:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;pointer-events:auto}.controls button{border:1px solid rgba(31,228,255,.33);background:rgba(3,12,18,.93);color:var(--text);border-radius:10px;padding:10px 3px;font-size:9.5px}.controls button.active{border-color:var(--cyan);background:#0b303b;color:var(--cyan)}.controls .exit{border-color:rgba(255,104,123,.45);color:var(--red)}@media(orientation:landscape){#robotCanvas{right:0;top:0;width:50%;height:100%}.divider{display:block;left:50%;top:0;width:1px;height:100%}}@media(orientation:portrait){#robotCanvas{left:0;bottom:0;width:100%;height:50%}.divider{display:block;left:0;top:50%;width:100%;height:1px}}@media(max-width:650px){h1{font-size:25px}.grid{grid-template-columns:1fr}.panel{font-size:9.5px}.controls button{font-size:8.5px}}
-</style></head><body>
-<canvas id="xrCanvas"></canvas><video id="cameraVideo" autoplay playsinline muted></video><canvas id="robotCanvas"></canvas><canvas id="objectCanvas"></canvas>
-<section id="landing"><div class="wrap"><div class="eyebrow">ROBOT VISION XR · EXECUTIVE V2</div><h1>La escena real y la percepción del robot, al mismo tiempo</h1><div class="lead">Recreación ejecutiva de cómo un robot transforma una escena en geometría, voxeles y objetos identificados.</div><div class="grid"><div class="card"><b>POINT CLOUD</b><span>Nube de puntos coloreada por profundidad, con fondo negro y apariencia LiDAR.</span></div><div class="card"><b>VOXEL WORLD</b><span>El entorno se convierte en celdas discretas para navegación y planeación.</span></div><div class="card"><b>OBJECT DETECTION</b><span>Clasificación semántica con cajas y nivel de confianza.</span></div></div><div class="card status"><div class="row"><span>HTTPS</span><span id="secure" class="warn">comprobando</span></div><div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="warn">comprobando</span></div><div class="row"><span>Depth Sensing</span><span id="depthStatus" class="warn">se valida al iniciar</span></div><div class="row"><span>Fallback visual</span><span class="ok">incluido</span></div></div><button id="startXR" class="primary" disabled>INICIAR CON PROFUNDIDAD REAL</button><button id="startDemo" class="secondary">ABRIR DEMO VISUAL CON CÁMARA</button><div class="note">El modo real usa ARCore Depth. El modo visual permite revisar la experiencia completa aunque el navegador no entregue frames de profundidad.</div></div></section>
-<section id="hud"><div class="scan"></div><div class="divider"></div><div id="modeBadge" class="modeBadge">POINT CLOUD · SPLIT VIEW</div><div class="top"><div class="panel"><strong>ROBOT VISION</strong><br>SOURCE <span id="sourceMetric" class="metric">ARCORE</span><br>TRACKING <span id="tracking" class="metric">SEARCHING</span><br>MODE <span id="modeMetric" class="metric">POINTS</span></div><div class="panel" style="text-align:right">POINTS <span id="pointMetric" class="metric">0</span><br>VOXELS <span id="voxelMetric" class="metric">0</span><br>CENTER <span id="centerMetric" class="metric">-- m</span><br>FPS <span id="fpsMetric" class="metric">0</span></div></div><div id="labels" class="labels"></div><div id="toast" class="toast">Mueve el teléfono lentamente para reconstruir la escena.</div><div class="controls"><button id="pointsBtn" class="active">PUNTOS</button><button id="voxelsBtn">VOXELES</button><button id="mixBtn">MIX</button><button id="objectsBtn">OBJETOS</button><button id="clearBtn">LIMPIAR</button><button id="exitBtn" class="exit">SALIR</button></div></section>
+:root{--bg:#010508;--panel:rgba(3,12,18,.91);--line:rgba(27,226,255,.46);--cyan:#1be2ff;--green:#70ff9a;--amber:#ffc75e;--red:#ff667a;--text:#eaffff;--muted:#8db2bc}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Arial,sans-serif}
+button,input{font:inherit}
+#landing{position:fixed;inset:0;overflow:auto;padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px);background:radial-gradient(circle at 50% 4%,rgba(27,226,255,.12),transparent 38%),#010508}
+.wrap{max-width:790px;margin:auto}.eyebrow{font-size:12px;letter-spacing:.22em;color:var(--cyan);margin-bottom:8px}h1{font-size:30px;line-height:1.08;margin:0 0 10px}.lead{color:var(--muted);line-height:1.55;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(27,226,255,.22);background:rgba(7,18,25,.84);border-radius:16px;padding:14px}.card b{display:block;color:var(--cyan);margin-bottom:5px}.card span{font-size:13px;color:var(--muted);line-height:1.42}
+.status{margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(120,180,195,.12);font-size:13px}.row:last-child{border:0}.ok{color:var(--green)}.warn{color:var(--amber)}
+.primary{width:100%;border:1px solid var(--cyan);border-radius:14px;background:#092a34;color:var(--cyan);padding:15px;margin-top:12px;font-weight:700}.primary:disabled{opacity:.4}.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
+#xrCanvas{position:fixed;inset:0;width:100%;height:100%;display:none}
+#robotCanvas{position:fixed;z-index:6;display:none;background:#010407}
+#objectVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}
+#objectCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:8;pointer-events:none}
+#hud{position:fixed;inset:0;display:none;z-index:10;pointer-events:none}
+.scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(27,226,255,.024) 0,rgba(27,226,255,.024) 1px,transparent 1px,transparent 5px)}
+.top{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:8px;right:8px;display:flex;justify-content:space-between;gap:8px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px;backdrop-filter:blur(7px);font-size:10px;line-height:1.55}.panel strong{color:var(--cyan);letter-spacing:.08em}.metric{color:var(--green)}
+.badge{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 100px);transform:translateX(-50%);padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--panel);font-size:10px;color:var(--cyan);letter-spacing:.11em;white-space:nowrap}
+.toast{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 80px);transform:translateX(-50%);width:min(88%,460px);text-align:center;background:rgba(18,13,2,.88);border:1px solid rgba(255,199,94,.55);border-radius:10px;padding:9px 12px;color:var(--amber);font-size:11px}
+.controls{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 9px);left:8px;right:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;pointer-events:auto}.controls button{border:1px solid rgba(27,226,255,.34);background:rgba(3,12,18,.94);color:var(--text);border-radius:10px;padding:10px 3px;font-size:9px}.controls button.active{border-color:var(--cyan);background:#0b303b;color:var(--cyan)}.controls .exit{border-color:rgba(255,102,122,.5);color:var(--red)}
+#densityWrap{position:absolute;right:10px;top:calc(env(safe-area-inset-top) + 104px);width:105px;padding:7px 9px;background:var(--panel);border:1px solid var(--line);border-radius:10px;pointer-events:auto;font-size:9px;color:var(--muted)}#density{width:100%}
+@media(orientation:landscape){#robotCanvas{right:0;top:0;width:50%;height:100%;border-left:1px solid var(--line)}}
+@media(orientation:portrait){#robotCanvas{left:0;bottom:0;width:100%;height:52%;border-top:1px solid var(--line)}}
+@media(max-width:650px){h1{font-size:25px}.grid{grid-template-columns:1fr}.controls button{font-size:8px}}
+</style>
+</head>
+<body>
+<canvas id="xrCanvas"></canvas>
+<canvas id="robotCanvas"></canvas>
+<video id="objectVideo" autoplay playsinline muted></video>
+<canvas id="objectCanvas"></canvas>
+
+<section id="landing">
+<div class="wrap">
+  <div class="eyebrow">ROBOT VISION XR · TRUE 3D V3</div>
+  <h1>Reconstrucción espacial del entorno</h1>
+  <div class="lead">Esta versión convierte la profundidad en coordenadas tridimensionales, utiliza la pose del teléfono y conserva la geometría mientras escaneas.</div>
+  <div class="grid">
+    <div class="card"><b>POINT CLOUD 3D</b><span>Puntos almacenados en coordenadas del mundo, no una cuadrícula sobre la pantalla.</span></div>
+    <div class="card"><b>VOXEL MAP</b><span>Cuantización tridimensional de la nube acumulada para representar espacio ocupado.</span></div>
+    <div class="card"><b>OBJECT AI</b><span>Modo independiente de detección real con la cámara, preparado para COCO-SSD.</span></div>
+  </div>
+  <div class="card status">
+    <div class="row"><span>HTTPS</span><span id="secure" class="warn">comprobando</span></div>
+    <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="warn">comprobando</span></div>
+    <div class="row"><span>Depth Sensing</span><span id="depthStatus" class="warn">se valida al iniciar</span></div>
+  </div>
+  <button id="startBtn" class="primary" disabled>INICIAR ESCANEO 3D REAL</button>
+  <div class="note">Apunta primero a una esquina donde coincidan piso y paredes. Muévete lentamente de lado a lado durante 10–20 segundos. Las superficies sin textura pueden producir profundidad uniforme o incompleta.</div>
+</div>
+</section>
+
+<section id="hud">
+  <div class="scan"></div>
+  <div id="badge" class="badge">POINT CLOUD · WORLD SPACE</div>
+  <div class="top">
+    <div class="panel"><strong>ROBOT VISION</strong><br>SOURCE <span id="sourceM" class="metric">ARCORE DEPTH</span><br>TRACKING <span id="trackingM" class="metric">SEARCHING</span><br>VIEW <span id="viewM" class="metric">ORBIT 3D</span></div>
+    <div class="panel" style="text-align:right">POINTS <span id="pointsM" class="metric">0</span><br>VOXELS <span id="voxelsM" class="metric">0</span><br>RANGE <span id="rangeM" class="metric">--</span><br>FPS <span id="fpsM" class="metric">0</span></div>
+  </div>
+  <div id="densityWrap">DENSIDAD<input id="density" type="range" min="2" max="10" value="5"></div>
+  <div id="toast" class="toast">Mueve el teléfono lentamente para construir el mapa.</div>
+  <div class="controls">
+    <button id="pointsBtn" class="active">PUNTOS</button>
+    <button id="voxelsBtn">VOXELES</button>
+    <button id="mixBtn">MIX</button>
+    <button id="viewBtn">VISTA</button>
+    <button id="clearBtn">LIMPIAR</button>
+    <button id="exitBtn" class="exit">SALIR</button>
+  </div>
+</section>
+
 <script>
 "use strict";
+const $=id=>document.getElementById(id);
+const landing=$("landing"),hud=$("hud"),xrCanvas=$("xrCanvas"),robot=$("robotCanvas");
+const startBtn=$("startBtn"),pointsBtn=$("pointsBtn"),voxelsBtn=$("voxelsBtn"),mixBtn=$("mixBtn"),viewBtn=$("viewBtn"),clearBtn=$("clearBtn"),exitBtn=$("exitBtn");
+const secure=$("secure"),xrStatus=$("xrStatus"),depthStatus=$("depthStatus"),trackingM=$("trackingM"),pointsM=$("pointsM"),voxelsM=$("voxelsM"),rangeM=$("rangeM"),fpsM=$("fpsM"),badge=$("badge"),toast=$("toast"),density=$("density");
+const ctx=robot.getContext("2d",{alpha:false});
+let session=null,space=null,gl=null,mode="points",viewMode=0;
+let pointMap=new Map(),voxelMap=new Map(),frameNo=0,lastSample=0,lastFps=performance.now(),fpsCount=0;
+let mapCenter={x:0,y:0,z:-2},cameraPose=null;
+const maxPoints=65000,voxelSize=.075;
 
-const el = (id) => document.getElementById(id);
-
-const landing = el("landing");
-const hud = el("hud");
-const xrCanvas = el("xrCanvas");
-const robotCanvas = el("robotCanvas");
-const objectCanvas = el("objectCanvas");
-const cameraVideo = el("cameraVideo");
-
-const secureEl = el("secure");
-const xrStatusEl = el("xrStatus");
-const depthStatusEl = el("depthStatus");
-const sourceMetricEl = el("sourceMetric");
-const trackingEl = el("tracking");
-const modeMetricEl = el("modeMetric");
-const modeBadgeEl = el("modeBadge");
-const pointMetricEl = el("pointMetric");
-const voxelMetricEl = el("voxelMetric");
-const centerMetricEl = el("centerMetric");
-const fpsMetricEl = el("fpsMetric");
-const labelsEl = el("labels");
-const toastEl = el("toast");
-
-const startXRBtn = el("startXR");
-const startDemoBtn = el("startDemo");
-const pointsBtn = el("pointsBtn");
-const voxelsBtn = el("voxelsBtn");
-const mixBtn = el("mixBtn");
-const objectsBtn = el("objectsBtn");
-const clearBtn = el("clearBtn");
-const exitBtn = el("exitBtn");
-
-const rctx = robotCanvas.getContext("2d");
-const octx = objectCanvas.getContext("2d");
-
-let xrSession = null;
-let refSpace = null;
-let gl = null;
-let stream = null;
-let source = "";
-let mode = "points";
-let objectsOn = false;
-let lastFrame = 0;
-let lastFps = performance.now();
-let fpsFrames = 0;
-let fakePhase = 0;
-let demoAnimationId = 0;
-
-function showStatus(message, warning = false) {
-  toastEl.textContent = message;
-  toastEl.style.display = "block";
-  toastEl.style.color = warning ? "var(--amber)" : "var(--green)";
+function resize(){
+ const dpr=Math.min(devicePixelRatio||1,2),r=robot.getBoundingClientRect();
+ robot.width=Math.max(1,Math.round(r.width*dpr));robot.height=Math.max(1,Math.round(r.height*dpr));
+ ctx.setTransform(dpr,0,0,dpr,0,0);
 }
+addEventListener("resize",()=>setTimeout(resize,80));
 
-function resizeCanvases() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-  for (const canvas of [robotCanvas, objectCanvas]) {
-    const rect = canvas.getBoundingClientRect();
-    const width = Math.max(1, Math.round(rect.width * dpr));
-    const height = Math.max(1, Math.round(rect.height * dpr));
-
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-
-    const context = canvas.getContext("2d");
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-  }
+async function check(){
+ secure.textContent=isSecureContext?"OK":"NO HTTPS";secure.className=isSecureContext?"ok":"warn";
+ if(!navigator.xr){xrStatus.textContent="NO DISPONIBLE";return}
+ try{const ok=await navigator.xr.isSessionSupported("immersive-ar");xrStatus.textContent=ok?"COMPATIBLE":"NO COMPATIBLE";xrStatus.className=ok?"ok":"warn";startBtn.disabled=!ok}catch(e){xrStatus.textContent="ERROR"}
 }
-
-window.addEventListener("resize", () => {
-  window.setTimeout(resizeCanvases, 100);
-});
-
-function setMode(nextMode) {
-  mode = nextMode;
-
-  pointsBtn.classList.toggle("active", mode === "points");
-  voxelsBtn.classList.toggle("active", mode === "voxels");
-  mixBtn.classList.toggle("active", mode === "mix");
-
-  const label =
-    mode === "points"
-      ? "POINT CLOUD"
-      : mode === "voxels"
-        ? "VOXEL WORLD"
-        : "POINTS + VOXELS";
-
-  modeMetricEl.textContent = mode.toUpperCase();
-  modeBadgeEl.textContent = `${label} · SPLIT VIEW`;
-  showStatus(`Modo activo: ${label}`);
-  window.setTimeout(() => {
-    if (source) toastEl.style.display = "none";
-  }, 700);
+async function getSpace(s){
+ for(const type of ["local-floor","local","unbounded","viewer"]){try{return await s.requestReferenceSpace(type)}catch(e){}}
+ throw new Error("No existe un espacio de referencia compatible.");
 }
-
-function depthColor(depth, alpha = 0.9) {
-  const normalized = Math.max(0, Math.min(1, (depth - 0.3) / 6));
-  const hue = 8 + normalized * 210;
-  return `hsla(${hue},95%,58%,${alpha})`;
+function matTransform(m,x,y,z){
+ return {
+  x:m[0]*x+m[4]*y+m[8]*z+m[12],
+  y:m[1]*x+m[5]*y+m[9]*z+m[13],
+  z:m[2]*x+m[6]*y+m[10]*z+m[14]
+ };
 }
-
-function enterUI() {
-  landing.style.display = "none";
-  robotCanvas.style.display = "block";
-  hud.style.display = "block";
-  window.setTimeout(resizeCanvases, 120);
+function quatRotateInverse(q,v){
+ const x=-q.x,y=-q.y,z=-q.z,w=q.w;
+ const ix=w*v.x+y*v.z-z*v.y,iy=w*v.y+z*v.x-x*v.z,iz=w*v.z+x*v.y-y*v.x,iw=-x*v.x-y*v.y-z*v.z;
+ return {x:ix*w+iw*(-x)+iy*(-z)-iz*(-y),y:iy*w+iw*(-y)+iz*(-x)-ix*(-z),z:iz*w+iw*(-z)+ix*(-y)-iy*(-x)};
 }
-
-function leaveUI() {
-  landing.style.display = "block";
-  robotCanvas.style.display = "none";
-  objectCanvas.style.display = "none";
-  hud.style.display = "none";
-  xrCanvas.style.display = "none";
-  cameraVideo.style.display = "none";
+function color(d,a=1){
+ const t=Math.max(0,Math.min(1,(d-.3)/6)),h=8+t*210;
+ return `hsla(${h},96%,58%,${a})`;
 }
-
-async function checkCapabilities() {
-  secureEl.textContent = window.isSecureContext ? "OK" : "NO HTTPS";
-  secureEl.className = window.isSecureContext ? "ok" : "warn";
-
-  if (!navigator.xr) {
-    xrStatusEl.textContent = "NO DISPONIBLE";
-    startXRBtn.disabled = true;
-    return;
-  }
-
-  try {
-    const supported = await navigator.xr.isSessionSupported("immersive-ar");
-    xrStatusEl.textContent = supported ? "COMPATIBLE" : "NO COMPATIBLE";
-    xrStatusEl.className = supported ? "ok" : "warn";
-    startXRBtn.disabled = !supported;
-  } catch (error) {
-    xrStatusEl.textContent = "ERROR";
-    startXRBtn.disabled = true;
-  }
+function setMode(m){
+ mode=m;pointsBtn.classList.toggle("active",m==="points");voxelsBtn.classList.toggle("active",m==="voxels");mixBtn.classList.toggle("active",m==="mix");
+ badge.textContent=(m==="points"?"POINT CLOUD":m==="voxels"?"VOXEL WORLD":"POINTS + VOXELS")+" · WORLD SPACE";
 }
-
-async function getReferenceSpace(session) {
-  const candidates = ["local-floor", "local", "unbounded", "viewer"];
-
-  for (const type of candidates) {
-    try {
-      return await session.requestReferenceSpace(type);
-    } catch (error) {
-      console.warn(`Reference space ${type} rejected`, error);
-    }
-  }
-
-  throw new Error("El dispositivo no ofrece un espacio de referencia compatible.");
+async function start(){
+ try{
+  gl=xrCanvas.getContext("webgl",{xrCompatible:true,alpha:true,antialias:false});
+  if(!gl)throw new Error("No fue posible crear WebGL.");
+  if(gl.makeXRCompatible)await gl.makeXRCompatible();
+  session=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["depth-sensing","dom-overlay"],optionalFeatures:["local-floor","local","unbounded"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});
+  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});
+  space=await getSpace(session);
+  depthStatus.textContent="ACTIVA · "+(session.depthUsage||"CPU");depthStatus.className="ok";
+  landing.style.display="none";xrCanvas.style.display="block";robot.style.display="block";hud.style.display="block";resize();
+  session.addEventListener("end",end);
+  session.requestAnimationFrame(loop);
+ }catch(e){alert("No se pudo iniciar el escaneo 3D.\n\n"+(e.message||e))}
 }
-
-async function startReal() {
-  showStatus("Solicitando sesión ARCore…");
-
-  try {
-    source = "xr";
-    sourceMetricEl.textContent = "ARCORE DEPTH";
-
-    gl = xrCanvas.getContext("webgl", {
-      xrCompatible: true,
-      alpha: true,
-      antialias: false
-    });
-
-    if (!gl) {
-      throw new Error("No fue posible crear el contexto WebGL.");
-    }
-
-    if (typeof gl.makeXRCompatible === "function") {
-      await gl.makeXRCompatible();
-    }
-
-    xrSession = await navigator.xr.requestSession("immersive-ar", {
-      requiredFeatures: ["depth-sensing", "dom-overlay"],
-      optionalFeatures: ["local-floor", "local", "unbounded"],
-      depthSensing: {
-        usagePreference: ["cpu-optimized"],
-        dataFormatPreference: ["luminance-alpha", "float32"]
-      },
-      domOverlay: { root: document.body }
-    });
-
-    xrSession.updateRenderState({
-      baseLayer: new XRWebGLLayer(xrSession, gl)
-    });
-
-    refSpace = await getReferenceSpace(xrSession);
-
-    depthStatusEl.textContent = `ACTIVA · ${xrSession.depthUsage || "CPU"}`;
-    depthStatusEl.className = "ok";
-
-    xrCanvas.style.display = "block";
-    enterUI();
-
-    xrSession.addEventListener("end", () => {
-      xrSession = null;
-      source = "";
-      leaveUI();
-    });
-
-    xrSession.requestAnimationFrame(realFrame);
-  } catch (error) {
-    source = "";
-    alert(`No se pudo iniciar ARCore Depth.\n\n${error.message || error}`);
+function addDepth(depthInfo,view){
+ const step=Number(density.value),proj=view.projectionMatrix,fx=proj[0],fy=proj[5],world=view.transform.matrix;
+ let min=Infinity,max=0,added=0;
+ for(let py=0;py<depthInfo.height;py+=step){
+  for(let px=0;px<depthInfo.width;px+=step){
+   const u=(px+.5)/depthInfo.width,v=(py+.5)/depthInfo.height;
+   let d;try{d=depthInfo.getDepthInMeters(u,v)}catch(e){continue}
+   if(!Number.isFinite(d)||d<.28||d>7)continue;
+   const ndcX=u*2-1,ndcY=1-v*2;
+   const localX=ndcX*d/fx,localY=ndcY*d/fy,localZ=-d;
+   const p=matTransform(world,localX,localY,localZ);
+   const key=`${Math.round(p.x/.035)}|${Math.round(p.y/.035)}|${Math.round(p.z/.035)}`;
+   if(!pointMap.has(key)){pointMap.set(key,{x:p.x,y:p.y,z:p.z,d});added++}
+   const vk=`${Math.round(p.x/voxelSize)}|${Math.round(p.y/voxelSize)}|${Math.round(p.z/voxelSize)}`;
+   if(!voxelMap.has(vk))voxelMap.set(vk,{x:Math.round(p.x/voxelSize)*voxelSize,y:Math.round(p.y/voxelSize)*voxelSize,z:Math.round(p.z/voxelSize)*voxelSize,d});
+   min=Math.min(min,d);max=Math.max(max,d);
   }
+ }
+ while(pointMap.size>maxPoints)pointMap.delete(pointMap.keys().next().value);
+ while(voxelMap.size>15000)voxelMap.delete(voxelMap.keys().next().value);
+ pointsM.textContent=pointMap.size;voxelsM.textContent=voxelMap.size;
+ if(min<Infinity)rangeM.textContent=`${min.toFixed(1)}–${max.toFixed(1)}m`;
+ toast.style.display=pointMap.size>500?"none":"block";
+ updateCenter();
 }
-
-function realFrame(time, frame) {
-  if (!xrSession) return;
-
-  xrSession.requestAnimationFrame(realFrame);
-
-  const pose = frame.getViewerPose(refSpace);
-
-  if (pose) {
-    trackingEl.textContent = "ACTIVE";
-
-    const layer = xrSession.renderState.baseLayer;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, layer.framebuffer);
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    if (time - lastFrame > 100) {
-      lastFrame = time;
-
-      try {
-        const depthInfo = frame.getDepthInformation(pose.views[0]);
-
-        if (depthInfo) {
-          renderDepth(depthInfo);
-        } else {
-          showStatus("ARCore no entregó profundidad en este frame.", true);
-        }
-      } catch (error) {
-        showStatus("Chrome inició XR, pero no expone el frame de profundidad.", true);
-      }
-    }
-  } else {
-    trackingEl.textContent = "SEARCHING";
-  }
-
-  tickFps(time);
+function updateCenter(){
+ if(!pointMap.size)return;
+ let sx=0,sy=0,sz=0,n=0;
+ const skip=Math.max(1,Math.floor(pointMap.size/2000));
+ let i=0;
+ for(const p of pointMap.values()){if(i++%skip)continue;sx+=p.x;sy+=p.y;sz+=p.z;n++}
+ mapCenter={x:sx/n,y:sy/n,z:sz/n};
 }
-
-function renderDepth(depthInfo) {
-  const width = robotCanvas.clientWidth;
-  const height = robotCanvas.clientHeight;
-
-  rctx.fillStyle = "#010407";
-  rctx.fillRect(0, 0, width, height);
-
-  const step = Math.max(2, Math.round(depthInfo.width / 72));
-  let pointCount = 0;
-  const voxels = new Set();
-
-  try {
-    const center = depthInfo.getDepthInMeters(0.5, 0.5);
-    if (Number.isFinite(center)) {
-      centerMetricEl.textContent = `${center.toFixed(2)} m`;
-    }
-  } catch (error) {}
-
-  for (let y = 0; y < depthInfo.height; y += step) {
-    for (let x = 0; x < depthInfo.width; x += step) {
-      const u = (x + 0.5) / depthInfo.width;
-      const v = (y + 0.5) / depthInfo.height;
-
-      let depth;
-
-      try {
-        depth = depthInfo.getDepthInMeters(u, v);
-      } catch (error) {
-        continue;
-      }
-
-      if (!Number.isFinite(depth) || depth < 0.25 || depth > 8) continue;
-
-      pointCount++;
-
-      const px = u * width;
-      const py = v * height;
-      const scale = Math.max(0.7, 2.8 - depth * 0.24);
-
-      if (mode === "points" || mode === "mix") {
-        rctx.fillStyle = depthColor(depth, 0.95);
-        rctx.fillRect(px, py, 1.5 * scale, 1.5 * scale);
-      }
-
-      if (mode === "voxels" || mode === "mix") {
-        const size = (mode === "mix" ? 8 : 12) * scale;
-        rctx.fillStyle = depthColor(depth, mode === "mix" ? 0.18 : 0.42);
-        rctx.strokeStyle = depthColor(depth, 0.9);
-        rctx.lineWidth = 0.8;
-        rctx.fillRect(px - size / 2, py - size / 2, size, size);
-        rctx.strokeRect(px - size / 2, py - size / 2, size, size);
-        voxels.add(`${Math.round(px / 12)}|${Math.round(py / 12)}`);
-      }
-    }
-  }
-
-  pointMetricEl.textContent = String(pointCount);
-  voxelMetricEl.textContent = String(voxels.size);
-  toastEl.style.display = pointCount > 30 ? "none" : "block";
+function projectPoint(p,w,h){
+ if(!cameraPose)return null;
+ let rel={x:p.x-cameraPose.p.x,y:p.y-cameraPose.p.y,z:p.z-cameraPose.p.z};
+ rel=quatRotateInverse(cameraPose.q,rel);
+ const focal=Math.min(w,h)*.82;
+ if(rel.z>=-.08)return null;
+ return {x:w/2+(rel.x/-rel.z)*focal,y:h/2-(rel.y/-rel.z)*focal,z:-rel.z};
 }
-
-async function startDemo() {
-  showStatus("Solicitando permiso para la cámara…");
-
-  try {
-    source = "demo";
-    sourceMetricEl.textContent = "CAMERA + VISUAL AI";
-
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: false
-    });
-
-    cameraVideo.srcObject = stream;
-    await cameraVideo.play();
-
-    cameraVideo.style.display = "block";
-    enterUI();
-
-    trackingEl.textContent = "ACTIVE";
-    showStatus("Demo visual iniciada correctamente.");
-
-    window.setTimeout(() => {
-      toastEl.style.display = "none";
-    }, 900);
-
-    demoAnimationId = window.requestAnimationFrame(demoFrame);
-  } catch (error) {
-    source = "";
-    alert(`No fue posible abrir la cámara.\n\n${error.message || error}`);
-  }
+function virtualProject(p,w,h){
+ const angle=performance.now()*.00013+(viewMode===2?1.5:0);
+ const radius=viewMode===1?1.3:2.8;
+ const eye={x:mapCenter.x+Math.sin(angle)*radius,y:mapCenter.y+(viewMode===1?.25:1.15),z:mapCenter.z+Math.cos(angle)*radius};
+ let f={x:mapCenter.x-eye.x,y:mapCenter.y-eye.y,z:mapCenter.z-eye.z};
+ const fl=Math.hypot(f.x,f.y,f.z)||1;f={x:f.x/fl,y:f.y/fl,z:f.z/fl};
+ let right={x:f.z,y:0,z:-f.x};const rl=Math.hypot(right.x,right.z)||1;right={x:right.x/rl,y:0,z:right.z/rl};
+ const up={x:right.z*f.y,y:right.x*f.z-right.z*f.x,z:-right.x*f.y};
+ const d={x:p.x-eye.x,y:p.y-eye.y,z:p.z-eye.z};
+ const cx=d.x*right.x+d.y*right.y+d.z*right.z,cy=d.x*up.x+d.y*up.y+d.z*up.z,cz=d.x*f.x+d.y*f.y+d.z*f.z;
+ if(cz<=.05)return null;
+ const focal=Math.min(w,h)*.78;
+ return{x:w/2+cx/cz*focal,y:h/2-cy/cz*focal,z:cz};
 }
-
-function demoFrame(time) {
-  if (source !== "demo" || !stream) return;
-
-  const width = robotCanvas.clientWidth;
-  const height = robotCanvas.clientHeight;
-
-  rctx.fillStyle = "#010407";
-  rctx.fillRect(0, 0, width, height);
-
-  fakePhase += 0.025;
-
-  let pointCount = 0;
-  const voxels = new Set();
-  const horizon = height * 0.46;
-
-  for (let gy = 0; gy < 90; gy++) {
-    const yy = horizon + (gy / 89) * (height - horizon);
-    const depth = 1 + (gy / 89) * 6;
-    const spread = gy / 89;
-
-    for (let gx = 0; gx < 90; gx++) {
-      if (Math.random() > 0.72) continue;
-
-      const x =
-        width / 2 +
-        ((gx / 89) * width - width / 2) * (1 - spread * 0.45);
-      const y = yy + Math.sin(gx * 0.22 + fakePhase) * 2;
-
-      drawSynthetic(x, y, depth, voxels);
-      pointCount++;
-    }
-  }
-
-  for (let i = 0; i < 850; i++) {
-    const side = i % 2 === 0 ? -1 : 1;
-    const depth = 0.6 + Math.random() * 5.6;
-    const x =
-      side < 0
-        ? Math.random() * width * 0.24
-        : width * 0.76 + Math.random() * width * 0.24;
-    const y = Math.random() * height * 0.78;
-
-    drawSynthetic(x, y, depth, voxels);
-    pointCount++;
-  }
-
-  for (let i = 0; i < 1000; i++) {
-    const angle = (i / 1000) * Math.PI * 2;
-    const radiusX = width * 0.12;
-    const radiusY = height * 0.16;
-    const centerX = width * 0.67;
-    const centerY = height * 0.62;
-
-    const x =
-      centerX +
-      Math.cos(angle) * radiusX * (0.55 + Math.random() * 0.45);
-    const y =
-      centerY +
-      Math.sin(angle) * radiusY * (0.6 + Math.random() * 0.4);
-
-    drawSynthetic(x, y, 1.4 + Math.random() * 0.8, voxels);
-    pointCount++;
-  }
-
-  pointMetricEl.textContent = String(pointCount);
-  voxelMetricEl.textContent = String(voxels.size);
-  centerMetricEl.textContent = "2.3 m";
-
-  if (objectsOn) drawObjects();
-
-  tickFps(time);
-  demoAnimationId = window.requestAnimationFrame(demoFrame);
+function render(){
+ const w=robot.clientWidth,h=robot.clientHeight;
+ ctx.fillStyle="#010407";ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle="rgba(27,226,255,.08)";ctx.lineWidth=1;
+ for(let y=0;y<h;y+=18){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+ const project=viewMode===0?projectPoint:virtualProject;
+ if(mode==="points"||mode==="mix"){
+  const skip=Math.max(1,Math.floor(pointMap.size/28000));let i=0;
+  for(const p of pointMap.values()){if(i++%skip)continue;const q=project(p,w,h);if(!q||q.x<0||q.x>w||q.y<0||q.y>h)continue;const s=Math.max(.7,2.5/q.z);ctx.fillStyle=color(p.d,.92);ctx.fillRect(q.x,q.y,s,s)}
+ }
+ if(mode==="voxels"||mode==="mix"){
+  const skip=Math.max(1,Math.floor(voxelMap.size/8000));let i=0;
+  for(const p of voxelMap.values()){if(i++%skip)continue;const q=project(p,w,h);if(!q||q.x<0||q.x>w||q.y<0||q.y>h)continue;const s=Math.max(2,Math.min(13,55*voxelSize/q.z));ctx.fillStyle=color(p.d,mode==="mix"?.2:.48);ctx.strokeStyle=color(p.d,.85);ctx.fillRect(q.x-s/2,q.y-s/2,s,s);ctx.strokeRect(q.x-s/2,q.y-s/2,s,s)}
+ }
 }
-
-function drawSynthetic(x, y, depth, voxels) {
-  const scale = Math.max(0.8, 2.8 - depth * 0.25);
-
-  if (mode === "points" || mode === "mix") {
-    rctx.fillStyle = depthColor(depth, 0.9);
-    rctx.fillRect(x, y, 1.5 * scale, 1.5 * scale);
-  }
-
-  if (mode === "voxels" || mode === "mix") {
-    const size = (mode === "mix" ? 7 : 11) * scale;
-
-    rctx.fillStyle = depthColor(depth, mode === "mix" ? 0.16 : 0.38);
-    rctx.strokeStyle = depthColor(depth, 0.8);
-    rctx.fillRect(x - size / 2, y - size / 2, size, size);
-    rctx.strokeRect(x - size / 2, y - size / 2, size, size);
-
-    voxels.add(`${Math.round(x / 12)}|${Math.round(y / 12)}`);
-  }
+function loop(t,frame){
+ if(!session)return;session.requestAnimationFrame(loop);
+ const pose=frame.getViewerPose(space);
+ if(pose){
+  trackingM.textContent="ACTIVE";
+  const v=pose.views[0],tr=v.transform;
+  cameraPose={p:{x:tr.position.x,y:tr.position.y,z:tr.position.z},q:{x:tr.orientation.x,y:tr.orientation.y,z:tr.orientation.z,w:tr.orientation.w}};
+  const layer=session.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+  if(t-lastSample>130){lastSample=t;try{const di=frame.getDepthInformation(v);if(di)addDepth(di,v)}catch(e){toast.textContent="XR activo, pero no se recibió profundidad."}}
+  render();
+ }else trackingM.textContent="SEARCHING";
+ fpsCount++;if(t-lastFps>1000){fpsM.textContent=fpsCount;fpsCount=0;lastFps=t}
+ frameNo++;
 }
-
-function drawObjects() {
-  objectCanvas.style.display = "block";
-
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-
-  octx.clearRect(0, 0, width, height);
-
-  const boxes = [
-    {
-      x: width * 0.56,
-      y: height * 0.47,
-      w: width * 0.28,
-      h: height * 0.35,
-      label: "CAR",
-      confidence: 94
-    },
-    {
-      x: width * 0.08,
-      y: height * 0.28,
-      w: width * 0.18,
-      h: height * 0.3,
-      label: "BUILDING",
-      confidence: 91
-    }
-  ];
-
-  labelsEl.innerHTML = boxes
-    .map(
-      (box) =>
-        `<div class="label">${box.label}<span>${box.confidence}%</span></div>`
-    )
-    .join("");
-
-  for (const box of boxes) {
-    octx.strokeStyle = "#71ff9c";
-    octx.lineWidth = 2;
-    octx.strokeRect(box.x, box.y, box.w, box.h);
-
-    octx.fillStyle = "rgba(3,12,18,.88)";
-    octx.fillRect(box.x, box.y - 25, 120, 24);
-
-    octx.fillStyle = "#71ff9c";
-    octx.font = "12px system-ui";
-    octx.fillText(
-      `${box.label} ${box.confidence}%`,
-      box.x + 7,
-      box.y - 8
-    );
-  }
-}
-
-function clearVisualization() {
-  rctx.clearRect(0, 0, robotCanvas.clientWidth, robotCanvas.clientHeight);
-  octx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-  pointMetricEl.textContent = "0";
-  voxelMetricEl.textContent = "0";
-  showStatus("Visualización limpiada.");
-}
-
-function tickFps(time) {
-  fpsFrames++;
-
-  if (time - lastFps > 1000) {
-    fpsMetricEl.textContent = String(fpsFrames);
-    fpsFrames = 0;
-    lastFps = time;
-  }
-}
-
-function exitApp() {
-  if (demoAnimationId) {
-    window.cancelAnimationFrame(demoAnimationId);
-    demoAnimationId = 0;
-  }
-
-  if (xrSession) {
-    xrSession.end();
-  }
-
-  if (stream) {
-    stream.getTracks().forEach((track) => track.stop());
-    stream = null;
-  }
-
-  source = "";
-  objectsOn = false;
-  labelsEl.innerHTML = "";
-  octx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-  leaveUI();
-}
-
-startXRBtn.addEventListener("click", startReal);
-startDemoBtn.addEventListener("click", startDemo);
-pointsBtn.addEventListener("click", () => setMode("points"));
-voxelsBtn.addEventListener("click", () => setMode("voxels"));
-mixBtn.addEventListener("click", () => setMode("mix"));
-
-objectsBtn.addEventListener("click", () => {
-  objectsOn = !objectsOn;
-  objectsBtn.classList.toggle("active", objectsOn);
-
-  if (!objectsOn) {
-    labelsEl.innerHTML = "";
-    objectCanvas.style.display = "none";
-    octx.clearRect(0, 0, window.innerWidth, window.innerHeight);
-    showStatus("Detección de objetos desactivada.");
-  } else if (source === "xr") {
-    objectsOn = false;
-    objectsBtn.classList.remove("active");
-    alert(
-      "La detección simultánea todavía requiere acceso a la textura de cámara dentro de WebXR. Usa el modo visual con cámara para validar esta capa."
-    );
-  } else {
-    drawObjects();
-    showStatus("Capa visual de objetos activada.");
-  }
-});
-
-clearBtn.addEventListener("click", clearVisualization);
-exitBtn.addEventListener("click", exitApp);
-
-checkCapabilities();
-</script></body></html>
+function clearMap(){pointMap.clear();voxelMap.clear();pointsM.textContent="0";voxelsM.textContent="0";toast.textContent="Mapa limpiado. Vuelve a recorrer la escena.";toast.style.display="block"}
+function end(){session=null;landing.style.display="block";xrCanvas.style.display="none";robot.style.display="none";hud.style.display="none"}
+startBtn.addEventListener("click",start);
+pointsBtn.addEventListener("click",()=>setMode("points"));
+voxelsBtn.addEventListener("click",()=>setMode("voxels"));
+mixBtn.addEventListener("click",()=>setMode("mix"));
+viewBtn.addEventListener("click",()=>{viewMode=(viewMode+1)%3;viewBtn.classList.toggle("active",viewMode!==0);$("viewM").textContent=viewMode===0?"ROBOT POV":viewMode===1?"ORBIT CLOSE":"ORBIT WIDE"});
+clearBtn.addEventListener("click",clearMap);
+exitBtn.addEventListener("click",()=>session?.end());
+check();
+</script>
+</body>
+</html>
