@@ -1,237 +1,1628 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#010508">
-<title>Robot Vision XR V3 — True 3D Reconstruction</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Robot Perception · Moto G55</title>
+
+<!-- Importmap para Three.js r158 desde unpkg -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+
 <style>
-:root{--bg:#010508;--panel:rgba(3,12,18,.91);--line:rgba(27,226,255,.46);--cyan:#1be2ff;--green:#70ff9a;--amber:#ffc75e;--red:#ff667a;--text:#eaffff;--muted:#8db2bc}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,system-ui,Arial,sans-serif}
-button,input{font:inherit}
-#landing{position:fixed;inset:0;overflow:auto;padding:calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 28px);background:radial-gradient(circle at 50% 4%,rgba(27,226,255,.12),transparent 38%),#010508}
-.wrap{max-width:790px;margin:auto}.eyebrow{font-size:12px;letter-spacing:.22em;color:var(--cyan);margin-bottom:8px}h1{font-size:30px;line-height:1.08;margin:0 0 10px}.lead{color:var(--muted);line-height:1.55;margin-bottom:16px}
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.card{border:1px solid rgba(27,226,255,.22);background:rgba(7,18,25,.84);border-radius:16px;padding:14px}.card b{display:block;color:var(--cyan);margin-bottom:5px}.card span{font-size:13px;color:var(--muted);line-height:1.42}
-.status{margin-top:14px}.row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid rgba(120,180,195,.12);font-size:13px}.row:last-child{border:0}.ok{color:var(--green)}.warn{color:var(--amber)}
-.primary{width:100%;border:1px solid var(--cyan);border-radius:14px;background:#092a34;color:var(--cyan);padding:15px;margin-top:12px;font-weight:700}.primary:disabled{opacity:.4}.note{font-size:12px;color:var(--muted);line-height:1.5;margin-top:10px}
-#xrCanvas{position:fixed;inset:0;width:100%;height:100%;display:none}
-#robotCanvas{position:fixed;z-index:6;display:none;background:#010407}
-#objectVideo{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;display:none;background:#000}
-#objectCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:8;pointer-events:none}
-#hud{position:fixed;inset:0;display:none;z-index:10;pointer-events:none}
-.scan{position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(27,226,255,.024) 0,rgba(27,226,255,.024) 1px,transparent 1px,transparent 5px)}
-.top{position:absolute;top:calc(env(safe-area-inset-top) + 8px);left:8px;right:8px;display:flex;justify-content:space-between;gap:8px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 11px;backdrop-filter:blur(7px);font-size:10px;line-height:1.55}.panel strong{color:var(--cyan);letter-spacing:.08em}.metric{color:var(--green)}
-.badge{position:absolute;left:50%;top:calc(env(safe-area-inset-top) + 100px);transform:translateX(-50%);padding:6px 12px;border:1px solid var(--line);border-radius:99px;background:var(--panel);font-size:10px;color:var(--cyan);letter-spacing:.11em;white-space:nowrap}
-.toast{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom) + 80px);transform:translateX(-50%);width:min(88%,460px);text-align:center;background:rgba(18,13,2,.88);border:1px solid rgba(255,199,94,.55);border-radius:10px;padding:9px 12px;color:var(--amber);font-size:11px}
-.controls{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 9px);left:8px;right:8px;display:grid;grid-template-columns:repeat(6,1fr);gap:6px;pointer-events:auto}.controls button{border:1px solid rgba(27,226,255,.34);background:rgba(3,12,18,.94);color:var(--text);border-radius:10px;padding:10px 3px;font-size:9px}.controls button.active{border-color:var(--cyan);background:#0b303b;color:var(--cyan)}.controls .exit{border-color:rgba(255,102,122,.5);color:var(--red)}
-#densityWrap{position:absolute;right:10px;top:calc(env(safe-area-inset-top) + 104px);width:105px;padding:7px 9px;background:var(--panel);border:1px solid var(--line);border-radius:10px;pointer-events:auto;font-size:9px;color:var(--muted)}#density{width:100%}
-@media(orientation:landscape){#robotCanvas{right:0;top:0;width:50%;height:100%;border-left:1px solid var(--line)}}
-@media(orientation:portrait){#robotCanvas{left:0;bottom:0;width:100%;height:52%;border-top:1px solid var(--line)}}
-@media(max-width:650px){h1{font-size:25px}.grid{grid-template-columns:1fr}.controls button{font-size:8px}}
+/* ============================================================
+   RESET Y VARIABLES GLOBALES
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #090d12;
+  --surface: #0d1520;
+  --surface2: #111d2e;
+  --accent: #26D9D9;
+  --accent2: #3DF26B;
+  --yellow: #F2E63D;
+  --text: #c8dff0;
+  --text-dim: #5a7a99;
+  --hud-h: 52px;
+  --tab-h: 64px;
+  --font: 'Courier New', 'Consolas', monospace;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ============================================================
+   OVERLAY DE INICIO (gate screen)
+   ============================================================ */
+#gate-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(160deg, #05080f 0%, #0a1525 50%, #06101e 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px;
+  gap: 20px;
+}
+#gate-overlay .logo-title {
+  text-align: center;
+}
+#gate-overlay .logo-title h1 {
+  font-size: clamp(18px, 5vw, 28px);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(38,217,217,0.5);
+  line-height: 1.2;
+}
+#gate-overlay .logo-title .sub {
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.2em;
+  margin-top: 4px;
+}
+/* Grid animado de fondo */
+#gate-overlay::before {
+  content: '';
+  position: absolute; inset: 0; z-index: -1;
+  background-image:
+    linear-gradient(rgba(38,217,217,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38,217,217,0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  animation: gridPan 20s linear infinite;
+}
+@keyframes gridPan {
+  from { background-position: 0 0; }
+  to   { background-position: 40px 40px; }
+}
+
+.lidar-icon {
+  width: 80px; height: 80px;
+  position: relative;
+}
+.lidar-icon svg { width: 100%; height: 100%; }
+
+#gate-desc {
+  font-size: clamp(12px, 3vw, 14px);
+  color: var(--text-dim);
+  line-height: 1.6;
+  text-align: center;
+  max-width: 360px;
+}
+
+#start-btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 16px 40px;
+  cursor: pointer;
+  width: 100%;
+  max-width: 320px;
+  box-shadow: 0 0 30px rgba(38,217,217,0.4);
+  transition: transform 0.1s, box-shadow 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+#start-btn:active { transform: scale(0.97); box-shadow: 0 0 15px rgba(38,217,217,0.3); }
+#start-btn:disabled { background: #1a3a3a; color: #2a6a6a; box-shadow: none; cursor: not-allowed; }
+
+/* Barra de progreso de carga del modelo */
+#load-progress-wrap {
+  width: 100%; max-width: 320px;
+  display: none; flex-direction: column; gap: 6px;
+}
+#load-progress-wrap.visible { display: flex; }
+#load-progress-label {
+  font-size: 11px; color: var(--accent); letter-spacing: 0.1em;
+  display: flex; justify-content: space-between;
+}
+#load-progress-bar-bg {
+  width: 100%; height: 6px;
+  background: var(--surface2);
+  border-radius: 3px; overflow: hidden;
+}
+#load-progress-bar {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--accent2), var(--accent));
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+#load-status-text {
+  font-size: 10px; color: var(--text-dim);
+  text-align: center;
+}
+
+#gate-note {
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   LAYOUT PRINCIPAL
+   ============================================================ */
+#app {
+  display: none; /* se muestra al iniciar */
+  flex-direction: column;
+  width: 100%; height: 100%;
+  position: fixed; inset: 0;
+}
+#app.visible { display: flex; }
+
+/* HUD superior */
+#top-hud {
+  flex: 0 0 var(--hud-h);
+  background: rgba(9,13,18,0.95);
+  border-bottom: 1px solid rgba(38,217,217,0.15);
+  display: flex; align-items: center;
+  padding: 0 10px; gap: 8px;
+  overflow: hidden;
+}
+#app-title {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+#stats-row {
+  display: flex; gap: 10px;
+  flex: 1; overflow: hidden;
+  flex-wrap: wrap;
+  font-size: 9px; color: var(--text-dim);
+  letter-spacing: 0.05em;
+}
+.stat-item span { color: var(--accent2); font-weight: 700; }
+
+/* Error console pequeña */
+#mini-console {
+  position: fixed; bottom: calc(var(--tab-h) + 4px); left: 4px;
+  z-index: 100; width: 240px;
+  background: rgba(0,0,0,0.8);
+  border: 1px solid rgba(255,80,80,0.3);
+  border-radius: 4px; padding: 4px 6px;
+  font-size: 9px; color: #ff6060;
+  pointer-events: none; display: none;
+}
+
+/* ============================================================
+   PANEL CENTRAL: cámara + 3D
+   ============================================================ */
+#panels {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: row; /* landscape / tablet */
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* En pantalla estrecha (portrait móvil) → apila vertical */
+@media (max-aspect-ratio: 1/1) {
+  #panels { flex-direction: column; }
+}
+
+/* Panel izquierdo: cámara */
+#cam-panel {
+  flex: 1 1 0; min-width: 0; min-height: 0;
+  position: relative;
+  background: #000;
+  overflow: hidden;
+}
+#cam-label, #cloud-label {
+  position: absolute; top: 6px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  font-size: 9px; letter-spacing: 0.15em;
+  color: rgba(38,217,217,0.7);
+  background: rgba(9,13,18,0.7);
+  padding: 2px 8px; border-radius: 2px;
+  pointer-events: none; white-space: nowrap;
+}
+
+#cam-video {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Canvas overlay de detección 2D (sobre el video) */
+#detect-overlay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+
+/* Divisor central */
+#divider {
+  flex: 0 0 2px;
+  background: linear-gradient(180deg,
+    transparent, rgba(38,217,217,0.4) 20%,
+    rgba(38,217,217,0.6) 50%,
+    rgba(38,217,217,0.4) 80%, transparent);
+}
+@media (max-aspect-ratio: 1/1) {
+  #divider { flex: 0 0 2px; }
+}
+
+/* Panel derecho: Three.js */
+#three-panel {
+  flex: 1 1 0; min-width: 0; min-height: 0;
+  position: relative;
+  background: var(--bg);
+  overflow: hidden;
+}
+#three-canvas {
+  width: 100%; height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* ============================================================
+   CONTROLES EXTRA (fila de botones)
+   ============================================================ */
+#controls-row {
+  flex: 0 0 44px;
+  background: rgba(9,13,18,0.95);
+  border-top: 1px solid rgba(38,217,217,0.1);
+  display: flex; align-items: center;
+  justify-content: center; gap: 6px;
+  padding: 0 6px;
+}
+.ctrl-btn {
+  background: var(--surface2);
+  color: var(--text-dim);
+  border: 1px solid rgba(38,217,217,0.2);
+  border-radius: 4px;
+  font-family: var(--font);
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 0 10px; height: 32px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+.ctrl-btn:active { background: rgba(38,217,217,0.15); }
+.ctrl-btn.active {
+  background: rgba(38,217,217,0.12);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ============================================================
+   TAB BAR DE MODOS
+   ============================================================ */
+#tab-bar {
+  flex: 0 0 var(--tab-h);
+  background: rgba(7,10,16,0.98);
+  border-top: 1px solid rgba(38,217,217,0.2);
+  display: flex;
+  align-items: stretch;
+}
+.mode-tab {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-family: var(--font);
+  font-size: 8px; font-weight: 700;
+  letter-spacing: 0.08em;
+  transition: background 0.2s, color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  padding: 0 4px;
+  text-align: center;
+}
+.mode-tab::after {
+  content: '';
+  position: absolute; bottom: 0; left: 10%; right: 10%;
+  height: 2px; border-radius: 1px;
+  background: transparent;
+  transition: background 0.2s;
+}
+.mode-tab.active {
+  color: var(--accent);
+  background: rgba(38,217,217,0.06);
+}
+.mode-tab.active::after { background: var(--accent); }
+.mode-tab .tab-num {
+  font-size: 16px; font-weight: 900;
+  line-height: 1;
+  color: inherit;
+}
+
+/* ============================================================
+   TOAST DE ESCANEO
+   ============================================================ */
+#scan-toast {
+  position: fixed; bottom: calc(var(--tab-h) + var(--hud-h) + 10px); left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 200;
+  background: rgba(38,217,217,0.15);
+  border: 1px solid rgba(38,217,217,0.5);
+  border-radius: 8px;
+  padding: 10px 18px;
+  font-size: 11px; color: var(--accent);
+  letter-spacing: 0.08em;
+  text-align: center;
+  max-width: 280px;
+  opacity: 0;
+  transition: opacity 0.5s, transform 0.5s;
+  pointer-events: none;
+}
+#scan-toast.show {
+  opacity: 1; transform: translateX(-50%) translateY(0);
+}
+
+/* ============================================================
+   OVERLAY DE ERROR
+   ============================================================ */
+#error-overlay {
+  position: fixed; inset: 0; z-index: 9990;
+  background: rgba(5,8,15,0.97);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px; gap: 16px; text-align: center;
+}
+#error-overlay.visible { display: flex; }
+#error-title { font-size: 16px; font-weight: 700; color: #ff5050; letter-spacing: 0.1em; }
+#error-msg { font-size: 12px; color: var(--text-dim); line-height: 1.6; max-width: 320px; }
+#retry-btn {
+  background: #ff5050; color: #000; border: none;
+  border-radius: 6px; font-family: var(--font);
+  font-size: 14px; font-weight: 700;
+  padding: 12px 32px; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ============================================================
+   SPINNER / indicador de carga inline
+   ============================================================ */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  width: 24px; height: 24px;
+  border: 2px solid rgba(38,217,217,0.2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
 </style>
 </head>
 <body>
-<canvas id="xrCanvas"></canvas>
-<canvas id="robotCanvas"></canvas>
-<video id="objectVideo" autoplay playsinline muted></video>
-<canvas id="objectCanvas"></canvas>
 
-<section id="landing">
-<div class="wrap">
-  <div class="eyebrow">ROBOT VISION XR · TRUE 3D V3</div>
-  <h1>Reconstrucción espacial del entorno</h1>
-  <div class="lead">Esta versión convierte la profundidad en coordenadas tridimensionales, utiliza la pose del teléfono y conserva la geometría mientras escaneas.</div>
-  <div class="grid">
-    <div class="card"><b>POINT CLOUD 3D</b><span>Puntos almacenados en coordenadas del mundo, no una cuadrícula sobre la pantalla.</span></div>
-    <div class="card"><b>VOXEL MAP</b><span>Cuantización tridimensional de la nube acumulada para representar espacio ocupado.</span></div>
-    <div class="card"><b>OBJECT AI</b><span>Modo independiente de detección real con la cámara, preparado para COCO-SSD.</span></div>
+<!-- ============================================================
+     OVERLAY INICIAL (Gate Screen)
+     ============================================================ -->
+<div id="gate-overlay">
+  <!-- Icono LiDAR animado -->
+  <div class="lidar-icon">
+    <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- Anillos de escaneo -->
+      <circle cx="40" cy="40" r="34" stroke="rgba(38,217,217,0.15)" stroke-width="1"/>
+      <circle cx="40" cy="40" r="24" stroke="rgba(38,217,217,0.2)" stroke-width="1"/>
+      <circle cx="40" cy="40" r="14" stroke="rgba(38,217,217,0.3)" stroke-width="1"/>
+      <!-- Punto central -->
+      <circle cx="40" cy="40" r="4" fill="#26D9D9"/>
+      <!-- Rayo giratorio -->
+      <line x1="40" y1="40" x2="40" y2="6" stroke="#3DF26B" stroke-width="1.5"
+            style="transform-origin:40px 40px; animation:spin 2s linear infinite"/>
+      <!-- Puntos de nube -->
+      <circle cx="55" cy="22" r="1.5" fill="#F2E63D" opacity="0.8"/>
+      <circle cx="62" cy="38" r="1.5" fill="#3DF26B" opacity="0.8"/>
+      <circle cx="56" cy="56" r="1.5" fill="#26D9D9" opacity="0.8"/>
+      <circle cx="24" cy="58" r="1.5" fill="#2659F2" opacity="0.8"/>
+      <circle cx="16" cy="40" r="1.5" fill="#26D9D9" opacity="0.8"/>
+      <circle cx="22" cy="22" r="1.5" fill="#3DF26B" opacity="0.8"/>
+    </svg>
   </div>
-  <div class="card status">
-    <div class="row"><span>HTTPS</span><span id="secure" class="warn">comprobando</span></div>
-    <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="warn">comprobando</span></div>
-    <div class="row"><span>Depth Sensing</span><span id="depthStatus" class="warn">se valida al iniciar</span></div>
+
+  <div class="logo-title">
+    <h1>ROBOT PERCEPTION</h1>
+    <h1>VISION DEL ROBOT</h1>
+    <div class="sub">MOTO G55 · DEMO EJECUTIVO</div>
   </div>
-  <button id="startBtn" class="primary" disabled>INICIAR ESCANEO 3D REAL</button>
-  <div class="note">Apunta primero a una esquina donde coincidan piso y paredes. Muévete lentamente de lado a lado durante 10–20 segundos. Las superficies sin textura pueden producir profundidad uniforme o incompleta.</div>
+
+  <p id="gate-desc">
+    Tu telefono simula la percepcion de un robot: la IA estima profundidad
+    desde la camara y reconstruye la escena en 3D en tiempo real&mdash;sin instalar nada.
+  </p>
+
+  <!-- Barra de progreso del modelo -->
+  <div id="load-progress-wrap">
+    <div id="load-progress-label">
+      <span>CARGANDO MODELO DE IA</span>
+      <span id="load-pct">0%</span>
+    </div>
+    <div id="load-progress-bar-bg"><div id="load-progress-bar"></div></div>
+    <div id="load-status-text">Iniciando...</div>
+  </div>
+
+  <button id="start-btn">&#9654; INICIAR DEMO</button>
+
+  <p id="gate-note">
+    Primera carga: descarga el modelo de IA (~100 MB).<br>
+    Despues funciona con datos cacheados del navegador.
+  </p>
 </div>
-</section>
 
-<section id="hud">
-  <div class="scan"></div>
-  <div id="badge" class="badge">POINT CLOUD · WORLD SPACE</div>
-  <div class="top">
-    <div class="panel"><strong>ROBOT VISION</strong><br>SOURCE <span id="sourceM" class="metric">ARCORE DEPTH</span><br>TRACKING <span id="trackingM" class="metric">SEARCHING</span><br>VIEW <span id="viewM" class="metric">ORBIT 3D</span></div>
-    <div class="panel" style="text-align:right">POINTS <span id="pointsM" class="metric">0</span><br>VOXELS <span id="voxelsM" class="metric">0</span><br>RANGE <span id="rangeM" class="metric">--</span><br>FPS <span id="fpsM" class="metric">0</span></div>
+<!-- ============================================================
+     OVERLAY DE ERROR
+     ============================================================ -->
+<div id="error-overlay">
+  <div id="error-title">ERROR DE INICIALIZACION</div>
+  <p id="error-msg"></p>
+  <button id="retry-btn" onclick="location.reload()">REINTENTAR</button>
+</div>
+
+<!-- ============================================================
+     APLICACION PRINCIPAL
+     ============================================================ -->
+<div id="app">
+
+  <!-- HUD Superior -->
+  <div id="top-hud">
+    <div id="app-title">ROBOT&nbsp;PERCEPTION</div>
+    <div id="stats-row">
+      <div class="stat-item">FPS:&nbsp;<span id="stat-fps">--</span></div>
+      <div class="stat-item">PTS:&nbsp;<span id="stat-pts">--</span></div>
+      <div class="stat-item">VOX:&nbsp;<span id="stat-vox">--</span></div>
+      <div class="stat-item">OBJ:&nbsp;<span id="stat-obj">--</span></div>
+      <div class="stat-item">BE:&nbsp;<span id="stat-be">--</span></div>
+    </div>
   </div>
-  <div id="densityWrap">DENSIDAD<input id="density" type="range" min="2" max="10" value="5"></div>
-  <div id="toast" class="toast">Mueve el teléfono lentamente para construir el mapa.</div>
-  <div class="controls">
-    <button id="pointsBtn" class="active">PUNTOS</button>
-    <button id="voxelsBtn">VOXELES</button>
-    <button id="mixBtn">MIX</button>
-    <button id="viewBtn">VISTA</button>
-    <button id="clearBtn">LIMPIAR</button>
-    <button id="exitBtn" class="exit">SALIR</button>
+
+  <!-- Paneles cámara + 3D -->
+  <div id="panels">
+    <!-- Panel Cámara -->
+    <div id="cam-panel">
+      <div id="cam-label">IMAGEN CAMARA · REAL</div>
+      <video id="cam-video" autoplay playsinline muted></video>
+      <canvas id="detect-overlay"></canvas>
+    </div>
+
+    <div id="divider"></div>
+
+    <!-- Panel Three.js -->
+    <div id="three-panel">
+      <div id="cloud-label">NUBE DE PUNTOS LiDAR · 3D</div>
+      <canvas id="three-canvas"></canvas>
+    </div>
   </div>
-</section>
 
-<script>
-"use strict";
-const $=id=>document.getElementById(id);
-const landing=$("landing"),hud=$("hud"),xrCanvas=$("xrCanvas"),robot=$("robotCanvas");
-const startBtn=$("startBtn"),pointsBtn=$("pointsBtn"),voxelsBtn=$("voxelsBtn"),mixBtn=$("mixBtn"),viewBtn=$("viewBtn"),clearBtn=$("clearBtn"),exitBtn=$("exitBtn");
-const secure=$("secure"),xrStatus=$("xrStatus"),depthStatus=$("depthStatus"),trackingM=$("trackingM"),pointsM=$("pointsM"),voxelsM=$("voxelsM"),rangeM=$("rangeM"),fpsM=$("fpsM"),badge=$("badge"),toast=$("toast"),density=$("density");
-const ctx=robot.getContext("2d",{alpha:false});
-let session=null,space=null,gl=null,mode="points",viewMode=0;
-let pointMap=new Map(),voxelMap=new Map(),frameNo=0,lastSample=0,lastFps=performance.now(),fpsCount=0;
-let mapCenter={x:0,y:0,z:-2},cameraPose=null;
-const maxPoints=65000,voxelSize=.075;
+  <!-- Fila de controles extra -->
+  <div id="controls-row">
+    <button class="ctrl-btn" id="btn-color">COLOR</button>
+    <button class="ctrl-btn" id="btn-vista">VISTA</button>
+    <button class="ctrl-btn" id="btn-pausa">PAUSA</button>
+    <button class="ctrl-btn" id="btn-reset">REINICIAR</button>
+    <div style="flex:0 0 auto; display:flex; align-items:center; gap:4px;" id="backend-indicator">
+      <div class="spinner" id="loading-spinner" style="display:none"></div>
+    </div>
+  </div>
 
-function resize(){
- const dpr=Math.min(devicePixelRatio||1,2),r=robot.getBoundingClientRect();
- robot.width=Math.max(1,Math.round(r.width*dpr));robot.height=Math.max(1,Math.round(r.height*dpr));
- ctx.setTransform(dpr,0,0,dpr,0,0);
-}
-addEventListener("resize",()=>setTimeout(resize,80));
+  <!-- Tab bar de modos -->
+  <div id="tab-bar">
+    <button class="mode-tab active" data-mode="cloud" id="tab-cloud">
+      <span class="tab-num">1</span>
+      <span>POINT CLOUD</span>
+    </button>
+    <button class="mode-tab" data-mode="voxel" id="tab-voxel">
+      <span class="tab-num">2</span>
+      <span>VOXEL WORLD</span>
+    </button>
+    <button class="mode-tab" data-mode="detect" id="tab-detect">
+      <span class="tab-num">3</span>
+      <span>DETECTAR</span>
+    </button>
+  </div>
+</div>
 
-async function check(){
- secure.textContent=isSecureContext?"OK":"NO HTTPS";secure.className=isSecureContext?"ok":"warn";
- if(!navigator.xr){xrStatus.textContent="NO DISPONIBLE";return}
- try{const ok=await navigator.xr.isSessionSupported("immersive-ar");xrStatus.textContent=ok?"COMPATIBLE":"NO COMPATIBLE";xrStatus.className=ok?"ok":"warn";startBtn.disabled=!ok}catch(e){xrStatus.textContent="ERROR"}
+<!-- Toast de escaneo -->
+<div id="scan-toast">Mueve el telefono lentamente de lado a lado para escanear la escena</div>
+
+<!-- Mini console de errores -->
+<div id="mini-console"></div>
+
+<!-- Script principal: módulo ES con importmap para Three.js -->
+<script type="module">
+/*
+ * ============================================================
+ * ROBOT PERCEPTION DEMO — index.html
+ * Script principal ES Module
+ * Todos los comentarios en español
+ * ============================================================
+ */
+
+// --- Importaciones de Three.js (via importmap) ---
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ============================================================
+// REFERENCIAS DOM
+// ============================================================
+const gateOverlay      = document.getElementById('gate-overlay');
+const startBtn         = document.getElementById('start-btn');
+const loadProgressWrap = document.getElementById('load-progress-wrap');
+const loadProgressBar  = document.getElementById('load-progress-bar');
+const loadPct          = document.getElementById('load-pct');
+const loadStatusText   = document.getElementById('load-status-text');
+const appDiv           = document.getElementById('app');
+const errorOverlay     = document.getElementById('error-overlay');
+const errorMsg         = document.getElementById('error-msg');
+const camVideo         = document.getElementById('cam-video');
+const detectOverlay    = document.getElementById('detect-overlay');
+const threeCanvas      = document.getElementById('three-canvas');
+const cloudLabel       = document.getElementById('cloud-label');
+const scanToast        = document.getElementById('scan-toast');
+const miniConsole      = document.getElementById('mini-console');
+const loadingSpinner   = document.getElementById('loading-spinner');
+
+// Stats
+const statFps  = document.getElementById('stat-fps');
+const statPts  = document.getElementById('stat-pts');
+const statVox  = document.getElementById('stat-vox');
+const statObj  = document.getElementById('stat-obj');
+const statBe   = document.getElementById('stat-be');
+
+// Controles
+const btnColor  = document.getElementById('btn-color');
+const btnVista  = document.getElementById('btn-vista');
+const btnPausa  = document.getElementById('btn-pausa');
+const btnReset  = document.getElementById('btn-reset');
+
+// Tabs
+const tabs = document.querySelectorAll('.mode-tab');
+
+// ============================================================
+// ESTADO GLOBAL
+// ============================================================
+const STATE = {
+  mode: 'cloud',          // 'cloud' | 'voxel' | 'detect'
+  colorMode: 'distance',  // 'distance' | 'real'
+  vistaFps: false,        // primera persona vs orbita
+  paused: false,
+  backend: 'CPU',
+  modelReady: false,
+  cocoReady: false,
+  camStream: null,
+  lastInteraction: 0,
+  activePoints: 0,
+  activeVoxels: 0,
+  detectedObjects: 0,
+  fps: 0,
+  errorLog: [],
+};
+
+// ============================================================
+// UTILIDADES DE LOG / ERROR
+// ============================================================
+function logError(msg) {
+  STATE.errorLog.push(msg);
+  if (STATE.errorLog.length > 3) STATE.errorLog.shift();
+  miniConsole.style.display = 'block';
+  miniConsole.innerHTML = STATE.errorLog.map(m => `> ${m}`).join('<br>');
+  console.error('[RobotPerception]', msg);
 }
-async function getSpace(s){
- for(const type of ["local-floor","local","unbounded","viewer"]){try{return await s.requestReferenceSpace(type)}catch(e){}}
- throw new Error("No existe un espacio de referencia compatible.");
+
+function showError(title, msg) {
+  document.getElementById('error-title').textContent = title;
+  errorMsg.innerHTML = msg;
+  errorOverlay.classList.add('visible');
 }
-function matTransform(m,x,y,z){
- return {
-  x:m[0]*x+m[4]*y+m[8]*z+m[12],
-  y:m[1]*x+m[5]*y+m[9]*z+m[13],
-  z:m[2]*x+m[6]*y+m[10]*z+m[14]
- };
-}
-function quatRotateInverse(q,v){
- const x=-q.x,y=-q.y,z=-q.z,w=q.w;
- const ix=w*v.x+y*v.z-z*v.y,iy=w*v.y+z*v.x-x*v.z,iz=w*v.z+x*v.y-y*v.x,iw=-x*v.x-y*v.y-z*v.z;
- return {x:ix*w+iw*(-x)+iy*(-z)-iz*(-y),y:iy*w+iw*(-y)+iz*(-x)-ix*(-z),z:iz*w+iw*(-z)+ix*(-y)-iy*(-x)};
-}
-function color(d,a=1){
- const t=Math.max(0,Math.min(1,(d-.3)/6)),h=8+t*210;
- return `hsla(${h},96%,58%,${a})`;
-}
-function setMode(m){
- mode=m;pointsBtn.classList.toggle("active",m==="points");voxelsBtn.classList.toggle("active",m==="voxels");mixBtn.classList.toggle("active",m==="mix");
- badge.textContent=(m==="points"?"POINT CLOUD":m==="voxels"?"VOXEL WORLD":"POINTS + VOXELS")+" · WORLD SPACE";
-}
-async function start(){
- try{
-  gl=xrCanvas.getContext("webgl",{xrCompatible:true,alpha:true,antialias:false});
-  if(!gl)throw new Error("No fue posible crear WebGL.");
-  if(gl.makeXRCompatible)await gl.makeXRCompatible();
-  session=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["depth-sensing","dom-overlay"],optionalFeatures:["local-floor","local","unbounded"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});
-  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});
-  space=await getSpace(session);
-  depthStatus.textContent="ACTIVA · "+(session.depthUsage||"CPU");depthStatus.className="ok";
-  landing.style.display="none";xrCanvas.style.display="block";robot.style.display="block";hud.style.display="block";resize();
-  session.addEventListener("end",end);
-  session.requestAnimationFrame(loop);
- }catch(e){alert("No se pudo iniciar el escaneo 3D.\n\n"+(e.message||e))}
-}
-function addDepth(depthInfo,view){
- const step=Number(density.value),proj=view.projectionMatrix,fx=proj[0],fy=proj[5],world=view.transform.matrix;
- let min=Infinity,max=0,added=0;
- for(let py=0;py<depthInfo.height;py+=step){
-  for(let px=0;px<depthInfo.width;px+=step){
-   const u=(px+.5)/depthInfo.width,v=(py+.5)/depthInfo.height;
-   let d;try{d=depthInfo.getDepthInMeters(u,v)}catch(e){continue}
-   if(!Number.isFinite(d)||d<.28||d>7)continue;
-   const ndcX=u*2-1,ndcY=1-v*2;
-   const localX=ndcX*d/fx,localY=ndcY*d/fy,localZ=-d;
-   const p=matTransform(world,localX,localY,localZ);
-   const key=`${Math.round(p.x/.035)}|${Math.round(p.y/.035)}|${Math.round(p.z/.035)}`;
-   if(!pointMap.has(key)){pointMap.set(key,{x:p.x,y:p.y,z:p.z,d});added++}
-   const vk=`${Math.round(p.x/voxelSize)}|${Math.round(p.y/voxelSize)}|${Math.round(p.z/voxelSize)}`;
-   if(!voxelMap.has(vk))voxelMap.set(vk,{x:Math.round(p.x/voxelSize)*voxelSize,y:Math.round(p.y/voxelSize)*voxelSize,z:Math.round(p.z/voxelSize)*voxelSize,d});
-   min=Math.min(min,d);max=Math.max(max,d);
+
+// ============================================================
+// WAKE LOCK: mantener pantalla encendida
+// ============================================================
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      await navigator.wakeLock.request('screen');
+    } catch(e) {
+      // No crítico — puede fallar en algunos contextos
+    }
   }
- }
- while(pointMap.size>maxPoints)pointMap.delete(pointMap.keys().next().value);
- while(voxelMap.size>15000)voxelMap.delete(voxelMap.keys().next().value);
- pointsM.textContent=pointMap.size;voxelsM.textContent=voxelMap.size;
- if(min<Infinity)rangeM.textContent=`${min.toFixed(1)}–${max.toFixed(1)}m`;
- toast.style.display=pointMap.size>500?"none":"block";
- updateCenter();
 }
-function updateCenter(){
- if(!pointMap.size)return;
- let sx=0,sy=0,sz=0,n=0;
- const skip=Math.max(1,Math.floor(pointMap.size/2000));
- let i=0;
- for(const p of pointMap.values()){if(i++%skip)continue;sx+=p.x;sy+=p.y;sz+=p.z;n++}
- mapCenter={x:sx/n,y:sy/n,z:sz/n};
+
+// ============================================================
+// CANVAS OCULTO PARA CAPTURA DE FRAMES
+// Tamaño fijo 256×192 para inferencia rápida
+// ============================================================
+const INFER_W = 256, INFER_H = 192;
+const hiddenCanvas = document.createElement('canvas');
+hiddenCanvas.width  = INFER_W;
+hiddenCanvas.height = INFER_H;
+const hiddenCtx = hiddenCanvas.getContext('2d', { willReadFrequently: true });
+
+// Canvas auxiliar para obtener RGB del frame
+const rgbCanvas = document.createElement('canvas');
+rgbCanvas.width  = INFER_W;
+rgbCanvas.height = INFER_H;
+const rgbCtx = rgbCanvas.getContext('2d', { willReadFrequently: true });
+
+// ============================================================
+// CONFIGURACIÓN DE LA NUBE DE PUNTOS
+// ============================================================
+const MAXP     = 26000;   // máximo de puntos
+const ZMIN     = 0.6;     // mínima distancia de reproyección (m)
+const ZMAX     = 7.0;     // máxima distancia de reproyección (m)
+const GRID_SUB = 4;       // cada cuántos píxeles muestreamos en X e Y
+
+// Buffers pre-alocados (NO se reasignan por frame)
+const posArr   = new Float32Array(MAXP * 3);  // X,Y,Z
+const colArr   = new Float32Array(MAXP * 3);  // R,G,B
+let   nPoints  = 0;
+
+// Mapa de profundidad normalizado (por frame)
+let depthData = null; // Float32Array del modelo
+let depthW = 0, depthH = 0;
+
+// ============================================================
+// PALETA TURBO-LIKE: 4 stops de color por distancia
+// t=0 (cerca) → amarillo, t=0.33 → verde, t=0.66 → cian, t=1 (lejos) → azul
+// ============================================================
+const COLOR_STOPS = [
+  { t: 0.00, r: 0xF2/255, g: 0xE6/255, b: 0x3D/255 }, // #F2E63D amarillo
+  { t: 0.33, r: 0x3D/255, g: 0xF2/255, b: 0x6B/255 }, // #3DF26B verde
+  { t: 0.66, r: 0x26/255, g: 0xD9/255, b: 0xD9/255 }, // #26D9D9 cian
+  { t: 1.00, r: 0x26/255, g: 0x59/255, b: 0xF2/255 }, // #2659F2 azul
+];
+
+function distanceColor(t) {
+  // Interpolación lineal entre stops
+  t = Math.max(0, Math.min(1, t));
+  let lo = COLOR_STOPS[0], hi = COLOR_STOPS[COLOR_STOPS.length-1];
+  for (let i = 0; i < COLOR_STOPS.length-1; i++) {
+    if (t >= COLOR_STOPS[i].t && t <= COLOR_STOPS[i+1].t) {
+      lo = COLOR_STOPS[i]; hi = COLOR_STOPS[i+1]; break;
+    }
+  }
+  const f = (hi.t === lo.t) ? 0 : (t - lo.t) / (hi.t - lo.t);
+  return {
+    r: lo.r + f*(hi.r-lo.r),
+    g: lo.g + f*(hi.g-lo.g),
+    b: lo.b + f*(hi.b-lo.b),
+  };
 }
-function projectPoint(p,w,h){
- if(!cameraPose)return null;
- let rel={x:p.x-cameraPose.p.x,y:p.y-cameraPose.p.y,z:p.z-cameraPose.p.z};
- rel=quatRotateInverse(cameraPose.q,rel);
- const focal=Math.min(w,h)*.82;
- if(rel.z>=-.08)return null;
- return {x:w/2+(rel.x/-rel.z)*focal,y:h/2-(rel.y/-rel.z)*focal,z:-rel.z};
+
+// ============================================================
+// ETIQUETAS EN ESPAÑOL PARA COCO-SSD
+// ============================================================
+const COCO_ES = {
+  'person':'PERSONA','car':'AUTO','bicycle':'BICICLETA',
+  'motorcycle':'MOTO','dog':'PERRO','cat':'GATO',
+  'chair':'SILLA','bottle':'BOTELLA','cup':'TAZA',
+  'cell phone':'CELULAR','laptop':'LAPTOP','tv':'PANTALLA',
+  'backpack':'MOCHILA','book':'LIBRO','potted plant':'PLANTA',
+  'clock':'RELOJ','dining table':'MESA','couch':'SOFA',
+  'bed':'CAMA','bird':'PAJARO',
+};
+function esLabel(cls) { return COCO_ES[cls] || cls.toUpperCase(); }
+
+// ============================================================
+// VARIABLES TRANSFORMERS.JS
+// ============================================================
+let depthPipeline = null;
+
+// ============================================================
+// VARIABLES THREE.JS
+// ============================================================
+let renderer, scene, camera, controls;
+let pointsGeom, pointsMat, pointsMesh;
+let gridHelper;
+let instancedVoxel, voxelDummy;
+let detectionMarkers = []; // esferas/texto 3D para detecciones
+const MAX_VOXELS = 12000;
+
+// ============================================================
+// CÁMARA Y CONTROLES THREE.JS
+// ============================================================
+function initThree() {
+  const panel = document.getElementById('three-panel');
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ canvas: threeCanvas, antialias: false, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(panel.offsetWidth, panel.offsetHeight);
+  renderer.setClearColor(0x090d12, 1);
+
+  // Escena con niebla suave
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x090d12, 0.08);
+
+  // Cámara: empieza detrás de la nube mirando hacia -Z
+  camera = new THREE.PerspectiveCamera(60, panel.offsetWidth / panel.offsetHeight, 0.1, 50);
+  camera.position.set(0, 1.5, 4.5);
+  camera.lookAt(0, 0, -1);
+
+  // Iluminación (para voxeles)
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambient);
+  const dirLight = new THREE.DirectionalLight(0x26D9D9, 1.2);
+  dirLight.position.set(5, 8, 5);
+  scene.add(dirLight);
+
+  // OrbitControls
+  controls = new OrbitControls(camera, threeCanvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.maxDistance = 20;
+  controls.target.set(0, 0, -2);
+  controls.addEventListener('start', () => { STATE.lastInteraction = Date.now(); });
+
+  // Grid en el suelo (orientación horizontal)
+  gridHelper = new THREE.GridHelper(20, 40, 0x112233, 0x0d1a28);
+  gridHelper.position.y = -1.5;
+  scene.add(gridHelper);
+
+  // ---- NUBE DE PUNTOS ----
+  pointsGeom = new THREE.BufferGeometry();
+  // Atributos pre-alocados con el tamaño máximo
+  const posAttr = new THREE.BufferAttribute(posArr, 3);
+  posAttr.setUsage(THREE.DynamicDrawUsage);
+  const colAttr = new THREE.BufferAttribute(colArr, 3);
+  colAttr.setUsage(THREE.DynamicDrawUsage);
+  pointsGeom.setAttribute('position', posAttr);
+  pointsGeom.setAttribute('color', colAttr);
+  pointsGeom.setDrawRange(0, 0); // vacío al inicio
+
+  // Shader personalizado para puntos circulares y suaves
+  pointsMat = new THREE.PointsMaterial({
+    size: 0.035,
+    vertexColors: true,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.92,
+    depthWrite: false,
+  });
+
+  pointsMesh = new THREE.Points(pointsGeom, pointsMat);
+  scene.add(pointsMesh);
+
+  // ---- INSTANCED MESH PARA VOXELES ----
+  const boxGeo = new THREE.BoxGeometry(0.10, 0.10, 0.10);
+  const boxMat = new THREE.MeshStandardMaterial({ vertexColors: false });
+  instancedVoxel = new THREE.InstancedMesh(boxGeo, boxMat, MAX_VOXELS);
+  instancedVoxel.count = 0;
+  instancedVoxel.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  // Buffer de color de instancia
+  instancedVoxel.instanceColor = new THREE.InstancedBufferAttribute(
+    new Float32Array(MAX_VOXELS * 3), 3
+  );
+  instancedVoxel.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  scene.add(instancedVoxel);
+  instancedVoxel.visible = false;
+
+  voxelDummy = new THREE.Object3D();
+
+  // Resize observer para ajustar renderer
+  const ro = new ResizeObserver(() => resizeRenderer());
+  ro.observe(panel);
 }
-function virtualProject(p,w,h){
- const angle=performance.now()*.00013+(viewMode===2?1.5:0);
- const radius=viewMode===1?1.3:2.8;
- const eye={x:mapCenter.x+Math.sin(angle)*radius,y:mapCenter.y+(viewMode===1?.25:1.15),z:mapCenter.z+Math.cos(angle)*radius};
- let f={x:mapCenter.x-eye.x,y:mapCenter.y-eye.y,z:mapCenter.z-eye.z};
- const fl=Math.hypot(f.x,f.y,f.z)||1;f={x:f.x/fl,y:f.y/fl,z:f.z/fl};
- let right={x:f.z,y:0,z:-f.x};const rl=Math.hypot(right.x,right.z)||1;right={x:right.x/rl,y:0,z:right.z/rl};
- const up={x:right.z*f.y,y:right.x*f.z-right.z*f.x,z:-right.x*f.y};
- const d={x:p.x-eye.x,y:p.y-eye.y,z:p.z-eye.z};
- const cx=d.x*right.x+d.y*right.y+d.z*right.z,cy=d.x*up.x+d.y*up.y+d.z*up.z,cz=d.x*f.x+d.y*f.y+d.z*f.z;
- if(cz<=.05)return null;
- const focal=Math.min(w,h)*.78;
- return{x:w/2+cx/cz*focal,y:h/2-cy/cz*focal,z:cz};
+
+function resizeRenderer() {
+  const panel = document.getElementById('three-panel');
+  const w = panel.offsetWidth, h = panel.offsetHeight;
+  if (w === 0 || h === 0) return;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
 }
-function render(){
- const w=robot.clientWidth,h=robot.clientHeight;
- ctx.fillStyle="#010407";ctx.fillRect(0,0,w,h);
- ctx.strokeStyle="rgba(27,226,255,.08)";ctx.lineWidth=1;
- for(let y=0;y<h;y+=18){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
- const project=viewMode===0?projectPoint:virtualProject;
- if(mode==="points"||mode==="mix"){
-  const skip=Math.max(1,Math.floor(pointMap.size/28000));let i=0;
-  for(const p of pointMap.values()){if(i++%skip)continue;const q=project(p,w,h);if(!q||q.x<0||q.x>w||q.y<0||q.y>h)continue;const s=Math.max(.7,2.5/q.z);ctx.fillStyle=color(p.d,.92);ctx.fillRect(q.x,q.y,s,s)}
- }
- if(mode==="voxels"||mode==="mix"){
-  const skip=Math.max(1,Math.floor(voxelMap.size/8000));let i=0;
-  for(const p of voxelMap.values()){if(i++%skip)continue;const q=project(p,w,h);if(!q||q.x<0||q.x>w||q.y<0||q.y>h)continue;const s=Math.max(2,Math.min(13,55*voxelSize/q.z));ctx.fillStyle=color(p.d,mode==="mix"?.2:.48);ctx.strokeStyle=color(p.d,.85);ctx.fillRect(q.x-s/2,q.y-s/2,s,s);ctx.strokeRect(q.x-s/2,q.y-s/2,s,s)}
- }
+
+// ============================================================
+// ACCESO A LA CÁMARA
+// ============================================================
+async function startCamera() {
+  // Verificar HTTPS (requerido por getUserMedia)
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    showError('HTTPS REQUERIDO',
+      'La camara solo funciona en HTTPS.<br>Este demo debe abrirse desde<br>' +
+      '<b>https://tu-usuario.github.io/...</b><br>' +
+      'No funcionara en HTTP simple.');
+    throw new Error('HTTPS requerido');
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showError('CAMARA NO DISPONIBLE',
+      'Este navegador no soporta acceso a camara.<br>Usa Chrome Android 90+.');
+    throw new Error('getUserMedia no disponible');
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: 'environment' },
+        width:  { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+      audio: false,
+    });
+    STATE.camStream = stream;
+    camVideo.srcObject = stream;
+    await new Promise((res, rej) => {
+      camVideo.onloadedmetadata = res;
+      camVideo.onerror = rej;
+    });
+    await camVideo.play();
+
+    // Ajustar overlay de detección al tamaño del video
+    detectOverlay.width  = camVideo.videoWidth  || 640;
+    detectOverlay.height = camVideo.videoHeight || 480;
+  } catch(e) {
+    let hint = e.message || String(e);
+    if (e.name === 'NotAllowedError')
+      hint = 'Permiso denegado. Ve a Ajustes > Chrome > Camara y permite el acceso.';
+    else if (e.name === 'NotFoundError')
+      hint = 'No se encontro camara trasera en este dispositivo.';
+    else if (e.name === 'NotReadableError')
+      hint = 'La camara esta en uso por otra app.';
+    showError('ERROR DE CAMARA', `${hint}<br><br><small>Abre desde HTTPS (GitHub Pages).</small>`);
+    throw e;
+  }
 }
-function loop(t,frame){
- if(!session)return;session.requestAnimationFrame(loop);
- const pose=frame.getViewerPose(space);
- if(pose){
-  trackingM.textContent="ACTIVE";
-  const v=pose.views[0],tr=v.transform;
-  cameraPose={p:{x:tr.position.x,y:tr.position.y,z:tr.position.z},q:{x:tr.orientation.x,y:tr.orientation.y,z:tr.orientation.z,w:tr.orientation.w}};
-  const layer=session.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
-  if(t-lastSample>130){lastSample=t;try{const di=frame.getDepthInformation(v);if(di)addDepth(di,v)}catch(e){toast.textContent="XR activo, pero no se recibió profundidad."}}
-  render();
- }else trackingM.textContent="SEARCHING";
- fpsCount++;if(t-lastFps>1000){fpsM.textContent=fpsCount;fpsCount=0;lastFps=t}
- frameNo++;
+
+// ============================================================
+// CARGA DE TRANSFORMERS.JS Y MODELO DE PROFUNDIDAD
+// ============================================================
+async function loadDepthModel() {
+  loadProgressWrap.classList.add('visible');
+  loadStatusText.textContent = 'Cargando Transformers.js...';
+  loadProgressBar.style.width = '5%';
+  loadPct.textContent = '5%';
+
+  // Cargamos Transformers.js via ESM CDN
+  let transformers;
+  try {
+    transformers = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3/dist/transformers.min.js');
+  } catch(e) {
+    throw new Error('No se pudo cargar Transformers.js: ' + e.message);
+  }
+
+  const { pipeline, env } = transformers;
+
+  // Configurar cache del navegador
+  env.useBrowserCache    = true;
+  env.allowLocalModels   = false;
+
+  loadStatusText.textContent = 'Iniciando WebGPU...';
+  loadProgressBar.style.width = '10%';
+  loadPct.textContent = '10%';
+
+  // Intentar WebGPU primero, luego WASM/CPU
+  let pipelineOpts;
+  let backendUsed;
+
+  const hasWebGPU = !!(navigator.gpu);
+
+  if (hasWebGPU) {
+    pipelineOpts = { device: 'webgpu', dtype: 'fp16' };
+    backendUsed  = 'WebGPU';
+    loadStatusText.textContent = 'Usando WebGPU (FP16)...';
+  } else {
+    pipelineOpts = { device: 'wasm', dtype: 'q8' };
+    backendUsed  = 'CPU/WASM';
+    loadStatusText.textContent = 'WebGPU no disponible, usando WASM (Q8)...';
+  }
+
+  // Función de progreso de descarga
+  const progressCallback = (event) => {
+    if (event.status === 'progress' && event.total) {
+      const pct = Math.round((event.loaded / event.total) * 80) + 15;
+      const clampedPct = Math.min(95, pct);
+      loadProgressBar.style.width = clampedPct + '%';
+      loadPct.textContent = clampedPct + '%';
+      const mb = (event.loaded / 1024 / 1024).toFixed(1);
+      loadStatusText.textContent = `Descargando modelo... ${mb} MB`;
+    } else if (event.status === 'ready') {
+      loadProgressBar.style.width = '98%';
+      loadPct.textContent = '98%';
+      loadStatusText.textContent = 'Modelo listo';
+    }
+  };
+
+  try {
+    depthPipeline = await pipeline(
+      'depth-estimation',
+      'onnx-community/depth-anything-v2-small',
+      { ...pipelineOpts, progress_callback: progressCallback }
+    );
+    STATE.backend = backendUsed;
+  } catch(e) {
+    // Fallback a WASM si WebGPU falló
+    if (hasWebGPU) {
+      logError('WebGPU falló, retrocediendo a WASM: ' + e.message);
+      loadStatusText.textContent = 'Retrocediendo a WASM...';
+      pipelineOpts = { device: 'wasm', dtype: 'q8' };
+      backendUsed  = 'CPU/WASM';
+      depthPipeline = await pipeline(
+        'depth-estimation',
+        'onnx-community/depth-anything-v2-small',
+        { ...pipelineOpts, progress_callback: progressCallback }
+      );
+      STATE.backend = backendUsed;
+    } else {
+      throw e;
+    }
+  }
+
+  loadProgressBar.style.width = '100%';
+  loadPct.textContent = '100%';
+  loadStatusText.textContent = 'Modelo cargado correctamente';
+  STATE.modelReady = true;
+  statBe.textContent = STATE.backend;
 }
-function clearMap(){pointMap.clear();voxelMap.clear();pointsM.textContent="0";voxelsM.textContent="0";toast.textContent="Mapa limpiado. Vuelve a recorrer la escena.";toast.style.display="block"}
-function end(){session=null;landing.style.display="block";xrCanvas.style.display="none";robot.style.display="none";hud.style.display="none"}
-startBtn.addEventListener("click",start);
-pointsBtn.addEventListener("click",()=>setMode("points"));
-voxelsBtn.addEventListener("click",()=>setMode("voxels"));
-mixBtn.addEventListener("click",()=>setMode("mix"));
-viewBtn.addEventListener("click",()=>{viewMode=(viewMode+1)%3;viewBtn.classList.toggle("active",viewMode!==0);$("viewM").textContent=viewMode===0?"ROBOT POV":viewMode===1?"ORBIT CLOSE":"ORBIT WIDE"});
-clearBtn.addEventListener("click",clearMap);
-exitBtn.addEventListener("click",()=>session?.end());
-check();
+
+// ============================================================
+// CARGA DE TENSORFLOW + COCO-SSD (script tags, no ESM)
+// Se hace bajo demanda cuando el usuario activa modo detect
+// ============================================================
+let cocoModel = null;
+let cocoLoading = false;
+
+function loadCocoPipeline() {
+  if (STATE.cocoReady || cocoLoading) return;
+  cocoLoading = true;
+
+  const loadScript = (src) => new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+
+  loadStatusText.textContent = 'Cargando TensorFlow.js...';
+
+  Promise.resolve()
+    .then(() => loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js'))
+    .then(() => loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js'))
+    .then(() => {
+      if (typeof cocoSsd === 'undefined') throw new Error('cocoSsd global no encontrado');
+      return cocoSsd.load({ base: 'lite_mobilenet_v2' });
+    })
+    .then(model => {
+      cocoModel = model;
+      STATE.cocoReady = true;
+      cocoLoading = false;
+      logError = () => {}; // limpiar no-error
+    })
+    .catch(e => {
+      logError('COCO-SSD: ' + e.message);
+      cocoLoading = false;
+    });
+}
+
+// ============================================================
+// INFERENCIA DE PROFUNDIDAD
+// Lee frame de la cámara → hiddenCanvas → pipeline → depthData
+// ============================================================
+let inferring = false;
+
+async function runDepthInference() {
+  if (!STATE.modelReady || !depthPipeline || inferring) return;
+  if (camVideo.readyState < 2) return;
+
+  inferring = true;
+  try {
+    // Dibujar frame actual en canvas oculto
+    hiddenCtx.drawImage(camVideo, 0, 0, INFER_W, INFER_H);
+
+    // Ejecutar inferencia
+    const res = await depthPipeline(hiddenCanvas);
+
+    // Extraer datos de profundidad — formato Transformers.js v3
+    // res.depth es un objeto con .data (Float32Array), .width, .height
+    let ddata, dw, dh;
+    if (res && res.depth) {
+      const d = res.depth;
+      ddata = d.data instanceof Float32Array ? d.data : new Float32Array(d.data);
+      dw = d.width;
+      dh = d.height;
+    } else {
+      throw new Error('Formato de respuesta de depth desconocido');
+    }
+
+    depthData = ddata;
+    depthW    = dw;
+    depthH    = dh;
+
+  } catch(e) {
+    logError('Inferencia: ' + e.message);
+  } finally {
+    inferring = false;
+  }
+}
+
+// ============================================================
+// REPROYECCIÓN 3D: Depth map → puntos 3D
+// Fórmula estándar de reproyección con parámetros intrínsecos simples
+// ============================================================
+function reprojectDepthToPoints() {
+  if (!depthData || depthW === 0) return;
+
+  // Calcular min/max del mapa de profundidad para normalizar por frame
+  let dMin = Infinity, dMax = -Infinity;
+  for (let i = 0; i < depthData.length; i++) {
+    const v = depthData[i];
+    if (v < dMin) dMin = v;
+    if (v > dMax) dMax = v;
+  }
+  const dRange = dMax - dMin || 1e-6;
+
+  // Parámetros intrínsecos de cámara (estimados)
+  const W  = depthW, H = depthH;
+  const f  = 0.9 * W;
+  const cx = W  * 0.5;
+  const cy = H  * 0.5;
+
+  // Obtener datos RGB del frame actual si modo real
+  let rgbPixels = null;
+  if (STATE.colorMode === 'real') {
+    rgbCtx.drawImage(camVideo, 0, 0, depthW, depthH);
+    rgbPixels = rgbCtx.getImageData(0, 0, depthW, depthH).data;
+  }
+
+  // Paso de muestreo adaptativo para no superar MAXP
+  const step = GRID_SUB;
+  let pi = 0; // índice de punto
+
+  for (let row = 0; row < H && pi < MAXP; row += step) {
+    for (let col = 0; col < W && pi < MAXP; col += step) {
+      const idx = row * W + col;
+      const rawVal = depthData[idx];
+
+      // Normalizar: valores más altos = más cercano (disparidad)
+      const t_close = Math.max(0, Math.min(1, (rawVal - dMin) / dRange));
+
+      // Convertir a Z métrico (más cercano = Z pequeño)
+      const Z = ZMIN + (1 - t_close) * (ZMAX - ZMIN);
+
+      // Reproyectar a 3D
+      const X =  (col - cx) / f * Z;
+      const Y = -(row - cy) / f * Z;
+
+      // Jitter para aspecto LiDAR ruidoso (±1.5%)
+      const jitter = 0.015;
+      const jX = X + X * (Math.random() * 2 - 1) * jitter;
+      const jY = Y + Y * (Math.random() * 2 - 1) * jitter;
+      const jZ = -Z + (-Z) * (Math.random() * 2 - 1) * jitter;
+
+      posArr[pi*3    ] = jX;
+      posArr[pi*3 + 1] = jY;
+      posArr[pi*3 + 2] = jZ;
+
+      // Color por distancia o RGB real
+      if (STATE.colorMode === 'distance') {
+        // t_close=1 → cerca → amarillo; t_close=0 → lejos → azul
+        const c = distanceColor(1 - t_close);
+        colArr[pi*3    ] = c.r;
+        colArr[pi*3 + 1] = c.g;
+        colArr[pi*3 + 2] = c.b;
+      } else if (rgbPixels) {
+        colArr[pi*3    ] = rgbPixels[idx*4    ] / 255;
+        colArr[pi*3 + 1] = rgbPixels[idx*4 + 1] / 255;
+        colArr[pi*3 + 2] = rgbPixels[idx*4 + 2] / 255;
+      }
+
+      pi++;
+    }
+  }
+
+  nPoints = pi;
+  STATE.activePoints = pi;
+}
+
+// ============================================================
+// ACTUALIZAR GEOMETRÍA DE PUNTOS EN THREE.JS
+// ============================================================
+function updatePointCloud() {
+  if (nPoints === 0) return;
+
+  const posAttr = pointsGeom.getAttribute('position');
+  const colAttr = pointsGeom.getAttribute('color');
+
+  posAttr.needsUpdate = true;
+  colAttr.needsUpdate = true;
+  pointsGeom.setDrawRange(0, nPoints);
+  pointsGeom.computeBoundingSphere();
+}
+
+// ============================================================
+// MODO VOXEL: cuantizar puntos en grid y actualizar InstancedMesh
+// ============================================================
+const VOXEL_SIZE = 0.12;
+const voxelMap   = new Map(); // key → { cx,cy,cz, r,g,b, count }
+
+function updateVoxelGrid() {
+  if (nPoints === 0) return;
+
+  voxelMap.clear();
+
+  for (let i = 0; i < nPoints; i++) {
+    const px = posArr[i*3    ];
+    const py = posArr[i*3 + 1];
+    const pz = posArr[i*3 + 2];
+
+    // Cuantizar a celda de vóxel
+    const vx = Math.round(px / VOXEL_SIZE);
+    const vy = Math.round(py / VOXEL_SIZE);
+    const vz = Math.round(pz / VOXEL_SIZE);
+    const key = `${vx},${vy},${vz}`;
+
+    const cr = colArr[i*3    ];
+    const cg = colArr[i*3 + 1];
+    const cb = colArr[i*3 + 2];
+
+    if (voxelMap.has(key)) {
+      const v = voxelMap.get(key);
+      v.r += cr; v.g += cg; v.b += cb; v.count++;
+    } else {
+      voxelMap.set(key, {
+        cx: vx * VOXEL_SIZE,
+        cy: vy * VOXEL_SIZE,
+        cz: vz * VOXEL_SIZE,
+        r: cr, g: cg, b: cb, count: 1
+      });
+    }
+  }
+
+  // Llenar InstancedMesh
+  let vi = 0;
+  for (const [, v] of voxelMap) {
+    if (vi >= MAX_VOXELS) break;
+
+    voxelDummy.position.set(v.cx, v.cy, v.cz);
+    voxelDummy.updateMatrix();
+    instancedVoxel.setMatrixAt(vi, voxelDummy.matrix);
+
+    // Color promedio del vóxel
+    const inv = 1 / v.count;
+    instancedVoxel.setColorAt(vi, new THREE.Color(v.r*inv, v.g*inv, v.b*inv));
+
+    vi++;
+  }
+
+  instancedVoxel.count = vi;
+  instancedVoxel.instanceMatrix.needsUpdate = true;
+  if (instancedVoxel.instanceColor) instancedVoxel.instanceColor.needsUpdate = true;
+  STATE.activeVoxels = vi;
+}
+
+// ============================================================
+// DETECCIÓN DE OBJETOS 2D + 3D
+// ============================================================
+const detectCtx = detectOverlay.getContext('2d');
+let lastDetections = [];
+
+async function runDetection() {
+  if (!STATE.cocoReady || !cocoModel) return;
+  if (camVideo.readyState < 2) return;
+
+  try {
+    const predictions = await cocoModel.detect(camVideo);
+    lastDetections = predictions;
+    STATE.detectedObjects = predictions.length;
+    draw2DDetections(predictions);
+    update3DMarkers(predictions);
+  } catch(e) {
+    logError('Deteccion: ' + e.message);
+  }
+}
+
+function draw2DDetections(predictions) {
+  // Ajustar tamaño del overlay al video actual
+  const vw = camVideo.videoWidth  || 640;
+  const vh = camVideo.videoHeight || 480;
+  if (detectOverlay.width !== vw)  detectOverlay.width  = vw;
+  if (detectOverlay.height !== vh) detectOverlay.height = vh;
+
+  detectCtx.clearRect(0, 0, vw, vh);
+
+  for (const pred of predictions) {
+    const [bx, by, bw, bh] = pred.bbox;
+    const label = esLabel(pred.class);
+    const conf  = Math.round(pred.score * 100);
+
+    // Caja cian
+    detectCtx.strokeStyle = '#26D9D9';
+    detectCtx.lineWidth = 2;
+    detectCtx.strokeRect(bx, by, bw, bh);
+
+    // Fondo del label
+    const txt = `${label} ${conf}%`;
+    detectCtx.font = 'bold 14px Courier New, monospace';
+    const tw = detectCtx.measureText(txt).width;
+    detectCtx.fillStyle = 'rgba(0,20,30,0.75)';
+    detectCtx.fillRect(bx - 1, by - 20, tw + 8, 20);
+
+    // Texto label
+    detectCtx.fillStyle = '#26D9D9';
+    detectCtx.fillText(txt, bx + 3, by - 5);
+
+    // Marcadores en esquinas (estilo LiDAR)
+    const cs = 8;
+    detectCtx.strokeStyle = '#3DF26B';
+    detectCtx.lineWidth = 2;
+    // TL
+    detectCtx.beginPath(); detectCtx.moveTo(bx,bx+cs); detectCtx.lineTo(bx,by); detectCtx.lineTo(bx+cs,by); detectCtx.stroke();
+    // TR
+    detectCtx.beginPath(); detectCtx.moveTo(bx+bw-cs,by); detectCtx.lineTo(bx+bw,by); detectCtx.lineTo(bx+bw,by+cs); detectCtx.stroke();
+    // BL
+    detectCtx.beginPath(); detectCtx.moveTo(bx,by+bh-cs); detectCtx.lineTo(bx,by+bh); detectCtx.lineTo(bx+cs,by+bh); detectCtx.stroke();
+    // BR
+    detectCtx.beginPath(); detectCtx.moveTo(bx+bw-cs,by+bh); detectCtx.lineTo(bx+bw,by+bh); detectCtx.lineTo(bx+bw,by+bh-cs); detectCtx.stroke();
+  }
+}
+
+// Marcadores 3D para las detecciones
+function update3DMarkers(predictions) {
+  // Limpiar marcadores previos
+  for (const m of detectionMarkers) {
+    scene.remove(m);
+    if (m.geometry) m.geometry.dispose();
+    if (m.material) m.material.dispose();
+  }
+  detectionMarkers = [];
+
+  if (!depthData || depthW === 0) return;
+
+  const vw = camVideo.videoWidth  || INFER_W;
+  const vh = camVideo.videoHeight || INFER_H;
+
+  // Factor de escala video → depth map
+  const scaleX = depthW / vw;
+  const scaleY = depthH / vh;
+
+  // Parámetros intrínsecos (para depth map)
+  const W  = depthW, H = depthH;
+  const f  = 0.9 * W;
+  const cx = W * 0.5;
+  const cy = H * 0.5;
+
+  // Min/max del frame actual
+  let dMin = Infinity, dMax = -Infinity;
+  for (let i = 0; i < depthData.length; i++) {
+    if (depthData[i] < dMin) dMin = depthData[i];
+    if (depthData[i] > dMax) dMax = depthData[i];
+  }
+  const dRange = dMax - dMin || 1e-6;
+
+  for (const pred of predictions) {
+    const [bx, by, bw, bh] = pred.bbox;
+    const label = esLabel(pred.class);
+
+    // Centro de la caja → coordenadas del depth map
+    const cx_box = (bx + bw * 0.5) * scaleX;
+    const cy_box = (by + bh * 0.5) * scaleY;
+
+    // Muestrear profundidad mediana en región central (40%) de la caja
+    const sampleVals = [];
+    const rx0 = Math.max(0, Math.floor((bx + bw*0.3) * scaleX));
+    const rx1 = Math.min(W-1, Math.ceil((bx  + bw*0.7) * scaleX));
+    const ry0 = Math.max(0, Math.floor((by + bh*0.3) * scaleY));
+    const ry1 = Math.min(H-1, Math.ceil((by  + bh*0.7) * scaleY));
+
+    for (let rr = ry0; rr <= ry1; rr += 2) {
+      for (let rc = rx0; rc <= rx1; rc += 2) {
+        sampleVals.push(depthData[rr * W + rc]);
+      }
+    }
+
+    // Mediana
+    sampleVals.sort((a,b) => a-b);
+    const medVal = sampleVals[Math.floor(sampleVals.length/2)] ?? (dMin + dMax)/2;
+
+    const t_close = Math.max(0, Math.min(1, (medVal - dMin) / dRange));
+    const Z = ZMIN + (1 - t_close) * (ZMAX - ZMIN);
+    const X =  (cx_box - cx) / f * Z;
+    const Y = -(cy_box - cy) / f * Z;
+    const Zm = -Z;
+
+    const distMetros = Z.toFixed(1);
+
+    // Esfera marcadora
+    const sphereGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x26D9D9, transparent: true, opacity: 0.9 });
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    sphere.position.set(X, Y, Zm);
+    scene.add(sphere);
+    detectionMarkers.push(sphere);
+
+    // Anillo exterior
+    const ringGeo = new THREE.RingGeometry(0.10, 0.13, 16);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x3DF26B, side: THREE.DoubleSide, transparent: true, opacity: 0.8 });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.position.set(X, Y, Zm);
+    ring.lookAt(camera.position);
+    scene.add(ring);
+    detectionMarkers.push(ring);
+
+    // Sprite de texto (canvas texture)
+    const sprite = makeTextSprite(`${label}\n${distMetros}m`);
+    sprite.position.set(X, Y + 0.25, Zm);
+    scene.add(sprite);
+    detectionMarkers.push(sprite);
+  }
+}
+
+// Crear sprite de texto con canvas texture
+function makeTextSprite(text) {
+  const lines = text.split('\n');
+  const canvas = document.createElement('canvas');
+  canvas.width = 180; canvas.height = 60;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0,20,30,0.8)';
+  ctx.roundRect ? ctx.roundRect(2,2,176,56,6) : ctx.fillRect(2,2,176,56);
+  ctx.fill();
+  ctx.strokeStyle = '#26D9D9';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(2,2,176,56);
+  ctx.fillStyle = '#26D9D9';
+  ctx.font = 'bold 18px Courier New';
+  ctx.textAlign = 'center';
+  ctx.fillText(lines[0] || '', 90, 28);
+  ctx.fillStyle = '#3DF26B';
+  ctx.font = '14px Courier New';
+  ctx.fillText(lines[1] || '', 90, 48);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(0.6, 0.2, 1);
+  return sprite;
+}
+
+// ============================================================
+// LOOP DE RENDERIZADO (60 FPS con Three.js)
+// La inferencia de profundidad se controla por tiempo (250ms)
+// La detección de objetos se controla por tiempo (1500ms)
+// ============================================================
+let lastRenderTime   = 0;
+let lastInferTime    = 0;
+let lastDetectTime   = 0;
+let frameTimes       = [];
+let animFrameId      = null;
+
+const INFER_INTERVAL  = 250;   // ms entre inferencias de profundidad
+const DETECT_INTERVAL = 1500;  // ms entre detecciones COCO
+
+function renderLoop(ts) {
+  animFrameId = requestAnimationFrame(renderLoop);
+
+  const dt = ts - lastRenderTime;
+
+  // Calcular FPS con ventana deslizante
+  frameTimes.push(dt);
+  if (frameTimes.length > 30) frameTimes.shift();
+  const avgDt = frameTimes.reduce((a,b)=>a+b,0) / frameTimes.length;
+  STATE.fps = Math.round(1000 / avgDt);
+  lastRenderTime = ts;
+
+  if (!STATE.paused) {
+    // Disparar inferencia de profundidad cada ~250ms
+    if (ts - lastInferTime > INFER_INTERVAL && STATE.modelReady) {
+      lastInferTime = ts;
+      runDepthInference().then(() => {
+        reprojectDepthToPoints();
+
+        if (STATE.mode === 'cloud') {
+          updatePointCloud();
+        } else if (STATE.mode === 'voxel') {
+          updateVoxelGrid();
+        }
+      });
+    }
+
+    // Disparar detección de objetos cada ~1500ms en modo detect
+    if (STATE.mode === 'detect' && ts - lastDetectTime > DETECT_INTERVAL) {
+      lastDetectTime = ts;
+      if (!STATE.cocoReady) loadCocoPipeline();
+      else runDetection();
+    }
+  }
+
+  // Visibilidad de meshes según modo
+  pointsMesh.visible      = (STATE.mode === 'cloud');
+  instancedVoxel.visible  = (STATE.mode === 'voxel');
+
+  // Rotación idle de cámara (si sin interacción por 5s)
+  if (!STATE.vistaFps && (Date.now() - STATE.lastInteraction) > 5000) {
+    const angle = ts * 0.0002;
+    const r = 5;
+    camera.position.x = Math.sin(angle) * r * 0.5;
+    camera.position.z = Math.cos(angle) * r + 1;
+    camera.lookAt(0, 0, -2);
+  }
+
+  // Vista primera persona (robot)
+  if (STATE.vistaFps) {
+    camera.position.set(0, 0.2, 0.5);
+    camera.lookAt(0, 0, -3);
+    controls.enabled = false;
+  } else {
+    controls.enabled = true;
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  // Actualizar HUD
+  statFps.textContent = STATE.fps;
+  statPts.textContent = STATE.activePoints.toLocaleString();
+  statVox.textContent = STATE.activeVoxels;
+  statObj.textContent = STATE.detectedObjects;
+  statBe.textContent  = STATE.backend;
+}
+
+// ============================================================
+// INTERFAZ DE USUARIO: TABS, BOTONES
+// ============================================================
+function setMode(mode) {
+  STATE.mode = mode;
+  STATE.lastInteraction = Date.now();
+
+  // Actualizar tabs
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+
+  // Actualizar label dinámico del panel 3D
+  const labels = {
+    cloud:  'NUBE DE PUNTOS LiDAR · 3D',
+    voxel:  'MUNDO VOXEL 3D · BLOQUES',
+    detect: 'DETECCION DE OBJETOS · 3D',
+  };
+  cloudLabel.textContent = labels[mode] || 'VISION 3D';
+
+  // Limpiar overlay 2D si no estamos en detect
+  if (mode !== 'detect') {
+    detectCtx.clearRect(0, 0, detectOverlay.width, detectOverlay.height);
+    // Limpiar marcadores 3D
+    for (const m of detectionMarkers) {
+      scene.remove(m);
+      if (m.geometry) m.geometry.dispose();
+      if (m.material) m.material.dispose();
+    }
+    detectionMarkers = [];
+    STATE.detectedObjects = 0;
+  }
+
+  // Cargar COCO si se activa detect
+  if (mode === 'detect' && !STATE.cocoReady) {
+    loadCocoPipeline();
+  }
+}
+
+// Eventos de tabs
+tabs.forEach(tab => {
+  tab.addEventListener('click', () => setMode(tab.dataset.mode));
+});
+
+// Botones de control
+btnColor.addEventListener('click', () => {
+  STATE.colorMode = STATE.colorMode === 'distance' ? 'real' : 'distance';
+  btnColor.classList.toggle('active', STATE.colorMode === 'real');
+  btnColor.textContent = STATE.colorMode === 'distance' ? 'COLOR' : 'COLOR:RGB';
+});
+
+btnVista.addEventListener('click', () => {
+  STATE.vistaFps = !STATE.vistaFps;
+  btnVista.classList.toggle('active', STATE.vistaFps);
+  btnVista.textContent = STATE.vistaFps ? 'VISTA:1P' : 'VISTA';
+  STATE.lastInteraction = Date.now();
+});
+
+btnPausa.addEventListener('click', () => {
+  STATE.paused = !STATE.paused;
+  btnPausa.classList.toggle('active', STATE.paused);
+  btnPausa.textContent = STATE.paused ? 'REANUDAR' : 'PAUSA';
+});
+
+btnReset.addEventListener('click', () => {
+  camera.position.set(0, 1.5, 4.5);
+  camera.lookAt(0, 0, -1);
+  controls.target.set(0, 0, -2);
+  controls.update();
+  STATE.vistaFps = false;
+  STATE.lastInteraction = Date.now();
+  btnVista.classList.remove('active');
+  btnVista.textContent = 'VISTA';
+});
+
+// Teclas 1/2/3 para modos
+document.addEventListener('keydown', e => {
+  if (e.key === '1') setMode('cloud');
+  if (e.key === '2') setMode('voxel');
+  if (e.key === '3') setMode('detect');
+});
+
+// ============================================================
+// TOAST DE ESCANEO (aparece una sola vez, 4s después de inicio)
+// ============================================================
+function showScanToast() {
+  setTimeout(() => {
+    scanToast.classList.add('show');
+    setTimeout(() => scanToast.classList.remove('show'), 5000);
+  }, 4000);
+}
+
+// ============================================================
+// FUNCIÓN PRINCIPAL: flujo de inicialización
+// ============================================================
+async function main() {
+  startBtn.disabled = true;
+  startBtn.textContent = 'INICIANDO...';
+  loadingSpinner.style.display = 'flex';
+
+  try {
+    // 1. Solicitar WakeLock
+    await requestWakeLock();
+
+    // 2. Mostrar app skeleton (antes de cámara, para que el usuario vea progreso)
+    gateOverlay.style.transition = 'opacity 0.5s';
+
+    // 3. Acceso a cámara (requiere gesto del usuario → ya tenemos el click)
+    await startCamera();
+
+    // 4. Cargar modelo de profundidad (con barra de progreso)
+    await loadDepthModel();
+
+    // 5. Inicializar Three.js
+    initThree();
+
+    // 6. Mostrar app y ocultar gate
+    gateOverlay.style.opacity = '0';
+    setTimeout(() => { gateOverlay.style.display = 'none'; }, 600);
+    appDiv.classList.add('visible');
+
+    // 7. Iniciar loop de render
+    STATE.lastInteraction = Date.now();
+    requestAnimationFrame(renderLoop);
+
+    // 8. Toast de escaneo
+    showScanToast();
+
+    loadingSpinner.style.display = 'none';
+
+  } catch(e) {
+    loadingSpinner.style.display = 'none';
+    startBtn.disabled = false;
+    startBtn.textContent = '▶ REINTENTAR';
+    // showError ya habrá sido llamado si fue error de cámara/HTTPS
+    if (!errorOverlay.classList.contains('visible')) {
+      showError('ERROR DE INICIALIZACION',
+        `${e.message}<br><br>Asegurate de abrir desde HTTPS y dar permiso de camara.`);
+    }
+    console.error(e);
+  }
+}
+
+// ============================================================
+// BOTÓN "INICIAR DEMO" → arranca todo (gesto necesario para camera + audio)
+// ============================================================
+startBtn.addEventListener('click', () => {
+  loadProgressWrap.classList.add('visible');
+  main();
+});
+
 </script>
 </body>
 </html>
