@@ -1,7 +1,12 @@
-# Robot Vision XR V10 — Perception Viewer
+# Robot Vision XR V12 — Perception Pipeline
 
-Modos: CAMERA, POINTS, VOXELS y PLANES.
+Vistas principales:
+- RGB
+- DEPTH
+- POINT CLOUD
+- 3D WORLD
+- COMPARE
 
-El mapa puede verse en MINI, MEDIUM y FULL. En MEDIUM/FULL se puede arrastrar, centrar y cambiar zoom.
+En 3D WORLD, el botón POINTS alterna POINTS / VOXELS / PLANES.
 
-YOLO OFF es un placeholder para V11.
+YOLO queda fuera de esta fase.

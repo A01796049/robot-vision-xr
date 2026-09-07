@@ -1,0 +1,45 @@
+:root{--bg:#02070b;--cyan:#34e5ff;--green:#55ff78;--orange:#ffad42;--purple:#a876ff;--text:#dcf8fc;--muted:#86aeb8;--panel:rgba(3,13,19,.87)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+button{font:inherit}#xrCanvas{position:fixed;inset:0;width:100%;height:100%;display:none}
+#home{position:fixed;inset:0;overflow:auto;padding:18px}.wrap{max-width:760px;margin:auto}h1{color:var(--cyan);font-size:21px}.subtitle{color:var(--muted);font-size:12px;line-height:1.5}
+.card{background:#071118;border:1px solid #1b6472;border-radius:14px;padding:14px;margin:12px 0}.row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #15313a;font-size:12px}.row:last-child{border:0}.ok,.metric{color:var(--green)}
+button{width:100%;padding:14px;border-radius:12px;border:1px solid var(--cyan);background:#0a2731;color:var(--cyan);margin-top:10px}button:disabled{opacity:.45}small{display:block;color:var(--muted);line-height:1.5;margin-top:9px}
+#hud{position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 8px);z-index:6;display:none;justify-content:space-between;gap:8px;pointer-events:none}
+.panel{background:var(--panel);border:1px solid #34e5ff77;border-radius:10px;padding:8px;font-size:10.5px;line-height:1.55;backdrop-filter:blur(6px)}.panel b{color:var(--cyan)}.right{text-align:right}
+#legend{position:fixed;left:8px;top:160px;z-index:6;display:none}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}.horizontal{background:var(--green)}.vertical{background:var(--cyan)}.inclined{background:var(--orange)}.lineSample{display:inline-block;width:13px;border-top:2px solid white;margin-right:5px;vertical-align:middle}
+#mapBox{position:fixed;right:8px;bottom:62px;width:min(50vw,345px);height:min(43vw,300px);z-index:7;display:none;background:#020a0fdf;border:1px solid var(--cyan);border-radius:13px;overflow:hidden}
+#mapBox header{height:30px;padding:7px 9px;display:flex;justify-content:space-between;border-bottom:1px solid #34e5ff55;color:var(--cyan);font-size:9.5px}#mapCanvas{width:100%;height:calc(100% - 30px)}
+#planeList{position:fixed;left:8px;bottom:62px;width:min(43vw,295px);max-height:180px;overflow:hidden;z-index:7;display:none}.planeItem{padding:4px 0;border-bottom:1px solid #15313a;color:#c8e9ef}.planeItem span{color:var(--green)}
+#controls{position:fixed;left:7px;right:7px;bottom:calc(env(safe-area-inset-bottom) + 7px);z-index:9;display:none;gap:5px}#controls button{margin:0;padding:9px 3px;font-size:9.3px}.on{background:#0d3541!important;color:#fff!important}
+@media(max-width:480px){#planeList{display:none!important}#legend{top:150px}.panel{font-size:10px}}
+
+.stairStatus{margin:7px 0 8px;padding:7px;border:1px solid #34e5ff55;border-radius:8px;display:grid;grid-template-columns:1fr auto;gap:2px 8px}
+.stairStatus span{color:#34e5ff}.stairStatus strong{color:#ffad42}.stairStatus small{grid-column:1/-1;color:#86aeb8;margin:0}
+.entityWall{color:#34e5ff}.entityStep{color:#ffad42}.entityFloor{color:#55ff78}.entityStairs{color:#fff}
+
+#mapToolbar{display:none;position:absolute;left:8px;right:8px;bottom:8px;z-index:3;gap:6px}
+#mapToolbar button{margin:0;padding:8px 6px;font-size:10px;background:rgba(4,14,20,.9)}
+#mapBox.medium{width:72vw;height:62vh;right:14vw;bottom:16vh}
+#mapBox.full{inset:0;width:100vw;height:100vh;border-radius:0;border-left:0;border-right:0;border-bottom:0}
+#mapBox.medium #mapToolbar,#mapBox.full #mapToolbar{display:flex}
+#mapBox.full header{height:38px;padding:10px 12px;font-size:11px}
+#mapBox.full #mapCanvas{height:calc(100% - 38px)}
+#mapBox.medium #mapCanvas{height:calc(100% - 30px)}
+#mapBox.medium+#planeList,#mapBox.full+#planeList{display:none!important}
+#mapBox.full{background:#02070b}
+@media(max-width:480px){#controls{gap:4px}#controls button{font-size:8.8px;padding:9px 2px}#mapBox.medium{width:88vw;height:64vh;right:6vw;bottom:18vh}}
+
+#viewSelector{position:fixed;z-index:12;left:8px;right:8px;bottom:64px;display:none;padding:10px}
+.viewGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.viewChoice{margin:0;padding:10px 5px;font-size:10px;line-height:1.2}
+.viewChoice small{display:block;margin:3px 0 0;color:#86aeb8;font-size:8px}
+.viewChoice.selected{background:#0d3541;color:#fff;border-color:#fff}
+#closeViewsBtn{margin-top:8px;padding:9px}
+#objectOverlay{position:fixed;z-index:7;left:8px;bottom:62px;width:min(46vw,310px);max-height:230px;overflow:hidden;display:none}
+.objectRow{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #15313a}
+.objectLabel{color:#fff}.objectMeta{color:#55ff78;text-align:right}
+body.split-mode #mapBox{width:48vw;height:43vh}
+body.split-mode #objectOverlay{display:block}
+@media(max-width:480px){.viewGrid{grid-template-columns:repeat(2,1fr)}#objectOverlay{width:48vw;font-size:9px}}
+\n#pipelineBar{position:fixed;z-index:10;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 94px);display:none;gap:5px;padding:6px;background:rgba(3,13,19,.88);border:1px solid rgba(52,229,255,.45);border-radius:12px;backdrop-filter:blur(7px)}\n#pipelineBar button{width:auto;margin:0;padding:8px 9px;font-size:9.5px;border-radius:9px;border:1px solid rgba(52,229,255,.35);background:#07151c;color:#9bdce8}\n#pipelineBar button.activeView{background:#0d3541;color:#fff;border-color:#34e5ff}\n#depthCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:3;image-rendering:pixelated;background:#000}\n#comparePanel{position:fixed;inset:0;z-index:3;display:none;background:#000}\n.comparePane{position:absolute;top:0;bottom:0;width:50%;overflow:hidden}.leftPane{left:0;border-right:1px solid rgba(52,229,255,.35)}.rightPane{right:0;background:#000}.compareLabel{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.72);color:#34e5ff;font-size:10px}\n#compareDepth{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}\n#mapBox.fullWorld{inset:0;width:100vw;height:100vh;border-radius:0;background:#02070b;z-index:5}\n@media(max-width:520px){#pipelineBar{top:calc(env(safe-area-inset-top) + 124px);left:8px;right:8px;transform:none;justify-content:space-between}#pipelineBar button{font-size:8.4px;padding:8px 6px;flex:1}}\n
