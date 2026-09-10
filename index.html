@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · Live Robot Vision V13</title>
+<title>Robot Vision XR · LiDAR Visual Match V14</title>
 <style>
 :root{--bg:#02070b;--cyan:#34e5ff;--green:#67ff7c;--orange:#ffb347;--purple:#a878ff;--text:#dcf8fc;--muted:#8aaeb8;--panel:rgba(3,13,19,.88)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -20,7 +20,7 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 #xrCanvas{position:fixed;inset:0;width:100%;height:100%;display:none}
 #depthCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:3;display:none;image-rendering:pixelated;background:#000}
 #worldCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:4;display:none;background:#02070b}
-#live3dCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:4;display:none;background:#000}
+#live3dCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:4;display:none;background:#000;image-rendering:auto}
 #compare{position:fixed;inset:0;z-index:4;display:none;pointer-events:none}
 #compare .divider{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--cyan)}
 #compare .right{position:absolute;right:0;top:0;width:50%;height:100%;background:#000;overflow:hidden}
@@ -54,18 +54,18 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
   <div class="label left">RGB CAMERA</div>
   <div class="right"><canvas id="compareDepth" width="160" height="90"></canvas></div>
   <div class="divider"></div>
-  <div class="label rightLabel">DEPTH</div>
+  <div class="label rightLabel">ROBOT VISION · POINT CLOUD</div>
 </section>
 
 <section id="hud">
   <div class="panel">
-    <b>ROBOT VISION XR · V13</b><br>
+    <b>ROBOT VISION XR · V14</b><br>
     tracking <span id="tracking" class="metric">--</span><br>
     depth <span id="depthInfo" class="metric">--</span><br>
     vista <span id="viewName" class="metric">RGB</span>
   </div>
   <div class="panel right">
-    puntos <span id="pointCount" class="metric">0</span><br>
+    live pts <span id="liveCount" class="metric">0</span><br>map pts <span id="pointCount" class="metric">0</span><br>
     recorrido <span id="distance" class="metric">0.0 m</span><br>
     fps <span id="fps" class="metric">0</span>
   </div>
@@ -75,12 +75,12 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
   <button id="rgbBtn" class="active">RGB</button>
   <button id="depthBtn">DEPTH</button>
   <button id="pointsBtn">LIVE 3D</button>
-  <button id="worldBtn">WORLD MAP</button>
+  <button id="worldBtn">WORLD 3D</button>
   <button id="compareBtn">COMPARE</button>
 </nav>
 
 <div id="worldHud">
-  <span class="worldChip">WORLD MAP · MEMORY</span>
+  <span class="worldChip">WORLD 3D · ACCUMULATED</span>
   <span class="worldChip" id="worldScale">8 m</span>
 </div>
 
@@ -94,8 +94,8 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 
 <main id="home">
   <div class="wrap">
-    <h1>Live Robot Vision V13</h1>
-    <p class="sub">Percepción instantánea tipo LiDAR + mapa acumulado del entorno, todo desde el teléfono.</p>
+    <h1>LiDAR Visual Match V14</h1>
+    <p class="sub">RGB y nube de puntos comparten la misma perspectiva visual. LIVE 3D muestra el frame actual; WORLD 3D conserva la reconstrucción acumulada.</p>
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
@@ -103,12 +103,12 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
       <div class="row"><span>Arquitectura</span><span class="ok">single-file</span></div>
     </section>
     <section class="card">
-      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V13</button>
-      <small>LIVE 3D muestra únicamente la percepción reciente del sensor de profundidad; WORLD MAP conserva la geometría acumulada. Así separamos lo que el robot ve de lo que recuerda.</small>
+      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V14</button>
+      <small>LIVE 3D conserva la misma perspectiva de RGB y sustituye cada región visible por puntos de profundidad. WORLD 3D acumula esos puntos en coordenadas del mundo y los vuelve a proyectar desde la cámara.</small>
     </section>
     <section class="card">
       <small><b style="color:#34e5ff">Prueba recomendada</b><br>
-      Inicia en RGB, cambia a DEPTH, después LIVE 3D y finalmente COMPARE. WORLD MAP conserva lo aprendido durante el recorrido.</small>
+      Compara RGB con LIVE 3D: la geometría debe conservar la misma silueta y perspectiva. Después usa WORLD 3D para ver la reconstrucción acumulada desde la cámara.</small>
     </section>
   </div>
 </main>
@@ -116,7 +116,7 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 <script>
 const $=id=>document.getElementById(id);
 
-const MAX_POINTS=45000, CELL=.07, MIN_D=.35, MAX_D=6.5, SX=34, SY=25;
+const MAX_POINTS=65000, CELL=.085, MIN_D=.35, MAX_D=6.5, SX=36, SY=27;
 const positions=new Float32Array(MAX_POINTS*3), colors=new Float32Array(MAX_POINTS*3);
 const voxels=new Map();
 let pointCount=0,gl=null,session=null,space=null,program=null,pb=null,cb=null;
@@ -131,7 +131,7 @@ const live3dCanvas=$("live3dCanvas"),live3dCtx=live3dCanvas.getContext("2d");
 let liveDepthPoints=[];
 
 
-const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=3.0;C=c;}`;
+const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=2.4;C=c;}`;
 const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.95);}`;
 
 function makeShader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}
@@ -158,8 +158,10 @@ function pointColor(d){const c=depthColor(d);return[c[0]/255,c[1]/255,c[2]/255]}
 
 
 function buildLiveDepthPoints(info){
+  // Normalized view coordinates: preserve exactly the same camera perspective.
+  // No artificial depth-based shrinking; that was the cause of the "curved rows" look in V13.
   const pts=[];
-  const W=80,H=45;
+  const W=112,H=63; // ~7k samples: denser but still mobile-friendly.
   for(let y=0;y<H;y++){
     const v=(y+.5)/H;
     for(let x=0;x<W;x++){
@@ -171,52 +173,68 @@ function buildLiveDepthPoints(info){
     }
   }
   liveDepthPoints=pts;
+  $("liveCount").textContent=pts.length.toLocaleString();
 }
 
-function drawLive3DTo(ctx,canvas,half=false){
+function drawLive3DTo(ctx,canvas){
   const w=canvas.width,h=canvas.height;
-  ctx.fillStyle="#000";ctx.fillRect(0,0,w,h);
-  if(!liveDepthPoints.length)return;
+  ctx.save();
+  ctx.globalCompositeOperation="source-over";
+  ctx.fillStyle="#000";
+  ctx.fillRect(0,0,w,h);
 
-  // Lidar-like perspective: keep image alignment but use depth to pull distant points inward.
-  const cx=w/2,cy=h/2;
+  if(!liveDepthPoints.length){ctx.restore();return;}
+
+  // Draw points in the SAME normalized image coordinates as RGB.
+  // Result: a door/car/wall keeps its RGB silhouette, but is rendered as depth points.
+  ctx.globalCompositeOperation="lighter";
+
   for(const p of liveDepthPoints){
-    const t=Math.max(0,Math.min(1,(p.d-MIN_D)/(MAX_D-MIN_D)));
-    const perspective=1-(t*.18);
-    const x=cx+(p.u-.5)*w*perspective;
-    const y=cy+(p.v-.5)*h*perspective;
+    const x=p.u*w;
+    const y=p.v*h;
     const c=depthColor(p.d);
-    ctx.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;
-    const r=t<.25?2.4:t<.6?1.8:1.35;
-    ctx.fillRect(x-r/2,y-r/2,r,r);
+    const t=Math.max(0,Math.min(1,(p.d-MIN_D)/(MAX_D-MIN_D)));
+
+    // Slightly larger near points, but no positional deformation.
+    const r=t<.20?2.35:t<.55?1.9:1.45;
+    const alpha=t<.15?.95:t<.70?.82:.68;
+
+    ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+    ctx.beginPath();
+    ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fill();
   }
 
-  // subtle scanner line
-  const scanY=(Date.now()/8)%h;
-  const grad=ctx.createLinearGradient(0,scanY-20,0,scanY+20);
-  grad.addColorStop(0,"rgba(52,229,255,0)");
-  grad.addColorStop(.5,"rgba(52,229,255,.18)");
-  grad.addColorStop(1,"rgba(52,229,255,0)");
-  ctx.fillStyle=grad;ctx.fillRect(0,scanY-20,w,40);
+  ctx.globalCompositeOperation="source-over";
 
-  ctx.fillStyle="rgba(52,229,255,.9)";
-  ctx.font=`${Math.max(14,Math.round(w/38))}px monospace`;
-  ctx.fillText("LIVE DEPTH LIVE 3D",18,34);
-  ctx.fillStyle="rgba(220,248,252,.75)";
-  ctx.fillText(`${liveDepthPoints.length.toLocaleString()} pts · real-time`,18,60);
+  // Minimal sensor HUD; no fake geometry.
+  const g=ctx.createLinearGradient(18,0,220,0);
+  g.addColorStop(0,"#ff9d22");
+  g.addColorStop(.38,"#57ef64");
+  g.addColorStop(.68,"#22d7dd");
+  g.addColorStop(1,"#334ddb");
+  ctx.fillStyle=g;ctx.fillRect(18,h-35,190,6);
+  ctx.fillStyle="rgba(220,248,252,.82)";
+  ctx.font=`${Math.max(14,Math.round(w/42))}px monospace`;
+  ctx.fillText("NEAR",18,h-44);
+  ctx.fillText("FAR",180,h-44);
+
+  ctx.restore();
 }
 
 function drawDepth(info){
- const W=160,H=90,img=depthCtx.createImageData(W,H),cmp=compareCtx.createImageData(W,H);
+ const W=160,H=90,img=depthCtx.createImageData(W,H);
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-  let d=NaN;try{d=info.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{}
+  let d=NaN;
+  try{d=info.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{}
   const c=depthColor(d),i=(y*W+x)*4;
-  img.data[i]=cmp.data[i]=c[0];img.data[i+1]=cmp.data[i+1]=c[1];img.data[i+2]=cmp.data[i+2]=c[2];img.data[i+3]=cmp.data[i+3]=255;
+  img.data[i]=c[0];img.data[i+1]=c[1];img.data[i+2]=c[2];img.data[i+3]=255;
  }
  depthCtx.putImageData(img,0,0);
-  buildLiveDepthPoints(info);
-  if(currentView==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
-  if(currentView==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
+
+ buildLiveDepthPoints(info);
+ if(currentView==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
+ if(currentView==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
 }
 
 function addPoint(x,y,z,d){
@@ -233,8 +251,12 @@ function capture(view,depth){
   try{d=depth.getDepthInMeters(u,v)}catch{continue}
   if(!Number.isFinite(d)||d<MIN_D||d>MAX_D)continue;
   const q=mul(ip,u*2-1,1-v*2,-1,1);if(Math.abs(q[3])<1e-6)continue;
-  let x=q[0]/q[3],y=q[1]/q[3],z=q[2]/q[3],L=Math.hypot(x,y,z);if(L<1e-6)continue;
-  x=x/L*d;y=y/L*d;z=z/L*d;const p=mul(wm,x,y,z,1);addPoint(p[0],p[1],p[2],d)
+  const rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3];
+  if(Math.abs(rz)<1e-6)continue;
+  // Preserve pinhole-camera geometry: the sampled depth lies along camera -Z.
+  const scale=(-d)/rz;
+  const x=rx*scale,y=ry*scale,z=rz*scale;
+  const p=mul(wm,x,y,z,1);addPoint(p[0],p[1],p[2],d)
  }
  $("depthInfo").textContent=`${depth.width}×${depth.height}`;
  if(currentView==="DEPTH"||currentView==="POINTS"||currentView==="COMPARE")drawDepth(depth)
@@ -274,20 +296,19 @@ function drawWorld(){
 
 function setView(v){
  currentView=v;
- $("viewName").textContent=v==="POINTS"?"LIVE 3D":v==="WORLD"?"WORLD MAP":v;
+ $("viewName").textContent=v==="POINTS"?"LIVE 3D":v==="WORLD"?"WORLD 3D":v;
  ["rgbBtn","depthBtn","pointsBtn","worldBtn","compareBtn"].forEach(id=>$(id).classList.remove("active"));
  const map={RGB:"rgbBtn",DEPTH:"depthBtn",POINTS:"pointsBtn",WORLD:"worldBtn",COMPARE:"compareBtn"};
  $(map[v]).classList.add("active");
 
  depthCanvas.style.display=v==="DEPTH"?"block":"none";
  live3dCanvas.style.display=v==="POINTS"?"block":"none";
- worldCanvas.style.display=v==="WORLD"?"block":"none";
+ worldCanvas.style.display="none";
  $("worldHud").style.display=v==="WORLD"?"flex":"none";
  $("compare").style.display=v==="COMPARE"?"block":"none";
 
  if(v==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
  if(v==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
- if(v==="WORLD")drawWorld();
 }
 
 async function startXR(){
@@ -308,15 +329,15 @@ function frame(t,f){
  if(!origin){origin={x:cx,z:cz};lastPath={x:cx,z:cz};path.push({x:cx,z:cz})}
  const step=Math.hypot(cx-lastPath.x,cz-lastPath.z);if(step>.06){if(step<1)totalDistance+=step;lastPath={x:cx,z:cz};path.push({x:cx,z:cz});$("distance").textContent=totalDistance.toFixed(1)+" m"}
  const layer=session.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
- const black=currentView==="POINTS";gl.clearColor(0,0,0,black?1:0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ const black=currentView==="WORLD";gl.clearColor(0,0,0,black?1:0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  for(const view of pose.views){
   const vp=layer.getViewport(view);gl.viewport(vp.x,vp.y,vp.width,vp.height);
   if(!paused&&t-lastCapture>180){try{const d=f.getDepthInformation(view);if(d)capture(view,d)}catch{}}
-  /* LIVE 3D uses current depth only; accumulated points stay in WORLD MAP */
+  if(currentView==="WORLD")renderPoints(view);
  }
  if(!paused&&t-lastCapture>180)lastCapture=t;
  if(t-lastUpload>800){upload();lastUpload=t}
- if(currentView==="WORLD"&&t-lastWorld>200){drawWorld();lastWorld=t}
+ /* WORLD 3D is rendered by WebGL in the current camera perspective. */
  frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}
 }
 
@@ -326,8 +347,8 @@ function endXR(){$("home").style.display="block";["xrCanvas","depthCanvas","live
 $("startBtn").onclick=startXR;
 $("rgbBtn").onclick=()=>setView("RGB");$("depthBtn").onclick=()=>setView("DEPTH");$("pointsBtn").onclick=()=>setView("POINTS");$("worldBtn").onclick=()=>setView("WORLD");$("compareBtn").onclick=()=>setView("COMPARE");
 $("liveBtn").onclick=()=>{paused=!paused;$("liveBtn").classList.toggle("on",!paused);$("liveBtn").textContent=paused?"PAUSA":"LIVE"};
-$("zoomBtn").onclick=()=>{mapRange=mapRange===8?12:mapRange===12?20:8;$("worldScale").textContent=mapRange+" m";if(currentView==="WORLD")drawWorld()};
-$("centerBtn").onclick=()=>{origin={x:cx,z:cz};if(currentView==="WORLD")drawWorld()};
+$("zoomBtn").onclick=()=>{alert("WORLD 3D usa la perspectiva real de la cámara; el zoom artificial está desactivado para mantener correspondencia RGB ↔ 3D.")};
+$("centerBtn").onclick=()=>{alert("WORLD 3D está anclado a la pose real del teléfono; no requiere centrar manualmente.")};
 $("resetBtn").onclick=resetAll;$("exitBtn").onclick=()=>session?.end();
 
 (async function init(){
