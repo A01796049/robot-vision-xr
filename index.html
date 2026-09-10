@@ -1,131 +1,276 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <meta name="theme-color" content="#02070b">
-  <title>Robot Vision XR · Perception Pipeline V12</title>
-  <link rel="stylesheet" href="./css/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#02070b">
+<title>Robot Vision XR · Perception Pipeline V12.1</title>
+<style>
+:root{--bg:#02070b;--cyan:#34e5ff;--green:#67ff7c;--orange:#ffb347;--purple:#a878ff;--text:#dcf8fc;--muted:#8aaeb8;--panel:rgba(3,13,19,.88)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+button{font:inherit}
+#home{position:fixed;inset:0;overflow:auto;padding:18px}.wrap{max-width:760px;margin:auto}
+h1{color:var(--cyan);font-size:22px;margin:12px 0}.sub{color:var(--muted);font-size:12px;line-height:1.55}
+.card{background:#071118;border:1px solid #1d6674;border-radius:14px;padding:14px;margin:12px 0}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #15313a;font-size:12px}.row:last-child{border:0}.ok{color:var(--green)}
+.start{width:100%;padding:15px;border:1px solid var(--cyan);border-radius:12px;background:#0b2933;color:var(--cyan);font-size:14px}.start:disabled{opacity:.4}
+small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
+
+#xrCanvas{position:fixed;inset:0;width:100%;height:100%;display:none}
+#depthCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:3;display:none;image-rendering:pixelated;background:#000}
+#worldCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:4;display:none;background:#02070b}
+#compare{position:fixed;inset:0;z-index:4;display:none;pointer-events:none}
+#compare .divider{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--cyan)}
+#compare .right{position:absolute;right:0;top:0;width:50%;height:100%;background:#000;overflow:hidden}
+#compareDepth{width:100%;height:100%;image-rendering:pixelated}
+.label{position:absolute;top:10px;padding:6px 9px;border:1px solid #34e5ff66;background:#02070bdd;border-radius:8px;color:var(--cyan);font-size:10px}
+.label.left{left:12px}.label.rightLabel{left:calc(50% + 12px)}
+
+#hud{position:fixed;z-index:7;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 8px);display:none;justify-content:space-between;gap:8px;pointer-events:none}
+.panel{background:var(--panel);border:1px solid #34e5ff77;border-radius:11px;padding:9px 10px;font-size:10.5px;line-height:1.55;backdrop-filter:blur(6px)}
+.panel b{color:var(--cyan)}.metric{color:var(--green)}.right{text-align:right}
+
+#pipeline{position:fixed;z-index:9;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 115px);display:none;gap:5px;padding:6px;background:rgba(3,13,19,.9);border:1px solid #34e5ff66;border-radius:12px}
+#pipeline button{flex:1;margin:0;padding:9px 4px;border:1px solid #34e5ff55;border-radius:9px;background:#07151c;color:#9bdce8;font-size:9px}
+#pipeline button.active{background:#0d3541;color:#fff;border-color:var(--cyan)}
+
+#controls{position:fixed;z-index:10;left:7px;right:7px;bottom:calc(env(safe-area-inset-bottom) + 7px);display:none;gap:5px}
+#controls button{flex:1;margin:0;padding:10px 3px;border:1px solid #34e5ff77;border-radius:11px;background:#07151c;color:var(--cyan);font-size:9.5px}
+#controls button.on{background:#0d3541;color:#fff}
+
+#worldHud{position:fixed;z-index:6;left:10px;right:10px;top:70px;display:none;justify-content:space-between;pointer-events:none;color:#bdeef5;font-size:10px}
+.worldChip{padding:6px 9px;background:#07151c;border:1px solid #34e5ff55;border-radius:8px}
+</style>
 </head>
 <body>
-  <canvas id="xrCanvas"></canvas>
+<canvas id="xrCanvas"></canvas>
 <canvas id="depthCanvas" width="160" height="90"></canvas>
-<section id="comparePanel">
-  <div class="comparePane leftPane"><div class="compareLabel">RGB CAMERA</div></div>
-  <div class="comparePane rightPane"><div class="compareLabel">ROBOT PERCEPTION</div><canvas id="compareDepth" width="160" height="90"></canvas></div>
+<canvas id="worldCanvas" width="720" height="1280"></canvas>
+
+<section id="compare">
+  <div class="label left">RGB CAMERA</div>
+  <div class="right"><canvas id="compareDepth" width="160" height="90"></canvas></div>
+  <div class="divider"></div>
+  <div class="label rightLabel">DEPTH</div>
 </section>
 
-  <section id="hud">
-    <div class="panel">
-      <b>ROBOT VISION XR · V12</b><br>
-      tracking <span id="tracking" class="metric">--</span><br>
-      depth <span id="depth" class="metric">--</span><br>
-      vista <span id="modeValue" class="metric">RGB</span><br>
-      análisis <span id="analysis" class="metric">--</span>
-    </div>
-    <div class="panel right">
-      entidades <span id="entities" class="metric">0</span><br>planos <span id="planes" class="metric">0</span><br>
-      paredes <span id="walls" class="metric">0</span><br>
-      horizontales <span id="floors" class="metric">0</span><br>
-      inclinados <span id="slopes" class="metric">0</span><br>peldaños <span id="steps" class="metric">0</span><br>
-      vóxeles <span id="voxels" class="metric">0</span><br>
-      mapa <span id="mapSizeValue" class="metric">MINI</span><br>fps <span id="fps" class="metric">0</span>
-    </div>
-  </section>
+<section id="hud">
+  <div class="panel">
+    <b>ROBOT VISION XR · V12.1</b><br>
+    tracking <span id="tracking" class="metric">--</span><br>
+    depth <span id="depthInfo" class="metric">--</span><br>
+    vista <span id="viewName" class="metric">RGB</span>
+  </div>
+  <div class="panel right">
+    puntos <span id="pointCount" class="metric">0</span><br>
+    recorrido <span id="distance" class="metric">0.0 m</span><br>
+    fps <span id="fps" class="metric">0</span>
+  </div>
+</section>
 
-  <section id="legend" class="panel">
-    <div><span class="dot horizontal"></span>FLOOR / HORIZONTAL</div>
-    <div><span class="dot vertical"></span>WALL / VERTICAL</div>
-    <div><span class="dot inclined"></span>INCLINED</div>
-    <div><span class="lineSample"></span>PLANE OUTLINE</div>
-  </section>
-
-  <section id="objectOverlay" class="panel">
-    <b>OBJECTS / ENTITIES</b>
-    <div id="objectItems">Esperando Scene Graph…</div>
-  </section>
-
-  
-<section id="pipelineBar">
-  <button id="rgbBtn" class="activeView">RGB</button>
+<nav id="pipeline">
+  <button id="rgbBtn" class="active">RGB</button>
   <button id="depthBtn">DEPTH</button>
   <button id="pointsBtn">POINT CLOUD</button>
   <button id="worldBtn">3D WORLD</button>
   <button id="compareBtn">COMPARE</button>
-</section>
+</nav>
 
-<section id="mapBox">
-    <header><span>PERCEPTION MAP · INTERACTIVE</span><span id="mapScale">12 × 8.5 m</span></header>
-    <div id="mapToolbar">
-      <button id="mapPrevBtn">◀</button>
-      <button id="mapCenterBtn">CENTRAR</button>
-      <button id="mapNextBtn">▶</button>
-      <button id="mapCloseBtn">CERRAR</button>
-    </div>
-    <canvas id="mapCanvas" width="680" height="480"></canvas>
-  </section>
+<div id="worldHud">
+  <span class="worldChip">WORLD MAP · TOP VIEW</span>
+  <span class="worldChip" id="worldScale">8 m</span>
+</div>
 
-  <section id="planeList" class="panel">
-    <b>SCENE GRAPH</b>
-    <div id="stairStatus" class="stairStatus">
-      <span>STAIRS</span>
-      <strong id="stairsState">SEARCHING</strong>
-      <small id="stairsDetail">0 peldaños · -- confianza</small>
-    </div>
-    <div id="planeItems">Esperando geometría…</div>
-  </section>
+<nav id="controls">
+  <button id="liveBtn" class="on">LIVE</button>
+  <button id="zoomBtn">ZOOM</button>
+  <button id="centerBtn">CENTRAR</button>
+  <button id="resetBtn">RESET</button>
+  <button id="exitBtn">SALIR</button>
+</nav>
 
-  <nav id="controls">
-      <button id="liveBtn" class="on">LIVE</button>
-      <button id="expandBtn">EXPANDIR</button>
-      <button id="worldRenderBtn">POINTS</button>
-      <button id="resetBtn">RESET</button>
-      <button id="exitBtn">SALIR</button>
-    </nav>
+<main id="home">
+  <div class="wrap">
+    <h1>Perception Pipeline V12.1</h1>
+    <p class="sub">Prueba rápida en un solo archivo: RGB → Depth → Point Cloud → 3D World → Compare.</p>
+    <section class="card">
+      <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
+      <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
+      <div class="row"><span>Depth Sensing</span><span class="ok">se confirma al iniciar</span></div>
+      <div class="row"><span>Arquitectura</span><span class="ok">single-file</span></div>
+    </section>
+    <section class="card">
+      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V12.1</button>
+      <small>Esta versión elimina imports, carpetas y módulos para descartar problemas de GitHub Pages. Una vez validada, regresamos a la arquitectura modular.</small>
+    </section>
+    <section class="card">
+      <small><b style="color:#34e5ff">Prueba recomendada</b><br>
+      Inicia en RGB, apunta a una pared y objetos a distintas distancias. Cambia a DEPTH, después POINT CLOUD, 3D WORLD y finalmente COMPARE.</small>
+    </section>
+  </div>
+</main>
 
-  <section id="viewSelector" class="panel">
-    <b>PERCEPTION VIEW</b>
-    <div class="viewGrid">
-      <button type="button" data-view="CAMERA" class="viewChoice selected">CAMERA<small>Imagen real</small></button>
-      <button type="button" data-view="POINTS" class="viewChoice">POINT CLOUD<small>Profundidad 3D</small></button>
-      <button type="button" data-view="VOXELS" class="viewChoice">VOXELS<small>Celdas espaciales</small></button>
-      <button type="button" data-view="PLANES" class="viewChoice">PLANES<small>Superficies</small></button>
-      <button type="button" data-view="OBJECTS" class="viewChoice">OBJECTS<small>Scene Graph</small></button>
-      <button type="button" data-view="SPLIT" class="viewChoice">SPLIT<small>Cámara + mapa</small></button>
-    </div>
-    <button id="closeViewsBtn" type="button">CERRAR</button>
-  </section>
+<script>
+const $=id=>document.getElementById(id);
 
-  <main id="home">
-    <div class="wrap">
-      <h1>Perception Pipeline V12</h1>
-      <p class="subtitle">Selecciona cómo visualizar la percepción: cámara, nube de puntos, vóxeles o planos; amplía el mapa para inspeccionarlo.</p>
+const MAX_POINTS=45000, CELL=.07, MIN_D=.35, MAX_D=6.5, SX=34, SY=25;
+const positions=new Float32Array(MAX_POINTS*3), colors=new Float32Array(MAX_POINTS*3);
+const voxels=new Map();
+let pointCount=0,gl=null,session=null,space=null,program=null,pb=null,cb=null;
+let currentView="RGB",paused=false,lastCapture=0,lastUpload=0,lastWorld=0,lastFps=0,frames=0;
+let cx=0,cy=0,cz=0,yaw=0,origin=null,lastPath=null,totalDistance=0,mapRange=8;
+const path=[];
 
-      <section class="card">
-        <div class="row"><span>HTTPS</span><span id="httpsStatus" class="ok">comprobando</span></div>
-        <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando</span></div>
-        <div class="row"><span>Depth Sensing</span><span class="ok">CPU optimized</span></div>
-        <div class="row"><span>Voxel base</span><span class="ok">10 cm</span></div>
-        <div class="row"><span>Extracción de planos</span><span class="ok">cada 1.5 s</span></div>
-      </section>
+const depthCanvas=$("depthCanvas"),depthCtx=depthCanvas.getContext("2d",{alpha:false});
+const compareCanvas=$("compareDepth"),compareCtx=compareCanvas.getContext("2d",{alpha:false});
+const worldCanvas=$("worldCanvas"),worldCtx=worldCanvas.getContext("2d");
 
-      <section class="card">
-        <button id="startBtn" disabled>INICIAR PERCEPTION PIPELINE V12</button>
-        <small>
-          Escanea una escena y cambia entre CAMERA, POINTS, VOXELS y PLANES. Usa EXPANDIR para abrir el mapa en tamaño medio o pantalla completa.
-          Usa BOTH para comparar vóxeles y planos; después cambia a PLANES para ver la representación simplificada.
-        </small>
-      </section>
+const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=3.0;C=c;}`;
+const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.95);}`;
 
-      <section class="card">
-        <small>
-          V12 incorpora un selector explícito de percepción y una vista OBJECTS basada en el Scene Graph geométrico. El módulo YOLO real queda preparado para un modelo ONNX externo.
-          La nube de puntos proviene de ARCore Depth, no de un LiDAR físico.
-        </small>
-      </section>
-    </div>
-  </main>
+function makeShader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}
 
-  <script type="module" src="./js/app.js"></script>
+function invert4(a){
+ const o=new Float32Array(16),a00=a[0],a01=a[1],a02=a[2],a03=a[3],a10=a[4],a11=a[5],a12=a[6],a13=a[7],a20=a[8],a21=a[9],a22=a[10],a23=a[11],a30=a[12],a31=a[13],a32=a[14],a33=a[15];
+ const b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32;
+ let d=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;if(!d)return null;d=1/d;
+ o[0]=(a11*b11-a12*b10+a13*b09)*d;o[1]=(a02*b10-a01*b11-a03*b09)*d;o[2]=(a31*b05-a32*b04+a33*b03)*d;o[3]=(a22*b04-a21*b05-a23*b03)*d;
+ o[4]=(a12*b08-a10*b11-a13*b07)*d;o[5]=(a00*b11-a02*b08+a03*b07)*d;o[6]=(a32*b02-a30*b05-a33*b01)*d;o[7]=(a20*b05-a22*b02+a23*b01)*d;
+ o[8]=(a10*b10-a11*b08+a13*b06)*d;o[9]=(a01*b08-a00*b10-a03*b06)*d;o[10]=(a30*b04-a31*b02+a33*b00)*d;o[11]=(a21*b02-a20*b04-a23*b00)*d;
+ o[12]=(a11*b07-a10*b09-a12*b06)*d;o[13]=(a00*b09-a01*b07+a02*b06)*d;o[14]=(a31*b01-a30*b03-a32*b00)*d;o[15]=(a20*b03-a21*b01-a22*b00)*d;return o
+}
+function mul(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
+
+function depthColor(d){
+ if(!Number.isFinite(d)||d<=0)return[0,0,0];
+ let t=Math.max(0,Math.min(1,(d-MIN_D)/(MAX_D-MIN_D)));
+ const s=[[255,65,35],[255,195,35],[55,235,100],[25,210,220],[45,65,215]];
+ const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),a=p-i;
+ return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a))
+}
+function pointColor(d){const c=depthColor(d);return[c[0]/255,c[1]/255,c[2]/255]}
+
+function drawDepth(info){
+ const W=160,H=90,img=depthCtx.createImageData(W,H),cmp=compareCtx.createImageData(W,H);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  let d=NaN;try{d=info.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{}
+  const c=depthColor(d),i=(y*W+x)*4;
+  img.data[i]=cmp.data[i]=c[0];img.data[i+1]=cmp.data[i+1]=c[1];img.data[i+2]=cmp.data[i+2]=c[2];img.data[i+3]=cmp.data[i+3]=255;
+ }
+ depthCtx.putImageData(img,0,0);compareCtx.putImageData(cmp,0,0)
+}
+
+function addPoint(x,y,z,d){
+ const key=`${Math.round(x/CELL)},${Math.round(y/CELL)},${Math.round(z/CELL)}`;
+ if(voxels.has(key)||pointCount>=MAX_POINTS)return;
+ voxels.set(key,pointCount);const i=pointCount*3,c=pointColor(d);
+ positions[i]=x;positions[i+1]=y;positions[i+2]=z;colors[i]=c[0];colors[i+1]=c[1];colors[i+2]=c[2];pointCount++
+}
+
+function capture(view,depth){
+ const ip=invert4(view.projectionMatrix);if(!ip)return;const wm=view.transform.matrix;
+ for(let j=0;j<SY;j++)for(let i=0;i<SX;i++){
+  const u=(i+.5)/SX,v=(j+.5)/SY;let d;
+  try{d=depth.getDepthInMeters(u,v)}catch{continue}
+  if(!Number.isFinite(d)||d<MIN_D||d>MAX_D)continue;
+  const q=mul(ip,u*2-1,1-v*2,-1,1);if(Math.abs(q[3])<1e-6)continue;
+  let x=q[0]/q[3],y=q[1]/q[3],z=q[2]/q[3],L=Math.hypot(x,y,z);if(L<1e-6)continue;
+  x=x/L*d;y=y/L*d;z=z/L*d;const p=mul(wm,x,y,z,1);addPoint(p[0],p[1],p[2],d)
+ }
+ $("depthInfo").textContent=`${depth.width}×${depth.height}`;
+ if(currentView==="DEPTH"||currentView==="COMPARE")drawDepth(depth)
+}
+
+function upload(){
+ gl.bindBuffer(gl.ARRAY_BUFFER,pb);gl.bufferData(gl.ARRAY_BUFFER,positions.subarray(0,pointCount*3),gl.DYNAMIC_DRAW);
+ gl.bindBuffer(gl.ARRAY_BUFFER,cb);gl.bufferData(gl.ARRAY_BUFFER,colors.subarray(0,pointCount*3),gl.DYNAMIC_DRAW);
+ $("pointCount").textContent=pointCount.toLocaleString()
+}
+
+function renderPoints(view){
+ if(!pointCount)return;gl.useProgram(program);
+ gl.uniformMatrix4fv(gl.getUniformLocation(program,"P"),false,view.projectionMatrix);
+ gl.uniformMatrix4fv(gl.getUniformLocation(program,"V"),false,view.transform.inverse.matrix);
+ gl.bindBuffer(gl.ARRAY_BUFFER,pb);const ap=gl.getAttribLocation(program,"p");gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);
+ gl.bindBuffer(gl.ARRAY_BUFFER,cb);const ac=gl.getAttribLocation(program,"c");gl.enableVertexAttribArray(ac);gl.vertexAttribPointer(ac,3,gl.FLOAT,false,0,0);
+ gl.drawArrays(gl.POINTS,0,pointCount)
+}
+
+function drawWorld(){
+ const c=worldCanvas,ctx=worldCtx,w=c.width,h=c.height,s=Math.min(w,h)/mapRange;
+ ctx.fillStyle="#02070b";ctx.fillRect(0,0,w,h);ctx.strokeStyle="#12313a";ctx.lineWidth=1;
+ for(let m=-10;m<=10;m++){ctx.beginPath();ctx.moveTo(w/2+m*s,0);ctx.lineTo(w/2+m*s,h);ctx.stroke();ctx.beginPath();ctx.moveTo(0,h/2+m*s);ctx.lineTo(w,h/2+m*s);ctx.stroke()}
+ if(!origin)return;
+ const project=(x,z)=>[w/2-(x-origin.x)*s,h/2-(z-origin.z)*s];
+ ctx.globalAlpha=.85;
+ for(let i=0;i<pointCount;i+=2){
+  const k=i*3,q=project(positions[k],positions[k+2]);if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
+  const r=Math.floor(colors[k]*255),g=Math.floor(colors[k+1]*255),b=Math.floor(colors[k+2]*255);
+  ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fillRect(q[0]-1.5,q[1]-1.5,3,3)
+ }
+ ctx.globalAlpha=1;ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();
+ path.forEach((p,i)=>{const q=project(p.x,p.z);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.stroke();
+ const phone=project(cx,cz);ctx.save();ctx.translate(...phone);ctx.rotate(yaw);ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(9,10);ctx.lineTo(-9,10);ctx.closePath();ctx.fill();ctx.restore()
+}
+
+function setView(v){
+ currentView=v;$("viewName").textContent=v==="POINTS"?"POINT CLOUD":v==="WORLD"?"3D WORLD":v;
+ ["rgbBtn","depthBtn","pointsBtn","worldBtn","compareBtn"].forEach(id=>$(id).classList.remove("active"));
+ const map={RGB:"rgbBtn",DEPTH:"depthBtn",POINTS:"pointsBtn",WORLD:"worldBtn",COMPARE:"compareBtn"};$(map[v]).classList.add("active");
+ depthCanvas.style.display=v==="DEPTH"?"block":"none";
+ worldCanvas.style.display=v==="WORLD"?"block":"none";
+ $("worldHud").style.display=v==="WORLD"?"flex":"none";
+ $("compare").style.display=v==="COMPARE"?"block":"none";
+}
+
+async function startXR(){
+ try{
+  gl=$("xrCanvas").getContext("webgl",{xrCompatible:true,alpha:true,antialias:false});if(!gl)throw Error("WebGL no disponible");
+  await gl.makeXRCompatible();program=gl.createProgram();gl.attachShader(program,makeShader(gl.VERTEX_SHADER,vs));gl.attachShader(program,makeShader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(program);
+  pb=gl.createBuffer();cb=gl.createBuffer();gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
+  session=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["local","depth-sensing","dom-overlay"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});
+  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});space=await session.requestReferenceSpace("local");
+  $("home").style.display="none";$("xrCanvas").style.display="block";$("hud").style.display="flex";$("pipeline").style.display="flex";$("controls").style.display="flex";
+  session.addEventListener("end",endXR);session.requestAnimationFrame(frame)
+ }catch(e){alert("No se pudo iniciar WebXR:\n"+(e.message||e));console.error(e)}
+}
+
+function frame(t,f){
+ session.requestAnimationFrame(frame);const pose=f.getViewerPose(space);if(!pose)return;$("tracking").textContent="activo";
+ const v0=pose.views[0],m=v0.transform.matrix;cx=m[12];cy=m[13];cz=m[14];yaw=Math.atan2(-m[8],-m[10]);
+ if(!origin){origin={x:cx,z:cz};lastPath={x:cx,z:cz};path.push({x:cx,z:cz})}
+ const step=Math.hypot(cx-lastPath.x,cz-lastPath.z);if(step>.06){if(step<1)totalDistance+=step;lastPath={x:cx,z:cz};path.push({x:cx,z:cz});$("distance").textContent=totalDistance.toFixed(1)+" m"}
+ const layer=session.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
+ const black=currentView==="POINTS";gl.clearColor(0,0,0,black?1:0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ for(const view of pose.views){
+  const vp=layer.getViewport(view);gl.viewport(vp.x,vp.y,vp.width,vp.height);
+  if(!paused&&t-lastCapture>180){try{const d=f.getDepthInformation(view);if(d)capture(view,d)}catch{}}
+  if(currentView==="POINTS")renderPoints(view)
+ }
+ if(!paused&&t-lastCapture>180)lastCapture=t;
+ if(t-lastUpload>800){upload();lastUpload=t}
+ if(currentView==="WORLD"&&t-lastWorld>200){drawWorld();lastWorld=t}
+ frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}
+}
+
+function resetAll(){voxels.clear();pointCount=0;origin=null;lastPath=null;totalDistance=0;path.length=0;upload();$("distance").textContent="0.0 m";drawWorld()}
+function endXR(){$("home").style.display="block";["xrCanvas","depthCanvas","worldCanvas","hud","pipeline","controls","worldHud","compare"].forEach(id=>$(id).style.display="none");session=null}
+
+$("startBtn").onclick=startXR;
+$("rgbBtn").onclick=()=>setView("RGB");$("depthBtn").onclick=()=>setView("DEPTH");$("pointsBtn").onclick=()=>setView("POINTS");$("worldBtn").onclick=()=>setView("WORLD");$("compareBtn").onclick=()=>setView("COMPARE");
+$("liveBtn").onclick=()=>{paused=!paused;$("liveBtn").classList.toggle("on",!paused);$("liveBtn").textContent=paused?"PAUSA":"LIVE"};
+$("zoomBtn").onclick=()=>{mapRange=mapRange===8?12:mapRange===12?20:8;$("worldScale").textContent=mapRange+" m";if(currentView==="WORLD")drawWorld()};
+$("centerBtn").onclick=()=>{origin={x:cx,z:cz};if(currentView==="WORLD")drawWorld()};
+$("resetBtn").onclick=resetAll;$("exitBtn").onclick=()=>session?.end();
+
+(async function init(){
+ $("secureStatus").textContent=window.isSecureContext?"OK":"NO — requiere HTTPS";
+ if(!window.isSecureContext)return;
+ if(!navigator.xr){$("xrStatus").textContent="no disponible";return}
+ try{const ok=await navigator.xr.isSessionSupported("immersive-ar");$("xrStatus").textContent=ok?"compatible":"no compatible";$("startBtn").disabled=!ok}
+ catch(e){$("xrStatus").textContent="error";console.error(e)}
+})();
+</script>
 </body>
 </html>
