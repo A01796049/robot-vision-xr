@@ -10,7 +10,7 @@ const voxels=new VoxelMap(),nav=new NavigationMap($("mapCanvas"));
 let gl,session,space,renderer,planes=[],scene={entities:[],stairs:null};
 let paused=false,showFloor=false,showMap=true;
 let lastCapture=0,lastPointUpload=0,lastPlaneExtract=0,lastMap=0,lastFps=0,frames=0;
-let cx=0,cy=0,cz=0,yaw=0;const modes=["CAMERA","POINTS","VOXELS","PLANES"];let modeIndex=0;const mapSizes=["mini","medium","full"];let mapSizeIndex=0;
+let cx=0,cy=0,cz=0,yaw=0;let currentView="RGB";let worldRender="POINTS";let activeView="CAMERA";const mapSizes=["mini","medium","full"];let mapSizeIndex=0;
 
 function capture(view,depth,t){
  const inv=invert4(view.projectionMatrix);if(!inv)return;const world=view.transform.matrix;
@@ -24,6 +24,7 @@ function capture(view,depth,t){
   voxels.add(p[0],p[1],p[2],t,cy,showFloor)
  }
  $("depth").textContent=`${depth.width}×${depth.height}`;
+ if(currentView==="DEPTH"||currentView==="COMPARE")drawDepthHeatmap(depth);
 }
 
 function updateUI(){
@@ -45,6 +46,11 @@ function updateUI(){
  }
 
  const top=scene.entities.slice(0,7);
+ $("objectItems").innerHTML=top.length?top.map((e,i)=>{
+  const confidence=Math.round((e.confidence||.5)*100);
+  const distance=Math.hypot((e.cx||0)-cx,(e.cz||0)-cz);
+  return `<div class="objectRow"><span class="objectLabel">${e.entityType||e.label||"ENTITY"}</span><span class="objectMeta">${confidence}% · ${distance.toFixed(1)} m</span></div>`;
+ }).join(""):"Esperando Scene Graph…";
  $("planeItems").innerHTML=top.length?top.map((e,i)=>{
   const cls=e.entityType==="STAIRS"?"entityStairs":e.entityType==="STEP"?"entityStep":e.type===1?"entityWall":"entityFloor";
   const detail=e.entityType==="STAIRS"
@@ -65,7 +71,7 @@ async function startXR(){
  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});
  space=await session.requestReferenceSpace("local");
  $("home").style.display="none";$("xrCanvas").style.display="block";$("hud").style.display="flex";
- $("legend").style.display="block";$("mapBox").style.display="block";$("planeList").style.display="block";$("controls").style.display="flex";
+ $("legend").style.display="block";$("mapBox").style.display="block";$("planeList").style.display="block";$("controls").style.display="flex";$("pipelineBar").style.display="flex";
  session.addEventListener("end",endXR);session.requestAnimationFrame(frame)
 }
 
@@ -79,7 +85,7 @@ function frame(t,f){
  for(const view of pose.views){
   const vp=layer.getViewport(view);gl.viewport(vp.x,vp.y,vp.width,vp.height);
   if(!paused&&t-lastCapture>180){try{const d=f.getDepthInformation(view);if(d)capture(view,d,t)}catch{}}
-  renderer.draw(view)
+  if(currentView==="POINTS"||currentView==="WORLD")renderer.draw(view)
  }
  if(!paused&&t-lastCapture>180)lastCapture=t;
 
@@ -108,22 +114,7 @@ function reset(){
 }
 function endXR(){
  $("home").style.display="block";
- ["xrCanvas","hud","legend","mapBox","planeList","controls"].forEach(id=>$(id).style.display="none")
+ ["xrCanvas","hud","legend","mapBox","planeList","controls","pipelineBar","comparePanel","depthCanvas"].forEach(id=>$(id).style.display="none")
 }
 
-$("startBtn").onclick=startXR;
-$("liveBtn").onclick=()=>{paused=!paused;$("liveBtn").classList.toggle("on",!paused);$("liveBtn").textContent=paused?"PAUSA":"LIVE"};
-$("modeBtn").onclick=()=>{modeIndex=(modeIndex+1)%modes.length;renderer.setMode(modes[modeIndex]);$("modeBtn").textContent=modes[modeIndex];$("modeValue").textContent=modes[modeIndex]};
-$("floorBtn").onclick=()=>{showFloor=!showFloor;$("floorBtn").classList.toggle("on",showFloor);$("floorBtn").textContent=showFloor?"SUELO ON":"SUELO OFF"};
-$("expandBtn").onclick=()=>{mapSizeIndex=(mapSizeIndex+1)%mapSizes.length;const size=mapSizes[mapSizeIndex],box=$("mapBox");box.classList.remove("medium","full");if(size!=="mini")box.classList.add(size);$("mapSizeValue").textContent=size.toUpperCase();$("expandBtn").textContent=size==="mini"?"EXPANDIR":size==="medium"?"FULL":"MINI"};
-$("mapCloseBtn").onclick=()=>{mapSizeIndex=0;$("mapBox").classList.remove("medium","full");$("mapSizeValue").textContent="MINI";$("expandBtn").textContent="EXPANDIR"};
-$("mapCenterBtn").onclick=()=>nav.centerOn(cx,cz);
-$("mapPrevBtn").onclick=()=>nav.zoom(.8);
-$("mapNextBtn").onclick=()=>nav.zoom(1.25);
-$("yoloBtn").onclick=()=>alert("YOLO se integrará en V11. En V10 este botón reserva la experiencia de usuario.");
-$("resetBtn").onclick=reset;$("exitBtn").onclick=()=>session?.end();
-let drag=false,lastX=0,lastY=0;
-$("mapCanvas").addEventListener("pointerdown",e=>{if(mapSizeIndex===0)return;drag=true;lastX=e.clientX;lastY=e.clientY;$("mapCanvas").setPointerCapture(e.pointerId)});
-$("mapCanvas").addEventListener("pointermove",e=>{if(!drag)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;const metersPerPixel=nav.range/$("mapCanvas").clientWidth;nav.pan(-dx*metersPerPixel,dy*metersPerPixel)});
-$("mapCanvas").addEventListener("pointerup",()=>drag=false);$("mapCanvas").addEventListener("pointercancel",()=>drag=false);
-(async()=>{$("httpsStatus").textContent=window.isSecureContext?"OK":"NO";if(navigator.xr){const ok=await navigator.xr.isSessionSupported("immersive-ar");$("xrStatus").textContent=ok?"compatible":"no compatible";$("startBtn").disabled=!ok}else $("xrStatus").textContent="no disponible"})();
+$("startBtn").onclick=startXR;\n$("liveBtn").onclick=()=>{paused=!paused;$("liveBtn").classList.toggle("on",!paused);$("liveBtn").textContent=paused?"PAUSA":"LIVE"};\n$("rgbBtn").onclick=()=>setView("RGB");$("depthBtn").onclick=()=>setView("DEPTH");$("pointsBtn").onclick=()=>setView("POINTS");$("worldBtn").onclick=()=>setView("WORLD");$("compareBtn").onclick=()=>setView("COMPARE");\n$("worldRenderBtn").onclick=()=>{const o=["POINTS","VOXELS","PLANES"];worldRender=o[(o.indexOf(worldRender)+1)%o.length];$("worldRenderBtn").textContent=worldRender;if(currentView==="WORLD")renderer.setMode(worldRender)};\n$("expandBtn").onclick=()=>{$("mapBox").classList.toggle("fullWorld")};\n$("resetBtn").onclick=reset;$("exitBtn").onclick=()=>session?.end();\n(async()=>{$("httpsStatus").textContent=window.isSecureContext?"OK":"NO";if(navigator.xr){const ok=await navigator.xr.isSessionSupported("immersive-ar");$("xrStatus").textContent=ok?"compatible":"no compatible";$("startBtn").disabled=!ok}else $("xrStatus").textContent="no disponible"})();\n

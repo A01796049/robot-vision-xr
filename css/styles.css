@@ -29,3 +29,17 @@ button{width:100%;padding:14px;border-radius:12px;border:1px solid var(--cyan);b
 #mapBox.medium+#planeList,#mapBox.full+#planeList{display:none!important}
 #mapBox.full{background:#02070b}
 @media(max-width:480px){#controls{gap:4px}#controls button{font-size:8.8px;padding:9px 2px}#mapBox.medium{width:88vw;height:64vh;right:6vw;bottom:18vh}}
+
+#viewSelector{position:fixed;z-index:12;left:8px;right:8px;bottom:64px;display:none;padding:10px}
+.viewGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:8px}
+.viewChoice{margin:0;padding:10px 5px;font-size:10px;line-height:1.2}
+.viewChoice small{display:block;margin:3px 0 0;color:#86aeb8;font-size:8px}
+.viewChoice.selected{background:#0d3541;color:#fff;border-color:#fff}
+#closeViewsBtn{margin-top:8px;padding:9px}
+#objectOverlay{position:fixed;z-index:7;left:8px;bottom:62px;width:min(46vw,310px);max-height:230px;overflow:hidden;display:none}
+.objectRow{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #15313a}
+.objectLabel{color:#fff}.objectMeta{color:#55ff78;text-align:right}
+body.split-mode #mapBox{width:48vw;height:43vh}
+body.split-mode #objectOverlay{display:block}
+@media(max-width:480px){.viewGrid{grid-template-columns:repeat(2,1fr)}#objectOverlay{width:48vw;font-size:9px}}
+\n#pipelineBar{position:fixed;z-index:10;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 94px);display:none;gap:5px;padding:6px;background:rgba(3,13,19,.88);border:1px solid rgba(52,229,255,.45);border-radius:12px;backdrop-filter:blur(7px)}\n#pipelineBar button{width:auto;margin:0;padding:8px 9px;font-size:9.5px;border-radius:9px;border:1px solid rgba(52,229,255,.35);background:#07151c;color:#9bdce8}\n#pipelineBar button.activeView{background:#0d3541;color:#fff;border-color:#34e5ff}\n#depthCanvas{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:3;image-rendering:pixelated;background:#000}\n#comparePanel{position:fixed;inset:0;z-index:3;display:none;background:#000}\n.comparePane{position:absolute;top:0;bottom:0;width:50%;overflow:hidden}.leftPane{left:0;border-right:1px solid rgba(52,229,255,.35)}.rightPane{right:0;background:#000}.compareLabel{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;padding:6px 9px;border-radius:8px;background:rgba(0,0,0,.72);color:#34e5ff;font-size:10px}\n#compareDepth{position:absolute;inset:0;width:100%;height:100%;image-rendering:pixelated}\n#mapBox.fullWorld{inset:0;width:100vw;height:100vh;border-radius:0;background:#02070b;z-index:5}\n@media(max-width:520px){#pipelineBar{top:calc(env(safe-area-inset-top) + 124px);left:8px;right:8px;transform:none;justify-content:space-between}#pipelineBar button{font-size:8.4px;padding:8px 6px;flex:1}}\n
