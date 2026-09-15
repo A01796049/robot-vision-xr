@@ -1,0 +1,3 @@
+Robot Vision XR
+Version: V14 LiDAR Visual Match
+Build: GitHub Pages single-file clean package
