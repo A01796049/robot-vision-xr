@@ -1,3 +1,2 @@
 Robot Vision XR
-Version: V14 LiDAR Visual Match
-Build: GitHub Pages single-file clean package
+Version: V15 Clear Point Cloud

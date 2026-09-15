@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · LiDAR Visual Match V14</title>
+<title>Robot Vision XR · Clear Point Cloud V15</title>
 <style>
 :root{--bg:#02070b;--cyan:#34e5ff;--green:#67ff7c;--orange:#ffb347;--purple:#a878ff;--text:#dcf8fc;--muted:#8aaeb8;--panel:rgba(3,13,19,.88)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -42,6 +42,16 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 
 #worldHud{position:fixed;z-index:6;left:10px;right:10px;top:70px;display:none;justify-content:space-between;pointer-events:none;color:#bdeef5;font-size:10px}
 .worldChip{padding:6px 9px;background:#07151c;border:1px solid #34e5ff55;border-radius:8px}
+
+#controls button{font-size:8.7px}
+#live3dCanvas,#compareDepth{
+  image-rendering:auto;
+}
+#live3dCanvas{background:#000}
+#worldCanvas{background:#02070b}
+body.world-top #worldCanvas{display:block!important}
+body.world-top #xrCanvas{background:#02070b}
+
 </style>
 </head>
 <body>
@@ -59,7 +69,7 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 
 <section id="hud">
   <div class="panel">
-    <b>ROBOT VISION XR · V14</b><br>
+    <b>ROBOT VISION XR · V15</b><br>
     tracking <span id="tracking" class="metric">--</span><br>
     depth <span id="depthInfo" class="metric">--</span><br>
     vista <span id="viewName" class="metric">RGB</span>
@@ -86,16 +96,17 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 
 <nav id="controls">
   <button id="liveBtn" class="on">LIVE</button>
-  <button id="zoomBtn">ZOOM</button>
-  <button id="centerBtn">CENTRAR</button>
+  <button id="densityBtn">DENSIDAD MED</button>
+  <button id="rangeBtn">RANGO 6.5M</button>
+  <button id="worldModeBtn">WORLD CAM</button>
   <button id="resetBtn">RESET</button>
   <button id="exitBtn">SALIR</button>
 </nav>
 
 <main id="home">
   <div class="wrap">
-    <h1>LiDAR Visual Match V14</h1>
-    <p class="sub">RGB y nube de puntos comparten la misma perspectiva visual. LIVE 3D muestra el frame actual; WORLD 3D conserva la reconstrucción acumulada.</p>
+    <h1>Clear Point Cloud V15</h1>
+    <p class="sub">LIVE 3D prioriza claridad visual y WORLD 3D muestra con mayor limpieza lo que el teléfono va construyendo.</p>
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
@@ -103,12 +114,12 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
       <div class="row"><span>Arquitectura</span><span class="ok">single-file</span></div>
     </section>
     <section class="card">
-      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V14</button>
-      <small>LIVE 3D conserva la misma perspectiva de RGB y sustituye cada región visible por puntos de profundidad. WORLD 3D acumula esos puntos en coordenadas del mundo y los vuelve a proyectar desde la cámara.</small>
+      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V15</button>
+      <small>LIVE 3D usa más densidad, persistencia corta y mejor contraste para que se entienda claramente la silueta observada. WORLD 3D puede verse desde la cámara o desde arriba.</small>
     </section>
     <section class="card">
       <small><b style="color:#34e5ff">Prueba recomendada</b><br>
-      Compara RGB con LIVE 3D: la geometría debe conservar la misma silueta y perspectiva. Después usa WORLD 3D para ver la reconstrucción acumulada desde la cámara.</small>
+      Compara RGB con LIVE 3D y usa WORLD 3D en modo CAMERA o TOP para ver con claridad la escena reconstruida.</small>
     </section>
   </div>
 </main>
@@ -116,7 +127,7 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 <script>
 const $=id=>document.getElementById(id);
 
-const MAX_POINTS=65000, CELL=.085, MIN_D=.35, MAX_D=6.5, SX=36, SY=27;
+const MAX_POINTS=72000, CELL=.09, MIN_D=.35, MAX_D=6.5, SX=40, SY=30;
 const positions=new Float32Array(MAX_POINTS*3), colors=new Float32Array(MAX_POINTS*3);
 const voxels=new Map();
 let pointCount=0,gl=null,session=null,space=null,program=null,pb=null,cb=null;
@@ -130,8 +141,17 @@ const worldCanvas=$("worldCanvas"),worldCtx=worldCanvas.getContext("2d");
 const live3dCanvas=$("live3dCanvas"),live3dCtx=live3dCanvas.getContext("2d");
 let liveDepthPoints=[];
 
+const DENSITY_PRESETS={LOW:[72,40],MED:[112,63],HIGH:[144,81]};
+const RANGE_PRESETS=[2.5,4.0,6.5];
+let densityMode="MED";
+let rangeIndex=2;
+let currentFar=RANGE_PRESETS[rangeIndex];
+let worldMode="CAMERA"; // CAMERA | TOP
+let liveTrail=[]; // short persistence frames
 
-const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=2.4;C=c;}`;
+
+
+const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=3.1;C=c;}`;
 const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.95);}`;
 
 function makeShader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}
@@ -149,7 +169,7 @@ function mul(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]
 
 function depthColor(d){
  if(!Number.isFinite(d)||d<=0)return[0,0,0];
- let t=Math.max(0,Math.min(1,(d-MIN_D)/(MAX_D-MIN_D)));
+ let t=Math.max(0,Math.min(1,(d-MIN_D)/(currentFar-MIN_D)));
  const s=[[255,65,35],[255,195,35],[55,235,100],[25,210,220],[45,65,215]];
  const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),a=p-i;
  return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a))
@@ -158,68 +178,87 @@ function pointColor(d){const c=depthColor(d);return[c[0]/255,c[1]/255,c[2]/255]}
 
 
 function buildLiveDepthPoints(info){
-  // Normalized view coordinates: preserve exactly the same camera perspective.
-  // No artificial depth-based shrinking; that was the cause of the "curved rows" look in V13.
+  // Preserve camera silhouette while increasing point count and clarity.
   const pts=[];
-  const W=112,H=63; // ~7k samples: denser but still mobile-friendly.
+  const [W,H]=DENSITY_PRESETS[densityMode];
   for(let y=0;y<H;y++){
     const v=(y+.5)/H;
     for(let x=0;x<W;x++){
       const u=(x+.5)/W;
       let d=NaN;
       try{d=info.getDepthInMeters(u,v)}catch{}
-      if(!Number.isFinite(d)||d<MIN_D||d>MAX_D)continue;
+      if(!Number.isFinite(d)||d<MIN_D||d>currentFar)continue;
       pts.push({u,v,d});
     }
   }
   liveDepthPoints=pts;
+  liveTrail.push(pts.slice());
+  if(liveTrail.length>4)liveTrail.shift();
   $("liveCount").textContent=pts.length.toLocaleString();
 }
 
-function drawLive3DTo(ctx,canvas){
+function drawPointCloudFrame(ctx,canvas,frames,world=false){
   const w=canvas.width,h=canvas.height;
   ctx.save();
-  ctx.globalCompositeOperation="source-over";
+  ctx.clearRect(0,0,w,h);
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,w,h);
+  if(!frames.length){ctx.restore();return;}
 
-  if(!liveDepthPoints.length){ctx.restore();return;}
-
-  // Draw points in the SAME normalized image coordinates as RGB.
-  // Result: a door/car/wall keeps its RGB silhouette, but is rendered as depth points.
+  const alphas=[0.18,0.32,0.52,0.92].slice(-frames.length);
   ctx.globalCompositeOperation="lighter";
 
-  for(const p of liveDepthPoints){
-    const x=p.u*w;
-    const y=p.v*h;
-    const c=depthColor(p.d);
-    const t=Math.max(0,Math.min(1,(p.d-MIN_D)/(MAX_D-MIN_D)));
+  frames.forEach((frame,fi)=>{
+    const baseAlpha=alphas[fi];
+    for(const p of frame){
+      const x=p.u*w;
+      const y=p.v*h;
+      const c=depthColor(p.d);
+      const t=Math.max(0,Math.min(1,(p.d-MIN_D)/(currentFar-MIN_D)));
+      const r=t<.18?2.8:t<.45?2.25:t<.75?1.75:1.3;
+      const alpha=baseAlpha*(t<.25?1.0:t<.6?.9:.8);
 
-    // Slightly larger near points, but no positional deformation.
-    const r=t<.20?2.35:t<.55?1.9:1.45;
-    const alpha=t<.15?.95:t<.70?.82:.68;
+      // subtle glow pass
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha*.26})`;
+      ctx.beginPath();
+      ctx.arc(x,y,r*2.2,0,Math.PI*2);
+      ctx.fill();
 
-    ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
-    ctx.beginPath();
-    ctx.arc(x,y,r,0,Math.PI*2);
-    ctx.fill();
-  }
+      // main point
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+      ctx.beginPath();
+      ctx.arc(x,y,r,0,Math.PI*2);
+      ctx.fill();
+    }
+  });
 
   ctx.globalCompositeOperation="source-over";
 
-  // Minimal sensor HUD; no fake geometry.
+  // Depth legend
   const g=ctx.createLinearGradient(18,0,220,0);
   g.addColorStop(0,"#ff9d22");
-  g.addColorStop(.38,"#57ef64");
+  g.addColorStop(.34,"#57ef64");
   g.addColorStop(.68,"#22d7dd");
   g.addColorStop(1,"#334ddb");
-  ctx.fillStyle=g;ctx.fillRect(18,h-35,190,6);
-  ctx.fillStyle="rgba(220,248,252,.82)";
+  ctx.fillStyle=g;
+  ctx.fillRect(18,h-35,190,6);
+  ctx.fillStyle="rgba(220,248,252,.86)";
   ctx.font=`${Math.max(14,Math.round(w/42))}px monospace`;
   ctx.fillText("NEAR",18,h-44);
   ctx.fillText("FAR",180,h-44);
 
+  // Status
+  ctx.fillStyle="rgba(52,229,255,.96)";
+  ctx.fillText(world?"WORLD 3D VIEW":"LIVE DEPTH POINT CLOUD",18,34);
+  ctx.fillStyle="rgba(220,248,252,.76)";
+  const pts=frames[frames.length-1]?.length||0;
+  ctx.fillText(`${pts.toLocaleString()} pts · ${densityMode} · ${currentFar.toFixed(1)}m`,18,60);
+
   ctx.restore();
+}
+
+function drawLive3DTo(ctx,canvas){
+  drawPointCloudFrame(ctx,canvas,liveTrail,false);
 }
 
 function drawDepth(info){
@@ -227,6 +266,7 @@ function drawDepth(info){
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
   let d=NaN;
   try{d=info.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{}
+  if(Number.isFinite(d)&&d>currentFar)d=NaN;
   const c=depthColor(d),i=(y*W+x)*4;
   img.data[i]=c[0];img.data[i+1]=c[1];img.data[i+2]=c[2];img.data[i+3]=255;
  }
@@ -234,7 +274,7 @@ function drawDepth(info){
 
  buildLiveDepthPoints(info);
  if(currentView==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
- if(currentView==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
+ if(currentView==="COMPARE")drawPointCloudFrame(compareCtx,compareCanvas,liveTrail,false);
 }
 
 function addPoint(x,y,z,d){
@@ -249,7 +289,7 @@ function capture(view,depth){
  for(let j=0;j<SY;j++)for(let i=0;i<SX;i++){
   const u=(i+.5)/SX,v=(j+.5)/SY;let d;
   try{d=depth.getDepthInMeters(u,v)}catch{continue}
-  if(!Number.isFinite(d)||d<MIN_D||d>MAX_D)continue;
+  if(!Number.isFinite(d)||d<MIN_D||d>currentFar)continue;
   const q=mul(ip,u*2-1,1-v*2,-1,1);if(Math.abs(q[3])<1e-6)continue;
   const rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3];
   if(Math.abs(rz)<1e-6)continue;
@@ -279,19 +319,48 @@ function renderPoints(view){
 
 function drawWorld(){
  const c=worldCanvas,ctx=worldCtx,w=c.width,h=c.height,s=Math.min(w,h)/mapRange;
- ctx.fillStyle="#02070b";ctx.fillRect(0,0,w,h);ctx.strokeStyle="#12313a";ctx.lineWidth=1;
- for(let m=-10;m<=10;m++){ctx.beginPath();ctx.moveTo(w/2+m*s,0);ctx.lineTo(w/2+m*s,h);ctx.stroke();ctx.beginPath();ctx.moveTo(0,h/2+m*s);ctx.lineTo(w,h/2+m*s);ctx.stroke()}
+ ctx.fillStyle="#02070b";ctx.fillRect(0,0,w,h);
+
+ // grid
+ ctx.strokeStyle="#11313a";ctx.lineWidth=1;
+ for(let m=-10;m<=10;m++){
+   ctx.beginPath();ctx.moveTo(w/2+m*s,0);ctx.lineTo(w/2+m*s,h);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(0,h/2+m*s);ctx.lineTo(w,h/2+m*s);ctx.stroke();
+ }
+
  if(!origin)return;
  const project=(x,z)=>[w/2-(x-origin.x)*s,h/2-(z-origin.z)*s];
- ctx.globalAlpha=.85;
- for(let i=0;i<pointCount;i+=2){
-  const k=i*3,q=project(positions[k],positions[k+2]);if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
+
+ // brighter accumulated points
+ for(let i=0;i<pointCount;i++){
+  const k=i*3,q=project(positions[k],positions[k+2]);
+  if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
   const r=Math.floor(colors[k]*255),g=Math.floor(colors[k+1]*255),b=Math.floor(colors[k+2]*255);
-  ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fillRect(q[0]-1.5,q[1]-1.5,3,3)
+  ctx.fillStyle=`rgba(${r},${g},${b},0.78)`;
+  ctx.fillRect(q[0]-1.2,q[1]-1.2,2.4,2.4);
  }
- ctx.globalAlpha=1;ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();
- path.forEach((p,i)=>{const q=project(p.x,p.z);i?ctx.lineTo(...q):ctx.moveTo(...q)});ctx.stroke();
- const phone=project(cx,cz);ctx.save();ctx.translate(...phone);ctx.rotate(yaw);ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(9,10);ctx.lineTo(-9,10);ctx.closePath();ctx.fill();ctx.restore()
+ // trajectory
+ ctx.strokeStyle="rgba(255,255,255,.92)";
+ ctx.lineWidth=2.4;
+ ctx.beginPath();
+ path.forEach((p,i)=>{const q=project(p.x,p.z);i?ctx.lineTo(...q):ctx.moveTo(...q)});
+ ctx.stroke();
+
+ // camera marker
+ const phone=project(cx,cz);
+ ctx.save();
+ ctx.translate(...phone);
+ ctx.rotate(yaw);
+ ctx.fillStyle="#fff";
+ ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(8,10);ctx.lineTo(-8,10);ctx.closePath();ctx.fill();
+ ctx.restore();
+
+ // HUD
+ ctx.fillStyle="rgba(52,229,255,.96)";
+ ctx.font=`${Math.max(16,Math.round(w/48))}px monospace`;
+ ctx.fillText("WORLD 3D · TOP VIEW",18,30);
+ ctx.fillStyle="rgba(220,248,252,.78)";
+ ctx.fillText(`${pointCount.toLocaleString()} pts · ${currentFar.toFixed(1)}m`,18,56);
 }
 
 function setView(v){
@@ -303,13 +372,26 @@ function setView(v){
 
  depthCanvas.style.display=v==="DEPTH"?"block":"none";
  live3dCanvas.style.display=v==="POINTS"?"block":"none";
- worldCanvas.style.display="none";
- $("worldHud").style.display=v==="WORLD"?"flex":"none";
  $("compare").style.display=v==="COMPARE"?"block":"none";
+ $("worldHud").style.display=v==="WORLD"?"flex":"none";
+
+ if(v!=="WORLD"){
+   worldCanvas.style.display="none";
+   document.body.classList.remove("world-top");
+ }else if(worldMode==="TOP"){
+   worldCanvas.style.display="block";
+   document.body.classList.add("world-top");
+ }else{
+   worldCanvas.style.display="none";
+   document.body.classList.remove("world-top");
+ }
 
  if(v==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
- if(v==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
+ if(v==="COMPARE")drawPointCloudFrame(compareCtx,compareCanvas,liveTrail,false);
+ if(v==="WORLD"&&worldMode==="TOP")drawWorld();
 }
+
+
 
 async function startXR(){
  try{
@@ -329,27 +411,54 @@ function frame(t,f){
  if(!origin){origin={x:cx,z:cz};lastPath={x:cx,z:cz};path.push({x:cx,z:cz})}
  const step=Math.hypot(cx-lastPath.x,cz-lastPath.z);if(step>.06){if(step<1)totalDistance+=step;lastPath={x:cx,z:cz};path.push({x:cx,z:cz});$("distance").textContent=totalDistance.toFixed(1)+" m"}
  const layer=session.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
- const black=currentView==="WORLD";gl.clearColor(0,0,0,black?1:0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ const black=currentView==="WORLD" && worldMode==="CAMERA";gl.clearColor(0,0,0,black?1:0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  for(const view of pose.views){
   const vp=layer.getViewport(view);gl.viewport(vp.x,vp.y,vp.width,vp.height);
   if(!paused&&t-lastCapture>180){try{const d=f.getDepthInformation(view);if(d)capture(view,d)}catch{}}
-  if(currentView==="WORLD")renderPoints(view);
+  if(currentView==="WORLD" && worldMode==="CAMERA")renderPoints(view);
  }
  if(!paused&&t-lastCapture>180)lastCapture=t;
  if(t-lastUpload>800){upload();lastUpload=t}
- /* WORLD 3D is rendered by WebGL in the current camera perspective. */
+ if(currentView==="WORLD" && worldMode==="TOP" && t-lastWorld>180){drawWorld();lastWorld=t}
  frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}
 }
 
-function resetAll(){voxels.clear();pointCount=0;origin=null;lastPath=null;totalDistance=0;path.length=0;upload();$("distance").textContent="0.0 m";drawWorld()}
+function resetAll(){voxels.clear();pointCount=0;origin=null;lastPath=null;totalDistance=0;path.length=0;liveTrail.length=0;liveDepthPoints=[];upload();$("distance").textContent="0.0 m";drawWorld()}
 function endXR(){$("home").style.display="block";["xrCanvas","depthCanvas","live3dCanvas","worldCanvas","hud","pipeline","controls","worldHud","compare"].forEach(id=>$(id).style.display="none");session=null}
 
 $("startBtn").onclick=startXR;
-$("rgbBtn").onclick=()=>setView("RGB");$("depthBtn").onclick=()=>setView("DEPTH");$("pointsBtn").onclick=()=>setView("POINTS");$("worldBtn").onclick=()=>setView("WORLD");$("compareBtn").onclick=()=>setView("COMPARE");
-$("liveBtn").onclick=()=>{paused=!paused;$("liveBtn").classList.toggle("on",!paused);$("liveBtn").textContent=paused?"PAUSA":"LIVE"};
-$("zoomBtn").onclick=()=>{alert("WORLD 3D usa la perspectiva real de la cámara; el zoom artificial está desactivado para mantener correspondencia RGB ↔ 3D.")};
-$("centerBtn").onclick=()=>{alert("WORLD 3D está anclado a la pose real del teléfono; no requiere centrar manualmente.")};
-$("resetBtn").onclick=resetAll;$("exitBtn").onclick=()=>session?.end();
+$("rgbBtn").onclick=()=>setView("RGB");
+$("depthBtn").onclick=()=>setView("DEPTH");
+$("pointsBtn").onclick=()=>setView("POINTS");
+$("worldBtn").onclick=()=>setView("WORLD");
+$("compareBtn").onclick=()=>setView("COMPARE");
+
+$("liveBtn").onclick=()=>{
+ paused=!paused;
+ $("liveBtn").classList.toggle("on",!paused);
+ $("liveBtn").textContent=paused?"PAUSA":"LIVE";
+};
+
+$("densityBtn").onclick=()=>{
+ const order=["LOW","MED","HIGH"];
+ densityMode=order[(order.indexOf(densityMode)+1)%order.length];
+ $("densityBtn").textContent=`DENSIDAD ${densityMode}`;
+};
+
+$("rangeBtn").onclick=()=>{
+ rangeIndex=(rangeIndex+1)%RANGE_PRESETS.length;
+ currentFar=RANGE_PRESETS[rangeIndex];
+ $("rangeBtn").textContent=`RANGO ${currentFar.toFixed(1)}M`;
+};
+
+$("worldModeBtn").onclick=()=>{
+ worldMode=worldMode==="CAMERA"?"TOP":"CAMERA";
+ $("worldModeBtn").textContent=worldMode==="CAMERA"?"WORLD CAM":"WORLD TOP";
+ if(currentView==="WORLD")setView("WORLD");
+};
+
+$("resetBtn").onclick=resetAll;
+$("exitBtn").onclick=()=>session?.end();
 
 (async function init(){
  $("secureStatus").textContent=window.isSecureContext?"OK":"NO — requiere HTTPS";
