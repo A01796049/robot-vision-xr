@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · Clear Point Cloud V15</title>
+<title>Robot Vision XR · Anti-Banding Clear Point Cloud V16</title>
 <style>
 :root{--bg:#02070b;--cyan:#34e5ff;--green:#67ff7c;--orange:#ffb347;--purple:#a878ff;--text:#dcf8fc;--muted:#8aaeb8;--panel:rgba(3,13,19,.88)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -44,14 +44,8 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 .worldChip{padding:6px 9px;background:#07151c;border:1px solid #34e5ff55;border-radius:8px}
 
 #controls button{font-size:8.7px}
-#live3dCanvas,#compareDepth{
-  image-rendering:auto;
-}
-#live3dCanvas{background:#000}
-#worldCanvas{background:#02070b}
 body.world-top #worldCanvas{display:block!important}
 body.world-top #xrCanvas{background:#02070b}
-
 </style>
 </head>
 <body>
@@ -64,12 +58,12 @@ body.world-top #xrCanvas{background:#02070b}
   <div class="label left">RGB CAMERA</div>
   <div class="right"><canvas id="compareDepth" width="160" height="90"></canvas></div>
   <div class="divider"></div>
-  <div class="label rightLabel">ROBOT VISION · POINT CLOUD</div>
+  <div class="label rightLabel">ROBOT VISION · LIVE 3D</div>
 </section>
 
 <section id="hud">
   <div class="panel">
-    <b>ROBOT VISION XR · V15</b><br>
+    <b>ROBOT VISION XR · V16</b><br>
     tracking <span id="tracking" class="metric">--</span><br>
     depth <span id="depthInfo" class="metric">--</span><br>
     vista <span id="viewName" class="metric">RGB</span>
@@ -97,7 +91,7 @@ body.world-top #xrCanvas{background:#02070b}
 <nav id="controls">
   <button id="liveBtn" class="on">LIVE</button>
   <button id="densityBtn">DENSIDAD MED</button>
-  <button id="rangeBtn">RANGO 6.5M</button>
+  <button id="rangeBtn">RANGO 4.0M</button>
   <button id="worldModeBtn">WORLD CAM</button>
   <button id="resetBtn">RESET</button>
   <button id="exitBtn">SALIR</button>
@@ -105,8 +99,8 @@ body.world-top #xrCanvas{background:#02070b}
 
 <main id="home">
   <div class="wrap">
-    <h1>Clear Point Cloud V15</h1>
-    <p class="sub">LIVE 3D prioriza claridad visual y WORLD 3D muestra con mayor limpieza lo que el teléfono va construyendo.</p>
+    <h1>Anti-Banding Clear Point Cloud V16</h1>
+    <p class="sub">LIVE 3D reduce el banding horizontal con muestreo aleatorio estable, suavizado local y persistencia corta. WORLD 3D acumula una nube más limpia y legible.</p>
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
@@ -114,12 +108,12 @@ body.world-top #xrCanvas{background:#02070b}
       <div class="row"><span>Arquitectura</span><span class="ok">single-file</span></div>
     </section>
     <section class="card">
-      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V15</button>
-      <small>LIVE 3D usa más densidad, persistencia corta y mejor contraste para que se entienda claramente la silueta observada. WORLD 3D puede verse desde la cámara o desde arriba.</small>
+      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V16</button>
+      <small>LIVE 3D conserva la misma perspectiva de RGB y sustituye cada región visible por puntos de profundidad. WORLD 3D acumula esos puntos en coordenadas del mundo y los vuelve a proyectar desde la cámara.</small>
     </section>
     <section class="card">
       <small><b style="color:#34e5ff">Prueba recomendada</b><br>
-      Compara RGB con LIVE 3D y usa WORLD 3D en modo CAMERA o TOP para ver con claridad la escena reconstruida.</small>
+      Compara RGB con LIVE 3D y usa WORLD 3D en modo CAMERA o TOP. La prioridad de V16 es que la nube de puntos se vea clara y cercana al efecto visual de un sensor robótico.</small>
     </section>
   </div>
 </main>
@@ -127,7 +121,7 @@ body.world-top #xrCanvas{background:#02070b}
 <script>
 const $=id=>document.getElementById(id);
 
-const MAX_POINTS=72000, CELL=.09, MIN_D=.35, MAX_D=6.5, SX=40, SY=30;
+const MAX_POINTS=110000, CELL=.08, MIN_D=.35, MAX_D=6.5;
 const positions=new Float32Array(MAX_POINTS*3), colors=new Float32Array(MAX_POINTS*3);
 const voxels=new Map();
 let pointCount=0,gl=null,session=null,space=null,program=null,pb=null,cb=null;
@@ -140,18 +134,17 @@ const compareCanvas=$("compareDepth"),compareCtx=compareCanvas.getContext("2d",{
 const worldCanvas=$("worldCanvas"),worldCtx=worldCanvas.getContext("2d");
 const live3dCanvas=$("live3dCanvas"),live3dCtx=live3dCanvas.getContext("2d");
 let liveDepthPoints=[];
-
-const DENSITY_PRESETS={LOW:[72,40],MED:[112,63],HIGH:[144,81]};
+const DENSITY_PRESETS={LOW:0.11,MED:0.20,HIGH:0.32};
 const RANGE_PRESETS=[2.5,4.0,6.5];
 let densityMode="MED";
-let rangeIndex=2;
+let rangeIndex=1;
 let currentFar=RANGE_PRESETS[rangeIndex];
-let worldMode="CAMERA"; // CAMERA | TOP
-let liveTrail=[]; // short persistence frames
+let worldMode="CAMERA";
+let liveTrail=[];
+let captureTick=0;
 
 
-
-const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=3.1;C=c;}`;
+const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=2.4;C=c;}`;
 const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.95);}`;
 
 function makeShader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}
@@ -177,104 +170,119 @@ function depthColor(d){
 function pointColor(d){const c=depthColor(d);return[c[0]/255,c[1]/255,c[2]/255]}
 
 
-function buildLiveDepthPoints(info){
-  // Preserve camera silhouette while increasing point count and clarity.
+function hash2(x,y,s=0){
+  const t=Math.sin(x*127.1+y*311.7+s*74.7)*43758.5453123;
+  return t-Math.floor(t);
+}
+function readDepthField(info){
+  const W=info.width||160,H=info.height||90;
+  const field=new Float32Array(W*H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    let d=NaN;
+    try{d=info.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{}
+    if(!Number.isFinite(d)||d<MIN_D||d>currentFar)d=NaN;
+    field[y*W+x]=d;
+  }
+  return {W,H,field};
+}
+function smoothDepth(df,x,y){
+  const {W,H,field}=df;
+  let sum=0,w=0;
+  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    const xx=x+dx, yy=y+dy;
+    if(xx<0||yy<0||xx>=W||yy>=H)continue;
+    const d=field[yy*W+xx];
+    if(!Number.isFinite(d))continue;
+    const ww=(dx===0&&dy===0)?4:((dx===0||dy===0)?2:1);
+    sum+=d*ww; w+=ww;
+  }
+  return w?sum/w:NaN;
+}
+function edgeStrength(df,x,y,d0){
+  const {W,H,field}=df;
+  let e=0;
+  const nbrs=[[1,0],[-1,0],[0,1],[0,-1]];
+  for(const [dx,dy] of nbrs){
+    const xx=x+dx, yy=y+dy;
+    if(xx<0||yy<0||xx>=W||yy>=H)continue;
+    const d=field[yy*W+xx];
+    if(Number.isFinite(d))e=Math.max(e,Math.abs(d-d0));
+  }
+  return e;
+}
+function buildLiveDepthPoints(df){
+  const {W,H,field}=df;
   const pts=[];
-  const [W,H]=DENSITY_PRESETS[densityMode];
-  for(let y=0;y<H;y++){
-    const v=(y+.5)/H;
-    for(let x=0;x<W;x++){
-      const u=(x+.5)/W;
-      let d=NaN;
-      try{d=info.getDepthInMeters(u,v)}catch{}
-      if(!Number.isFinite(d)||d<MIN_D||d>currentFar)continue;
-      pts.push({u,v,d});
-    }
+  const prob=DENSITY_PRESETS[densityMode];
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const d=field[y*W+x];
+    if(!Number.isFinite(d))continue;
+    // stochastic acceptance reduces horizontal banding versus a rigid scan grid
+    if(hash2(x,y,captureTick)>prob)continue;
+    const ds=smoothDepth(df,x,y);
+    if(!Number.isFinite(ds))continue;
+    const e=edgeStrength(df,x,y,ds);
+    const jx=(hash2(x,y,11)-0.5)*0.7;
+    const jy=(hash2(x,y,23)-0.5)*0.7;
+    pts.push({
+      u:(x+0.5+jx)/W,
+      v:(y+0.5+jy)/H,
+      d:ds,
+      edge:e
+    });
   }
   liveDepthPoints=pts;
-  liveTrail.push(pts.slice());
-  if(liveTrail.length>4)liveTrail.shift();
+  liveTrail.push(pts);
+  if(liveTrail.length>3)liveTrail.shift();
   $("liveCount").textContent=pts.length.toLocaleString();
 }
-
-function drawPointCloudFrame(ctx,canvas,frames,world=false){
+function drawDepth(df){
+ const {W,H,field}=df,img=depthCtx.createImageData(W,H);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const d=field[y*W+x];
+  const c=depthColor(d),i=(y*W+x)*4;
+  img.data[i]=c[0];img.data[i+1]=c[1];img.data[i+2]=c[2];img.data[i+3]=255;
+ }
+ depthCtx.putImageData(img,0,0);
+ buildLiveDepthPoints(df);
+ if(currentView==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
+ if(currentView==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
+}
+function drawLive3DTo(ctx,canvas){
   const w=canvas.width,h=canvas.height;
   ctx.save();
   ctx.clearRect(0,0,w,h);
   ctx.fillStyle="#000";
   ctx.fillRect(0,0,w,h);
-  if(!frames.length){ctx.restore();return;}
-
-  const alphas=[0.18,0.32,0.52,0.92].slice(-frames.length);
+  if(!liveTrail.length){ctx.restore();return;}
   ctx.globalCompositeOperation="lighter";
-
-  frames.forEach((frame,fi)=>{
-    const baseAlpha=alphas[fi];
+  const alphas=[0.20,0.45,0.95].slice(-liveTrail.length);
+  for(let fi=0;fi<liveTrail.length;fi++){
+    const frame=liveTrail[fi], baseA=alphas[fi];
     for(const p of frame){
-      const x=p.u*w;
-      const y=p.v*h;
+      const x=p.u*w, y=p.v*h;
       const c=depthColor(p.d);
       const t=Math.max(0,Math.min(1,(p.d-MIN_D)/(currentFar-MIN_D)));
-      const r=t<.18?2.8:t<.45?2.25:t<.75?1.75:1.3;
-      const alpha=baseAlpha*(t<.25?1.0:t<.6?.9:.8);
-
-      // subtle glow pass
-      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha*.26})`;
-      ctx.beginPath();
-      ctx.arc(x,y,r*2.2,0,Math.PI*2);
-      ctx.fill();
-
-      // main point
-      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
-      ctx.beginPath();
-      ctx.arc(x,y,r,0,Math.PI*2);
-      ctx.fill();
+      const edgeBoost=Math.min(1,p.edge*8);
+      const r=(t<0.2?2.3:t<0.55?1.8:1.35) + edgeBoost*0.6;
+      const a=baseA*(0.72+edgeBoost*0.5);
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${a*0.18})`;
+      ctx.beginPath(); ctx.arc(x,y,r*2.1,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${Math.min(1,a)})`;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
     }
-  });
-
+  }
   ctx.globalCompositeOperation="source-over";
-
-  // Depth legend
   const g=ctx.createLinearGradient(18,0,220,0);
-  g.addColorStop(0,"#ff9d22");
-  g.addColorStop(.34,"#57ef64");
-  g.addColorStop(.68,"#22d7dd");
-  g.addColorStop(1,"#334ddb");
-  ctx.fillStyle=g;
-  ctx.fillRect(18,h-35,190,6);
+  g.addColorStop(0,"#ff9d22"); g.addColorStop(.34,"#57ef64"); g.addColorStop(.68,"#22d7dd"); g.addColorStop(1,"#334ddb");
+  ctx.fillStyle=g; ctx.fillRect(18,h-35,190,6);
   ctx.fillStyle="rgba(220,248,252,.86)";
   ctx.font=`${Math.max(14,Math.round(w/42))}px monospace`;
-  ctx.fillText("NEAR",18,h-44);
-  ctx.fillText("FAR",180,h-44);
-
-  // Status
-  ctx.fillStyle="rgba(52,229,255,.96)";
-  ctx.fillText(world?"WORLD 3D VIEW":"LIVE DEPTH POINT CLOUD",18,34);
-  ctx.fillStyle="rgba(220,248,252,.76)";
-  const pts=frames[frames.length-1]?.length||0;
-  ctx.fillText(`${pts.toLocaleString()} pts · ${densityMode} · ${currentFar.toFixed(1)}m`,18,60);
-
+  ctx.fillText("LIVE DEPTH POINT CLOUD",18,28);
+  const livePts=liveTrail[liveTrail.length-1]?.length||0;
+  ctx.fillText(`${livePts.toLocaleString()} pts · ${densityMode} · ${currentFar.toFixed(1)}m`,18,52);
+  ctx.fillText("NEAR",18,h-42); ctx.fillText("FAR",180,h-42);
   ctx.restore();
-}
-
-function drawLive3DTo(ctx,canvas){
-  drawPointCloudFrame(ctx,canvas,liveTrail,false);
-}
-
-function drawDepth(info){
- const W=160,H=90,img=depthCtx.createImageData(W,H);
- for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-  let d=NaN;
-  try{d=info.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{}
-  if(Number.isFinite(d)&&d>currentFar)d=NaN;
-  const c=depthColor(d),i=(y*W+x)*4;
-  img.data[i]=c[0];img.data[i+1]=c[1];img.data[i+2]=c[2];img.data[i+3]=255;
- }
- depthCtx.putImageData(img,0,0);
-
- buildLiveDepthPoints(info);
- if(currentView==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
- if(currentView==="COMPARE")drawPointCloudFrame(compareCtx,compareCanvas,liveTrail,false);
 }
 
 function addPoint(x,y,z,d){
@@ -285,21 +293,30 @@ function addPoint(x,y,z,d){
 }
 
 function capture(view,depth){
- const ip=invert4(view.projectionMatrix);if(!ip)return;const wm=view.transform.matrix;
- for(let j=0;j<SY;j++)for(let i=0;i<SX;i++){
-  const u=(i+.5)/SX,v=(j+.5)/SY;let d;
-  try{d=depth.getDepthInMeters(u,v)}catch{continue}
+ const df=readDepthField(depth);
+ const ip=invert4(view.projectionMatrix); if(!ip)return;
+ const wm=view.transform.matrix;
+ captureTick++;
+ // Build live views and depth heatmap from the same field
+ $("depthInfo").textContent=`${df.W}×${df.H}`;
+ if(currentView==="DEPTH"||currentView==="POINTS"||currentView==="COMPARE")drawDepth(df);
+ // Randomized, smoothed sampling for world accumulation to reduce banding
+ const prob=Math.min(0.22, DENSITY_PRESETS[densityMode]*0.7);
+ for(let y=0;y<df.H;y++)for(let x=0;x<df.W;x++){
+  if(hash2(x,y,captureTick+101)>prob)continue;
+  const d=smoothDepth(df,x,y);
   if(!Number.isFinite(d)||d<MIN_D||d>currentFar)continue;
-  const q=mul(ip,u*2-1,1-v*2,-1,1);if(Math.abs(q[3])<1e-6)continue;
-  const rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3];
+  const jx=(hash2(x,y,131)-0.5)*0.8;
+  const jy=(hash2(x,y,151)-0.5)*0.8;
+  const u=(x+0.5+jx)/df.W, v=(y+0.5+jy)/df.H;
+  const q=mul(ip,u*2-1,1-v*2,-1,1); if(Math.abs(q[3])<1e-6)continue;
+  const rx=q[0]/q[3], ry=q[1]/q[3], rz=q[2]/q[3];
   if(Math.abs(rz)<1e-6)continue;
-  // Preserve pinhole-camera geometry: the sampled depth lies along camera -Z.
   const scale=(-d)/rz;
-  const x=rx*scale,y=ry*scale,z=rz*scale;
-  const p=mul(wm,x,y,z,1);addPoint(p[0],p[1],p[2],d)
+  const px=rx*scale, py=ry*scale, pz=rz*scale;
+  const p=mul(wm,px,py,pz,1);
+  addPoint(p[0],p[1],p[2],d);
  }
- $("depthInfo").textContent=`${depth.width}×${depth.height}`;
- if(currentView==="DEPTH"||currentView==="POINTS"||currentView==="COMPARE")drawDepth(depth)
 }
 
 function upload(){
@@ -320,47 +337,20 @@ function renderPoints(view){
 function drawWorld(){
  const c=worldCanvas,ctx=worldCtx,w=c.width,h=c.height,s=Math.min(w,h)/mapRange;
  ctx.fillStyle="#02070b";ctx.fillRect(0,0,w,h);
-
- // grid
  ctx.strokeStyle="#11313a";ctx.lineWidth=1;
- for(let m=-10;m<=10;m++){
-   ctx.beginPath();ctx.moveTo(w/2+m*s,0);ctx.lineTo(w/2+m*s,h);ctx.stroke();
-   ctx.beginPath();ctx.moveTo(0,h/2+m*s);ctx.lineTo(w,h/2+m*s);ctx.stroke();
- }
-
+ for(let m=-10;m<=10;m++){ctx.beginPath();ctx.moveTo(w/2+m*s,0);ctx.lineTo(w/2+m*s,h);ctx.stroke();ctx.beginPath();ctx.moveTo(0,h/2+m*s);ctx.lineTo(w,h/2+m*s);ctx.stroke()}
  if(!origin)return;
  const project=(x,z)=>[w/2-(x-origin.x)*s,h/2-(z-origin.z)*s];
-
- // brighter accumulated points
  for(let i=0;i<pointCount;i++){
-  const k=i*3,q=project(positions[k],positions[k+2]);
-  if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
-  const r=Math.floor(colors[k]*255),g=Math.floor(colors[k+1]*255),b=Math.floor(colors[k+2]*255);
-  ctx.fillStyle=`rgba(${r},${g},${b},0.78)`;
-  ctx.fillRect(q[0]-1.2,q[1]-1.2,2.4,2.4);
+  const k=i*3,q=project(positions[k],positions[k+2]); if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
+  const r=Math.floor(colors[k]*255), g=Math.floor(colors[k+1]*255), b=Math.floor(colors[k+2]*255);
+  ctx.fillStyle=`rgba(${r},${g},${b},0.72)`; ctx.fillRect(q[0]-1.1,q[1]-1.1,2.2,2.2);
  }
- // trajectory
- ctx.strokeStyle="rgba(255,255,255,.92)";
- ctx.lineWidth=2.4;
- ctx.beginPath();
- path.forEach((p,i)=>{const q=project(p.x,p.z);i?ctx.lineTo(...q):ctx.moveTo(...q)});
- ctx.stroke();
-
- // camera marker
- const phone=project(cx,cz);
- ctx.save();
- ctx.translate(...phone);
- ctx.rotate(yaw);
- ctx.fillStyle="#fff";
- ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(8,10);ctx.lineTo(-8,10);ctx.closePath();ctx.fill();
- ctx.restore();
-
- // HUD
- ctx.fillStyle="rgba(52,229,255,.96)";
- ctx.font=`${Math.max(16,Math.round(w/48))}px monospace`;
- ctx.fillText("WORLD 3D · TOP VIEW",18,30);
- ctx.fillStyle="rgba(220,248,252,.78)";
- ctx.fillText(`${pointCount.toLocaleString()} pts · ${currentFar.toFixed(1)}m`,18,56);
+ ctx.strokeStyle="rgba(255,255,255,.92)"; ctx.lineWidth=2.2; ctx.beginPath();
+ path.forEach((p,i)=>{const q=project(p.x,p.z); i?ctx.lineTo(...q):ctx.moveTo(...q)}); ctx.stroke();
+ const phone=project(cx,cz); ctx.save(); ctx.translate(...phone); ctx.rotate(yaw); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(0,-14); ctx.lineTo(8,10); ctx.lineTo(-8,10); ctx.closePath(); ctx.fill(); ctx.restore();
+ ctx.fillStyle="rgba(52,229,255,.96)"; ctx.font=`${Math.max(15,Math.round(w/46))}px monospace`; ctx.fillText("WORLD 3D · TOP VIEW",18,28);
+ ctx.fillStyle="rgba(220,248,252,.78)"; ctx.fillText(`${pointCount.toLocaleString()} pts · ${currentFar.toFixed(1)}m`,18,52);
 }
 
 function setView(v){
@@ -369,29 +359,16 @@ function setView(v){
  ["rgbBtn","depthBtn","pointsBtn","worldBtn","compareBtn"].forEach(id=>$(id).classList.remove("active"));
  const map={RGB:"rgbBtn",DEPTH:"depthBtn",POINTS:"pointsBtn",WORLD:"worldBtn",COMPARE:"compareBtn"};
  $(map[v]).classList.add("active");
-
  depthCanvas.style.display=v==="DEPTH"?"block":"none";
  live3dCanvas.style.display=v==="POINTS"?"block":"none";
  $("compare").style.display=v==="COMPARE"?"block":"none";
  $("worldHud").style.display=v==="WORLD"?"flex":"none";
-
- if(v!=="WORLD"){
-   worldCanvas.style.display="none";
-   document.body.classList.remove("world-top");
- }else if(worldMode==="TOP"){
-   worldCanvas.style.display="block";
-   document.body.classList.add("world-top");
- }else{
-   worldCanvas.style.display="none";
-   document.body.classList.remove("world-top");
- }
-
+ if(v!=="WORLD"){ worldCanvas.style.display="none"; document.body.classList.remove("world-top"); }
+ else if(worldMode==="TOP"){ worldCanvas.style.display="block"; document.body.classList.add("world-top"); drawWorld(); }
+ else { worldCanvas.style.display="none"; document.body.classList.remove("world-top"); }
  if(v==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
- if(v==="COMPARE")drawPointCloudFrame(compareCtx,compareCanvas,liveTrail,false);
- if(v==="WORLD"&&worldMode==="TOP")drawWorld();
+ if(v==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
 }
-
-
 
 async function startXR(){
  try{
@@ -419,7 +396,7 @@ function frame(t,f){
  }
  if(!paused&&t-lastCapture>180)lastCapture=t;
  if(t-lastUpload>800){upload();lastUpload=t}
- if(currentView==="WORLD" && worldMode==="TOP" && t-lastWorld>180){drawWorld();lastWorld=t}
+ if(currentView==="WORLD" && worldMode==="TOP" && t-lastWorld>150){drawWorld();lastWorld=t}
  frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}
 }
 
@@ -432,31 +409,10 @@ $("depthBtn").onclick=()=>setView("DEPTH");
 $("pointsBtn").onclick=()=>setView("POINTS");
 $("worldBtn").onclick=()=>setView("WORLD");
 $("compareBtn").onclick=()=>setView("COMPARE");
-
-$("liveBtn").onclick=()=>{
- paused=!paused;
- $("liveBtn").classList.toggle("on",!paused);
- $("liveBtn").textContent=paused?"PAUSA":"LIVE";
-};
-
-$("densityBtn").onclick=()=>{
- const order=["LOW","MED","HIGH"];
- densityMode=order[(order.indexOf(densityMode)+1)%order.length];
- $("densityBtn").textContent=`DENSIDAD ${densityMode}`;
-};
-
-$("rangeBtn").onclick=()=>{
- rangeIndex=(rangeIndex+1)%RANGE_PRESETS.length;
- currentFar=RANGE_PRESETS[rangeIndex];
- $("rangeBtn").textContent=`RANGO ${currentFar.toFixed(1)}M`;
-};
-
-$("worldModeBtn").onclick=()=>{
- worldMode=worldMode==="CAMERA"?"TOP":"CAMERA";
- $("worldModeBtn").textContent=worldMode==="CAMERA"?"WORLD CAM":"WORLD TOP";
- if(currentView==="WORLD")setView("WORLD");
-};
-
+$("liveBtn").onclick=()=>{paused=!paused; $("liveBtn").classList.toggle("on",!paused); $("liveBtn").textContent=paused?"PAUSA":"LIVE";};
+$("densityBtn").onclick=()=>{const o=["LOW","MED","HIGH"]; densityMode=o[(o.indexOf(densityMode)+1)%o.length]; $("densityBtn").textContent=`DENSIDAD ${densityMode}`; liveTrail.length=0;};
+$("rangeBtn").onclick=()=>{rangeIndex=(rangeIndex+1)%RANGE_PRESETS.length; currentFar=RANGE_PRESETS[rangeIndex]; $("rangeBtn").textContent=`RANGO ${currentFar.toFixed(1)}M`; liveTrail.length=0;};
+$("worldModeBtn").onclick=()=>{worldMode=worldMode==="CAMERA"?"TOP":"CAMERA"; $("worldModeBtn").textContent=worldMode==="CAMERA"?"WORLD CAM":"WORLD TOP"; if(currentView==="WORLD")setView("WORLD");};
 $("resetBtn").onclick=resetAll;
 $("exitBtn").onclick=()=>session?.end();
 

@@ -1,25 +1,14 @@
-# Robot Vision XR — V15 Clear Point Cloud
+# Robot Vision XR — V16 Anti-Banding Clear Point Cloud
 
-Versión limpia para GitHub Pages.
+Archivos para GitHub Pages.
 
-## Qué mejora V15
-
-- `LIVE 3D` con mayor densidad de puntos.
-- Persistencia corta de varios frames para dar sensación de sensor vivo.
-- Puntos más claros y brillantes.
-- Mejor contraste por profundidad.
-- Control de densidad: `LOW / MED / HIGH`.
-- Control de rango: `2.5m / 4.0m / 6.5m`.
-- `WORLD 3D` con dos vistas:
-  - `WORLD CAM` — nube acumulada desde la perspectiva actual.
-  - `WORLD TOP` — vista cenital del entorno construido.
-
-## Archivos
-- `index.html`
-- `.nojekyll`
-- `README.md`
-- `VERSION.txt`
+## Novedades
+- Reducción del banding horizontal en LIVE 3D mediante muestreo aleatorio estable y jitter subpíxel.
+- Suavizado local de profundidad.
+- Persistencia corta de 3 frames para que la nube se vea más continua.
+- WORLD 3D con modo `WORLD CAM` y `WORLD TOP`.
+- Controles de densidad (`LOW/MED/HIGH`) y rango (`2.5M/4.0M/6.5M`).
 
 ## Publicación
-Sube estos archivos a la raíz del repositorio y prueba con:
-`https://a01796049.github.io/robot-vision-xr/?v=19`
+Sube `index.html`, `.nojekyll`, `README.md` y `VERSION.txt` a la raíz del repositorio.
+Luego abre: `https://a01796049.github.io/robot-vision-xr/?v=20`
