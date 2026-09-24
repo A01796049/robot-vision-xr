@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · Dense WebGL Point Cloud V17</title>
+<title>Robot Vision XR · Semantic AI Mapping V18</title>
 <style>
 :root{--bg:#02070b;--cyan:#34e5ff;--green:#67ff7c;--orange:#ffb347;--purple:#a878ff;--text:#dcf8fc;--muted:#8aaeb8;--panel:rgba(3,13,19,.88)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -46,6 +46,14 @@ small{display:block;color:var(--muted);line-height:1.55;margin-top:10px}
 #controls button{font-size:8.7px}
 body.world-top #worldCanvas{display:block!important}
 body.world-top #xrCanvas{background:#02070b}
+
+#objectCanvas{position:fixed;inset:0;width:100%;height:100%;z-index:6;display:none;pointer-events:none}
+#semanticPanel{position:fixed;right:8px;top:calc(env(safe-area-inset-top) + 235px);z-index:8;display:none;width:min(46vw,310px);max-height:250px;overflow:hidden}
+#semanticList{margin-top:5px;font-size:9.5px;line-height:1.45;color:#caedf3}
+.semRow{padding:4px 0;border-top:1px solid #14333b;display:flex;justify-content:space-between;gap:6px}.semRow:first-child{border-top:0}.semClass{color:#34e5ff}.semDist{color:#67ff7c;white-space:nowrap}
+#pipeline button{font-size:8.5px;padding-left:3px;padding-right:3px}
+@media(max-width:520px){#semanticPanel{top:calc(env(safe-area-inset-top) + 215px);width:46vw}.semRow{font-size:8.6px}}
+
 </style>
 </head>
 <body>
@@ -53,6 +61,8 @@ body.world-top #xrCanvas{background:#02070b}
 <canvas id="depthCanvas" width="160" height="90"></canvas>
 <canvas id="live3dCanvas" width="720" height="1280"></canvas>
 <canvas id="worldCanvas" width="720" height="1280"></canvas>
+<canvas id="objectCanvas"></canvas>
+<canvas id="aiCanvas" width="320" height="180" style="display:none"></canvas>
 
 <section id="compare">
   <div class="label left">RGB CAMERA</div>
@@ -63,15 +73,17 @@ body.world-top #xrCanvas{background:#02070b}
 
 <section id="hud">
   <div class="panel">
-    <b>ROBOT VISION XR · V17</b><br>
+    <b>ROBOT VISION XR · V18</b><br>
     tracking <span id="tracking" class="metric">--</span><br>
     depth <span id="depthInfo" class="metric">--</span><br>
     vista <span id="viewName" class="metric">RGB</span>
   </div>
   <div class="panel right">
     live pts <span id="liveCount" class="metric">0</span><br>map pts <span id="pointCount" class="metric">0</span><br>
+    objetos <span id="objectCount" class="metric">0</span><br>
+    AI <span id="aiState" class="metric">cargando</span><br>
     recorrido <span id="distance" class="metric">0.0 m</span><br>
-    fps <span id="fps" class="metric">0</span>
+    infer <span id="aiMs" class="metric">--</span><br>fps <span id="fps" class="metric">0</span>
   </div>
 </section>
 
@@ -80,6 +92,7 @@ body.world-top #xrCanvas{background:#02070b}
   <button id="depthBtn">DEPTH</button>
   <button id="pointsBtn">LIVE 3D</button>
   <button id="worldBtn">WORLD 3D</button>
+  <button id="objectsBtn">OBJECTS</button>
   <button id="compareBtn">COMPARE</button>
 </nav>
 
@@ -87,6 +100,12 @@ body.world-top #xrCanvas{background:#02070b}
   <span class="worldChip">WORLD 3D · ACCUMULATED</span>
   <span class="worldChip" id="worldScale">8 m</span>
 </div>
+
+
+<section id="semanticPanel" class="panel">
+  <b>SEMANTIC MAP</b>
+  <div id="semanticList">Esperando AI…</div>
+</section>
 
 <nav id="controls">
   <button id="liveBtn" class="on">LIVE</button>
@@ -99,27 +118,30 @@ body.world-top #xrCanvas{background:#02070b}
 
 <main id="home">
   <div class="wrap">
-    <h1>Dense WebGL Point Cloud V17</h1>
-    <p class="sub">LIVE 3D ahora usa WebGL y una nube densa para que la geometría de sillas, escritorios y paredes se vea mucho más clara. WORLD 3D incorpora confirmación temporal para reducir ruido flotante.</p>
+    <h1>Semantic AI Mapping V18</h1>
+    <p class="sub">V18 combina RGB, DEPTH, LIVE 3D, WORLD 3D y detección de objetos. Las detecciones AI se fusionan con profundidad para estimar su posición XYZ y construir un mapa semántico.</p>
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>Depth Sensing</span><span class="ok">se confirma al iniciar</span></div>
       <div class="row"><span>Arquitectura</span><span class="ok">single-file + dense WebGL</span></div>
+      <div class="row"><span>Object AI</span><span id="modelStatus" class="ok">cargando COCO-SSD…</span></div>
+      <div class="row"><span>XR Camera Access</span><span id="cameraAccessStatus" class="ok">se valida al iniciar</span></div>
     </section>
     <section class="card">
-      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V17</button>
-      <small>LIVE 3D proyecta una nube densa de puntos directamente en WebGL para que el efecto se parezca más a cómo “ve” un robot. WORLD 3D acumula sólo vóxeles confirmados para reducir polvo y ruido.</small>
+      <button id="startBtn" class="start" disabled>INICIAR SEMANTIC AI V18</button>
+      <small>La IA corre en el navegador con TensorFlow.js + COCO-SSD. Si Chrome concede WebXR camera-access, las cajas se alinean con la cámara XR y cada objeto detectado se ubica en el mapa usando Depth Sensing.</small>
     </section>
     <section class="card">
       <small><b style="color:#34e5ff">Prueba recomendada</b><br>
-      Compara RGB con LIVE 3D, usa WORLD 3D en modo CAMERA o TOP y valida si ya se distinguen mejor muebles, paredes y piso. V17 es la base para después activar objetos tipo YOLO en fases posteriores.</small>
+      Compara RGB con LIVE 3D, usa WORLD 3D en modo CAMERA o TOP y valida si ya se distinguen mejor muebles, paredes y piso. V18 añade detección real de objetos con COCO-SSD cuando WebXR Raw Camera Access está disponible, y fusiona las detecciones con profundidad para crear un mapa semántico.</small>
     </section>
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 <script>
-
 const $=id=>document.getElementById(id);
 
 function resizeOverlayCanvas(c){
@@ -127,7 +149,7 @@ function resizeOverlayCanvas(c){
   const w=Math.floor(window.innerWidth*dpr), h=Math.floor(window.innerHeight*dpr);
   if(c.width!==w||c.height!==h){ c.width=w; c.height=h; }
 }
-function resizeAllCanvases(){ resizeOverlayCanvas($("worldCanvas")); resizeOverlayCanvas($("live3dCanvas")); }
+function resizeAllCanvases(){ resizeOverlayCanvas($("worldCanvas")); resizeOverlayCanvas($("live3dCanvas")); resizeOverlayCanvas($("objectCanvas")); }
 window.addEventListener('resize',resizeAllCanvases);
 resizeAllCanvases();
 
@@ -136,6 +158,16 @@ const depthCanvas=$("depthCanvas"), depthCtx=depthCanvas.getContext('2d',{alpha:
 const compareCanvas=$("compareDepth"), compareCtx=compareCanvas.getContext('2d',{alpha:false});
 const worldCanvas=$("worldCanvas"), worldCtx=worldCanvas.getContext('2d');
 const live3dCanvas=$("live3dCanvas");
+
+const objectCanvas=$("objectCanvas"), objectCtx=objectCanvas.getContext('2d');
+const aiCanvas=$("aiCanvas"), aiCtx=aiCanvas.getContext('2d',{alpha:false});
+const AI_W=320, AI_H=180;
+let cocoModel=null, aiBusy=false, lastAI=0, aiInferenceMs=0, xrBinding=null, rawCameraAvailable=false;
+let camProgram=null, camQuad=null, camFbo=null, camTargetTex=null, camPixels=new Uint8Array(AI_W*AI_H*4);
+let latestDetections=[], semanticObjects=new Map(), semanticSeq=1;
+let latestDepthSnapshot=null, latestAIProjection=null, latestAIWorld=null;
+const semanticColors={person:'#34e5ff',chair:'#ffad42',couch:'#ffad42','dining table':'#67ff7c',cup:'#ffd166',bottle:'#ffd166',laptop:'#a878ff','cell phone':'#a878ff',tv:'#a878ff',car:'#ff7a59',truck:'#ff7a59',bus:'#ff7a59',bicycle:'#ff7a59'};
+
 
 const MAX_WORLD_POINTS=120000, MAX_LIVE_POINTS=22000, CELL=.08, MIN_D=.35;
 const positions=new Float32Array(MAX_WORLD_POINTS*3), colors=new Float32Array(MAX_WORLD_POINTS*3);
@@ -167,6 +199,98 @@ function invert4(a){
 }
 function mul(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
 function hash2(x,y,s=0){const t=Math.sin(x*127.1+y*311.7+s*74.7)*43758.5453123;return t-Math.floor(t);}
+
+
+async function initAI(){
+  try{
+    if(!window.tf || !window.cocoSsd) throw Error('TensorFlow.js / COCO-SSD no disponible');
+    $("modelStatus").textContent='inicializando…';
+    try{ await tf.setBackend('webgl'); }catch(e){}
+    await tf.ready();
+    cocoModel=await cocoSsd.load({base:'lite_mobilenet_v2'});
+    $("modelStatus").textContent='COCO-SSD listo';
+    $("aiState").textContent='modelo listo';
+  }catch(e){
+    $("modelStatus").textContent='AI no disponible';
+    $("aiState").textContent='sin modelo';
+    console.error('AI load',e);
+  }
+}
+
+function initCameraCapture(){
+  if(!gl) return;
+  const cvs=`attribute vec2 a;varying vec2 uv;void main(){gl_Position=vec4(a,0.,1.);uv=(a+1.)*.5;}`;
+  const cfs=`precision mediump float;varying vec2 uv;uniform sampler2D t;void main(){gl_FragColor=texture2D(t,uv);}`;
+  camProgram=gl.createProgram(); gl.attachShader(camProgram,makeShader(gl.VERTEX_SHADER,cvs)); gl.attachShader(camProgram,makeShader(gl.FRAGMENT_SHADER,cfs)); gl.linkProgram(camProgram);
+  camQuad=gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER,camQuad); gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+  camTargetTex=gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D,camTargetTex); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE); gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,AI_W,AI_H,0,gl.RGBA,gl.UNSIGNED_BYTE,null);
+  camFbo=gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER,camFbo); gl.framebufferTexture2D(gl.FRAMEBUFFER,gl.COLOR_ATTACHMENT0,gl.TEXTURE_2D,camTargetTex,0); gl.bindFramebuffer(gl.FRAMEBUFFER,null);
+}
+
+function captureXRCamera(view,layer){
+  if(!xrBinding || !view.camera || typeof xrBinding.getCameraImage!=='function' || !camProgram) return false;
+  let cameraTexture=null;
+  try{ cameraTexture=xrBinding.getCameraImage(view.camera); }catch(e){ return false; }
+  if(!cameraTexture) return false;
+  rawCameraAvailable=true; $("cameraAccessStatus").textContent='activo'; $("aiState").textContent=cocoModel?'AI activo':'camera listo';
+  gl.bindFramebuffer(gl.FRAMEBUFFER,camFbo); gl.viewport(0,0,AI_W,AI_H); gl.disable(gl.DEPTH_TEST);
+  gl.useProgram(camProgram); gl.bindBuffer(gl.ARRAY_BUFFER,camQuad); const a=gl.getAttribLocation(camProgram,'a'); gl.enableVertexAttribArray(a); gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D,cameraTexture); gl.uniform1i(gl.getUniformLocation(camProgram,'t'),0); gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+  gl.readPixels(0,0,AI_W,AI_H,gl.RGBA,gl.UNSIGNED_BYTE,camPixels);
+  gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
+  const img=aiCtx.createImageData(AI_W,AI_H), row=AI_W*4;
+  for(let y=0;y<AI_H;y++){ const src=(AI_H-1-y)*row, dst=y*row; img.data.set(camPixels.subarray(src,src+row),dst); }
+  aiCtx.putImageData(img,0,0);
+  return true;
+}
+
+function sampleDepthRegion(df,u,v){
+  if(!df) return NaN; const vals=[]; const cx0=Math.floor(u*df.W), cy0=Math.floor(v*df.H);
+  for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){ const x=cx0+dx,y=cy0+dy; if(x<0||y<0||x>=df.W||y>=df.H)continue; const d=df.field[y*df.W+x]; if(Number.isFinite(d))vals.push(d); }
+  if(!vals.length)return NaN; vals.sort((a,b)=>a-b); return vals[Math.floor(vals.length/2)];
+}
+function detectionWorldPosition(pred,df,P,W){
+  const [bx,by,bw,bh]=pred.bbox; const u=(bx+bw*.5)/AI_W, v=(by+bh*.55)/AI_H; const d=sampleDepthRegion(df,u,v); if(!Number.isFinite(d))return null;
+  const ip=invert4(P); if(!ip)return null; const q=mul(ip,u*2-1,1-v*2,-1,1); if(Math.abs(q[3])<1e-6)return null;
+  const rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3]; if(Math.abs(rz)<1e-6)return null; const scale=(-d)/rz; const wp=mul(W,rx*scale,ry*scale,rz*scale,1);
+  return {x:wp[0],y:wp[1],z:wp[2],distance:d,u,v};
+}
+function fuseSemantic(det){
+  if(!det.world)return; let best=null,bd=.9;
+  for(const o of semanticObjects.values()){ if(o.className!==det.className)continue; const d=Math.hypot(o.x-det.world.x,o.y-det.world.y,o.z-det.world.z); if(d<bd){bd=d;best=o;} }
+  if(best){ best.x=best.x*.72+det.world.x*.28; best.y=best.y*.72+det.world.y*.28; best.z=best.z*.72+det.world.z*.28; best.distance=det.world.distance; best.score=best.score*.65+det.score*.35; best.seen++; best.lastSeen=performance.now(); }
+  else { const id=`${det.className.toUpperCase().replace(/\s+/g,'_')}_${String(semanticSeq++).padStart(2,'0')}`; semanticObjects.set(id,{id,className:det.className,x:det.world.x,y:det.world.y,z:det.world.z,distance:det.world.distance,score:det.score,seen:1,lastSeen:performance.now()}); }
+}
+function updateSemanticPanel(){
+  $("objectCount").textContent=semanticObjects.size; const arr=[...semanticObjects.values()].sort((a,b)=>b.lastSeen-a.lastSeen).slice(0,7);
+  $("semanticList").innerHTML=arr.length?arr.map(o=>`<div class="semRow"><span class="semClass">${o.className.toUpperCase()}</span><span class="semDist">${o.distance.toFixed(1)}m · ${Math.round(o.score*100)}%</span></div>`).join(''):'Sin objetos mapeados';
+}
+function drawObjectOverlay(){
+  resizeOverlayCanvas(objectCanvas); const dpr=Math.min(2,window.devicePixelRatio||1), w=objectCanvas.width/dpr,h=objectCanvas.height/dpr; objectCtx.setTransform(dpr,0,0,dpr,0,0); objectCtx.clearRect(0,0,w,h);
+  if(!rawCameraAvailable){ objectCtx.fillStyle='rgba(0,0,0,.72)'; objectCtx.fillRect(20,h*.48,w-40,70); objectCtx.fillStyle='#34e5ff'; objectCtx.font='13px monospace'; objectCtx.fillText('AI MODEL READY · XR camera-access unavailable',34,h*.48+28); objectCtx.fillStyle='#cbeff5'; objectCtx.fillText('RGB/Depth/Live/World siguen activos',34,h*.48+50); return; }
+  for(const d of latestDetections){ const [x,y,bw,bh]=d.bbox, sx=x/AI_W*w, sy=y/AI_H*h, sw=bw/AI_W*w, sh=bh/AI_H*h, col=semanticColors[d.className]||'#34e5ff'; objectCtx.strokeStyle=col; objectCtx.lineWidth=2; objectCtx.strokeRect(sx,sy,sw,sh); const label=`${d.className.toUpperCase()} ${Math.round(d.score*100)}%${d.world?` · ${d.world.distance.toFixed(1)}m`:''}`; objectCtx.font='12px monospace'; const tw=objectCtx.measureText(label).width+10; objectCtx.fillStyle='rgba(0,0,0,.82)'; objectCtx.fillRect(sx,Math.max(0,sy-21),tw,21); objectCtx.fillStyle=col; objectCtx.fillText(label,sx+5,Math.max(14,sy-6)); }
+}
+function projectWorldToScreen(o,P,V){
+  const c=mul(V,o.x,o.y,o.z,1); const q=mul(P,c[0],c[1],c[2],c[3]); if(q[3]<=0)return null; const nx=q[0]/q[3],ny=q[1]/q[3]; if(nx<-1.1||nx>1.1||ny<-1.1||ny>1.1)return null; return {u:(nx+1)/2,v:(1-ny)/2};
+}
+function drawSemanticWorldOverlay(view){
+  resizeOverlayCanvas(objectCanvas); const dpr=Math.min(2,window.devicePixelRatio||1),w=objectCanvas.width/dpr,h=objectCanvas.height/dpr; objectCtx.setTransform(dpr,0,0,dpr,0,0); objectCtx.clearRect(0,0,w,h);
+  for(const o of semanticObjects.values()){ const p=projectWorldToScreen(o,view.projectionMatrix,view.transform.inverse.matrix); if(!p)continue; const x=p.u*w,y=p.v*h,col=semanticColors[o.className]||'#34e5ff'; objectCtx.strokeStyle=col; objectCtx.lineWidth=2; objectCtx.beginPath();objectCtx.arc(x,y,8,0,Math.PI*2);objectCtx.stroke(); const label=`${o.className.toUpperCase()} · ${o.distance.toFixed(1)}m`; objectCtx.font='11px monospace'; const tw=objectCtx.measureText(label).width+10; objectCtx.fillStyle='rgba(0,0,0,.78)';objectCtx.fillRect(x+10,y-12,tw,20);objectCtx.fillStyle=col;objectCtx.fillText(label,x+15,y+2); }
+}
+async function runDetection(snapshot){
+  if(!cocoModel||aiBusy)return; aiBusy=true; const t0=performance.now();
+  try{ const preds=await cocoModel.detect(aiCanvas,12,.45); latestDetections=preds.map(p=>({className:p.class,score:p.score,bbox:p.bbox,world:detectionWorldPosition(p,snapshot.depth,snapshot.P,snapshot.W)})); latestDetections.forEach(fuseSemantic); aiInferenceMs=performance.now()-t0; $("aiMs").textContent=`${Math.round(aiInferenceMs)} ms`; updateSemanticPanel(); if(currentView==='OBJECTS')drawObjectOverlay(); }
+  catch(e){ console.error('AI infer',e); $("aiState").textContent='AI error'; }
+  finally{ aiBusy=false; }
+}
+function maybeRunAI(view,layer,t){
+  if(!cocoModel||aiBusy||t-lastAI<900)return; lastAI=t;
+  if(!view.camera){ if(!rawCameraAvailable){$("cameraAccessStatus").textContent='no disponible';$("aiState").textContent='sin XR camera'; if(currentView==='OBJECTS')drawObjectOverlay();} return; }
+  if(!captureXRCamera(view,layer))return;
+  if(!latestDepthSnapshot)return;
+  const snapshot={depth:{W:latestDepthSnapshot.W,H:latestDepthSnapshot.H,field:new Float32Array(latestDepthSnapshot.field)},P:new Float32Array(view.projectionMatrix),W:new Float32Array(view.transform.matrix)};
+  runDetection(snapshot);
+}
 
 function depthColor(d){
  if(!Number.isFinite(d)||d<=0)return[0,0,0];
@@ -283,7 +407,7 @@ function drawLive3DTo(ctx,canvas){
 }
 
 function capture(view,depth){
-  const df=readDepthField(depth), ip=invert4(view.projectionMatrix); if(!ip)return; const wm=view.transform.matrix;
+  const df=readDepthField(depth), ip=invert4(view.projectionMatrix); if(!ip)return; const wm=view.transform.matrix; latestDepthSnapshot=df;
   captureTick++;
   $("depthInfo").textContent=`${df.W}×${df.H}`;
   drawDepth(df);
@@ -327,6 +451,7 @@ function drawWorld(){
   const r=Math.floor(colors[k]*255), g=Math.floor(colors[k+1]*255), b=Math.floor(colors[k+2]*255);
   ctx.fillStyle=`rgba(${r},${g},${b},0.76)`; ctx.fillRect(q[0]-1.3,q[1]-1.3,2.6,2.6);
  }
+ for(const o of semanticObjects.values()){ const q=project(o.x,o.z); if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue; const col=semanticColors[o.className]||'#34e5ff'; ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(q[0]-7,q[1]-7,14,14);ctx.fillStyle='rgba(0,0,0,.82)';const lab=o.className.toUpperCase();ctx.font='11px monospace';const tw=ctx.measureText(lab).width+8;ctx.fillRect(q[0]+9,q[1]-10,tw,18);ctx.fillStyle=col;ctx.fillText(lab,q[0]+13,q[1]+3); }
  ctx.strokeStyle='rgba(255,255,255,.92)'; ctx.lineWidth=2.2; ctx.beginPath();
  path.forEach((p,i)=>{const q=project(p.x,p.z); i?ctx.lineTo(...q):ctx.moveTo(...q)}); ctx.stroke();
  const phone=project(cx,cz); ctx.save(); ctx.translate(...phone); ctx.rotate(yaw); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(0,-14); ctx.lineTo(8,10); ctx.lineTo(-8,10); ctx.closePath(); ctx.fill(); ctx.restore();
@@ -336,17 +461,13 @@ function drawWorld(){
 
 function setView(v){
  currentView=v;
- $("viewName").textContent=v==='POINTS'?'LIVE 3D':v==='WORLD'?'WORLD 3D':v;
- ['rgbBtn','depthBtn','pointsBtn','worldBtn','compareBtn'].forEach(id=>$(id).classList.remove('active'));
- const map={RGB:'rgbBtn',DEPTH:'depthBtn',POINTS:'pointsBtn',WORLD:'worldBtn',COMPARE:'compareBtn'};
- $(map[v]).classList.add('active');
- depthCanvas.style.display=v==='DEPTH'?'block':'none';
- $("compare").style.display=v==='COMPARE'?'block':'none';
- $("worldHud").style.display=v==='WORLD'?'flex':'none';
- if(v!=='WORLD'){ worldCanvas.style.display='none'; document.body.classList.remove('world-top'); }
- else if(worldMode==='TOP'){ worldCanvas.style.display='block'; document.body.classList.add('world-top'); drawWorld(); }
- else { worldCanvas.style.display='none'; document.body.classList.remove('world-top'); }
- if(v==='COMPARE')drawLive3DTo(compareCtx,compareCanvas);
+ $("viewName").textContent=v==='POINTS'?'LIVE 3D':v==='WORLD'?'WORLD 3D':v==='OBJECTS'?'AI OBJECTS':v;
+ ['rgbBtn','depthBtn','pointsBtn','worldBtn','objectsBtn','compareBtn'].forEach(id=>$(id).classList.remove('active'));
+ const map={RGB:'rgbBtn',DEPTH:'depthBtn',POINTS:'pointsBtn',WORLD:'worldBtn',OBJECTS:'objectsBtn',COMPARE:'compareBtn'}; $(map[v]).classList.add('active');
+ depthCanvas.style.display=v==='DEPTH'?'block':'none'; $("compare").style.display=v==='COMPARE'?'block':'none'; $("worldHud").style.display=v==='WORLD'?'flex':'none';
+ const showSem=(v==='OBJECTS'||v==='WORLD'); $("semanticPanel").style.display=showSem?'block':'none'; objectCanvas.style.display=(v==='OBJECTS'||(v==='WORLD'&&worldMode==='CAMERA'))?'block':'none';
+ if(v!=='WORLD'){ worldCanvas.style.display='none'; document.body.classList.remove('world-top'); } else if(worldMode==='TOP'){ worldCanvas.style.display='block'; objectCanvas.style.display='none'; document.body.classList.add('world-top'); drawWorld(); } else { worldCanvas.style.display='none'; document.body.classList.remove('world-top'); }
+ if(v==='OBJECTS')drawObjectOverlay(); if(v==='COMPARE')drawLive3DTo(compareCtx,compareCanvas); updateSemanticPanel();
 }
 
 async function startXR(){
@@ -356,8 +477,8 @@ async function startXR(){
   program=gl.createProgram(); gl.attachShader(program,makeShader(gl.VERTEX_SHADER,vs)); gl.attachShader(program,makeShader(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(program); if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(program));
   pb=gl.createBuffer(); cb=gl.createBuffer(); lpb=gl.createBuffer(); lcb=gl.createBuffer();
   gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE); gl.disable(gl.DEPTH_TEST);
-  session=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local','depth-sensing','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},domOverlay:{root:document.body}});
-  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)}); space=await session.requestReferenceSpace('local');
+  session=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local','depth-sensing','dom-overlay'],optionalFeatures:['camera-access'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},domOverlay:{root:document.body}});
+  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)}); space=await session.requestReferenceSpace('local'); try{xrBinding=new XRWebGLBinding(session,gl);initCameraCapture();}catch(e){xrBinding=null;$("cameraAccessStatus").textContent='binding no disponible';}
   $("home").style.display='none'; xrCanvas.style.display='block'; $("hud").style.display='flex'; $("pipeline").style.display='flex'; $("controls").style.display='flex';
   session.addEventListener('end',endXR); session.requestAnimationFrame(frame);
  }catch(e){ alert('No se pudo iniciar WebXR:\n'+(e.message||e)); console.error(e); }
@@ -375,7 +496,8 @@ function frame(t,f){
    const vp=layer.getViewport(view); gl.viewport(vp.x,vp.y,vp.width,vp.height);
    if(!paused && t-lastCapture>120){ try{ const d=f.getDepthInformation(view); if(d)capture(view,d); }catch(e){} }
    if(currentView==='POINTS')renderLive(view);
-   else if(currentView==='WORLD' && worldMode==='CAMERA')renderWorld(view);
+   else if(currentView==='WORLD' && worldMode==='CAMERA'){renderWorld(view);drawSemanticWorldOverlay(view);}
+   if(currentView==='OBJECTS'||currentView==='WORLD'||currentView==='RGB')maybeRunAI(view,layer,t);
  }
  if(!paused && t-lastCapture>120)lastCapture=t;
  if(t-lastUpload>500){ uploadWorld(); lastUpload=t; }
@@ -383,14 +505,15 @@ function frame(t,f){
  frames++; if(t-lastFps>1000){ $("fps").textContent=frames; frames=0; lastFps=t; }
 }
 
-function resetAll(){ voxelStats.clear(); pointCount=0; livePointCount=0; origin=null; lastPath=null; totalDistance=0; path.length=0; liveDepthPoints=[]; uploadWorld(); uploadLive(); $("distance").textContent='0.0 m'; drawWorld(); }
-function endXR(){ $("home").style.display='block'; ['xrCanvas','depthCanvas','live3dCanvas','worldCanvas','hud','pipeline','controls','worldHud','compare'].forEach(id=>$(id).style.display='none'); session=null; }
+function resetAll(){ voxelStats.clear(); semanticObjects.clear(); latestDetections=[]; pointCount=0; livePointCount=0; origin=null; lastPath=null; totalDistance=0; path.length=0; liveDepthPoints=[]; uploadWorld(); uploadLive(); updateSemanticPanel(); $("distance").textContent='0.0 m'; drawWorld(); if(currentView==='OBJECTS')drawObjectOverlay(); }
+function endXR(){ $("home").style.display='block'; ['xrCanvas','depthCanvas','live3dCanvas','worldCanvas','objectCanvas','hud','pipeline','controls','worldHud','semanticPanel','compare'].forEach(id=>$(id).style.display='none'); session=null; }
 
 $("startBtn").onclick=startXR;
 $("rgbBtn").onclick=()=>setView('RGB');
 $("depthBtn").onclick=()=>setView('DEPTH');
 $("pointsBtn").onclick=()=>setView('POINTS');
 $("worldBtn").onclick=()=>setView('WORLD');
+$("objectsBtn").onclick=()=>setView('OBJECTS');
 $("compareBtn").onclick=()=>setView('COMPARE');
 $("liveBtn").onclick=()=>{ paused=!paused; $("liveBtn").classList.toggle('on',!paused); $("liveBtn").textContent=paused?'PAUSA':'LIVE'; };
 $("densityBtn").onclick=()=>{ const o=['LOW','MED','HIGH']; densityMode=o[(o.indexOf(densityMode)+1)%o.length]; $("densityBtn").textContent=`DENSIDAD ${densityMode}`; liveDepthPoints=[]; };
@@ -400,12 +523,14 @@ $("resetBtn").onclick=resetAll;
 $("exitBtn").onclick=()=>session?.end();
 
 (async function init(){
+ initAI();
  $("secureStatus").textContent=window.isSecureContext?'OK':'NO — requiere HTTPS';
  if(!window.isSecureContext)return;
  if(!navigator.xr){ $("xrStatus").textContent='no disponible'; return; }
  try{ const ok=await navigator.xr.isSessionSupported('immersive-ar'); $("xrStatus").textContent=ok?'compatible':'no compatible'; $("startBtn").disabled=!ok; }
  catch(e){ $("xrStatus").textContent='error'; console.error(e); }
 })();
+
 
 </script>
 </body>

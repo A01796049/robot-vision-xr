@@ -1,31 +1,38 @@
-# Robot Vision XR V17 — Dense WebGL Point Cloud
+# Robot Vision XR V18 — Semantic AI Mapping Preview
 
-Versión enfocada en mejorar la legibilidad de la nube de puntos 3D desde el celular.
+## Incluye
+- RGB
+- DEPTH
+- LIVE 3D (WebGL dense point cloud)
+- WORLD 3D
+- OBJECTS (COCO-SSD / TensorFlow.js)
+- COMPARE
+- Semantic Map: detecciones + profundidad + coordenadas XYZ
 
-## Mejoras principales
-- `LIVE 3D` ahora renderiza con **WebGL** en lugar de Canvas 2D.
-- Nube de puntos más densa para que se distingan mejor sillas, escritorios, paredes y piso.
-- `WORLD 3D` incorpora **confirmación temporal** para reducir polvo y puntos flotantes.
-- Conserva los modos:
-  - RGB
-  - DEPTH
-  - LIVE 3D
-  - WORLD 3D
-  - COMPARE
+## Importante
+La detección integrada dentro de la sesión XR utiliza la API experimental WebXR Raw Camera Access (`camera-access`).
+Si Chrome/ARCore no la concede, las vistas RGB/DEPTH/LIVE 3D/WORLD 3D seguirán funcionando, pero OBJECTS mostrará que la cámara XR no está disponible para IA.
 
-## Cómo publicar en GitHub Pages
-1. Borra los archivos viejos del repo.
-2. Sube el contenido de este ZIP a la raíz del repo.
-3. Espera 1–3 minutos.
-4. Abre tu URL:
-   `https://a01796049.github.io/robot-vision-xr/`
-5. Si no actualiza, prueba con:
-   `?v=17`
+## Dependencias
+Se cargan desde CDN al abrir la página:
+- TensorFlow.js 4.22.0
+- COCO-SSD 2.2.3 (lite_mobilenet_v2)
 
-## Recomendación de prueba
-- Usa `RANGO 4.0M` en interiores.
-- Prueba `DENSIDAD MED` o `HIGH`.
-- Compara `RGB -> DEPTH -> LIVE 3D -> WORLD 3D`.
+La primera carga necesita internet para descargar el modelo; posteriormente el navegador puede reutilizar caché.
 
-## Siguiente objetivo
-V18/V19: estabilización semántica y luego detección de objetos como segunda fase.
+## GitHub Pages
+Sube a la raíz:
+- index.html
+- .nojekyll
+- README.md
+- VERSION.txt
+
+Prueba con:
+`https://a01796049.github.io/robot-vision-xr/?v=18`
+
+## Cómo probar
+1. Espera a que `Object AI` muestre `COCO-SSD listo`.
+2. Inicia WebXR.
+3. Recorre: RGB → DEPTH → LIVE 3D → OBJECTS → WORLD 3D.
+4. En OBJECTS revisa cajas, clase, confianza y distancia.
+5. En WORLD 3D cambia a WORLD TOP para ver las etiquetas semánticas persistentes.
