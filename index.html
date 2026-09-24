@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · Anti-Banding Clear Point Cloud V16</title>
+<title>Robot Vision XR · Dense WebGL Point Cloud V17</title>
 <style>
 :root{--bg:#02070b;--cyan:#34e5ff;--green:#67ff7c;--orange:#ffb347;--purple:#a878ff;--text:#dcf8fc;--muted:#8aaeb8;--panel:rgba(3,13,19,.88)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -63,7 +63,7 @@ body.world-top #xrCanvas{background:#02070b}
 
 <section id="hud">
   <div class="panel">
-    <b>ROBOT VISION XR · V16</b><br>
+    <b>ROBOT VISION XR · V17</b><br>
     tracking <span id="tracking" class="metric">--</span><br>
     depth <span id="depthInfo" class="metric">--</span><br>
     vista <span id="viewName" class="metric">RGB</span>
@@ -99,56 +99,63 @@ body.world-top #xrCanvas{background:#02070b}
 
 <main id="home">
   <div class="wrap">
-    <h1>Anti-Banding Clear Point Cloud V16</h1>
-    <p class="sub">LIVE 3D reduce el banding horizontal con muestreo aleatorio estable, suavizado local y persistencia corta. WORLD 3D acumula una nube más limpia y legible.</p>
+    <h1>Dense WebGL Point Cloud V17</h1>
+    <p class="sub">LIVE 3D ahora usa WebGL y una nube densa para que la geometría de sillas, escritorios y paredes se vea mucho más clara. WORLD 3D incorpora confirmación temporal para reducir ruido flotante.</p>
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>Depth Sensing</span><span class="ok">se confirma al iniciar</span></div>
-      <div class="row"><span>Arquitectura</span><span class="ok">single-file</span></div>
+      <div class="row"><span>Arquitectura</span><span class="ok">single-file + dense WebGL</span></div>
     </section>
     <section class="card">
-      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V16</button>
-      <small>LIVE 3D conserva la misma perspectiva de RGB y sustituye cada región visible por puntos de profundidad. WORLD 3D acumula esos puntos en coordenadas del mundo y los vuelve a proyectar desde la cámara.</small>
+      <button id="startBtn" class="start" disabled>INICIAR PERCEPTION PIPELINE V17</button>
+      <small>LIVE 3D proyecta una nube densa de puntos directamente en WebGL para que el efecto se parezca más a cómo “ve” un robot. WORLD 3D acumula sólo vóxeles confirmados para reducir polvo y ruido.</small>
     </section>
     <section class="card">
       <small><b style="color:#34e5ff">Prueba recomendada</b><br>
-      Compara RGB con LIVE 3D y usa WORLD 3D en modo CAMERA o TOP. La prioridad de V16 es que la nube de puntos se vea clara y cercana al efecto visual de un sensor robótico.</small>
+      Compara RGB con LIVE 3D, usa WORLD 3D en modo CAMERA o TOP y valida si ya se distinguen mejor muebles, paredes y piso. V17 es la base para después activar objetos tipo YOLO en fases posteriores.</small>
     </section>
   </div>
 </main>
 
 <script>
+
 const $=id=>document.getElementById(id);
 
-const MAX_POINTS=110000, CELL=.08, MIN_D=.35, MAX_D=6.5;
-const positions=new Float32Array(MAX_POINTS*3), colors=new Float32Array(MAX_POINTS*3);
-const voxels=new Map();
-let pointCount=0,gl=null,session=null,space=null,program=null,pb=null,cb=null;
-let currentView="RGB",paused=false,lastCapture=0,lastUpload=0,lastWorld=0,lastFps=0,frames=0;
-let cx=0,cy=0,cz=0,yaw=0,origin=null,lastPath=null,totalDistance=0,mapRange=8;
+function resizeOverlayCanvas(c){
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const w=Math.floor(window.innerWidth*dpr), h=Math.floor(window.innerHeight*dpr);
+  if(c.width!==w||c.height!==h){ c.width=w; c.height=h; }
+}
+function resizeAllCanvases(){ resizeOverlayCanvas($("worldCanvas")); resizeOverlayCanvas($("live3dCanvas")); }
+window.addEventListener('resize',resizeAllCanvases);
+resizeAllCanvases();
+
+const xrCanvas=$("xrCanvas");
+const depthCanvas=$("depthCanvas"), depthCtx=depthCanvas.getContext('2d',{alpha:false});
+const compareCanvas=$("compareDepth"), compareCtx=compareCanvas.getContext('2d',{alpha:false});
+const worldCanvas=$("worldCanvas"), worldCtx=worldCanvas.getContext('2d');
+const live3dCanvas=$("live3dCanvas");
+
+const MAX_WORLD_POINTS=120000, MAX_LIVE_POINTS=22000, CELL=.08, MIN_D=.35;
+const positions=new Float32Array(MAX_WORLD_POINTS*3), colors=new Float32Array(MAX_WORLD_POINTS*3);
+const livePositions=new Float32Array(MAX_LIVE_POINTS*3), liveColors=new Float32Array(MAX_LIVE_POINTS*3), liveDepths=new Float32Array(MAX_LIVE_POINTS);
+const voxelStats=new Map();
+let pointCount=0, livePointCount=0, gl=null, session=null, space=null, program=null, pb=null, cb=null, lpb=null, lcb=null;
+let currentView='RGB', paused=false, lastCapture=0, lastUpload=0, lastWorld=0, lastFps=0, frames=0;
+let cx=0, cy=0, cz=0, yaw=0, origin=null, lastPath=null, totalDistance=0, mapRange=8;
 const path=[];
-
-const depthCanvas=$("depthCanvas"),depthCtx=depthCanvas.getContext("2d",{alpha:false});
-const compareCanvas=$("compareDepth"),compareCtx=compareCanvas.getContext("2d",{alpha:false});
-const worldCanvas=$("worldCanvas"),worldCtx=worldCanvas.getContext("2d");
-const live3dCanvas=$("live3dCanvas"),live3dCtx=live3dCanvas.getContext("2d");
-let liveDepthPoints=[];
-const DENSITY_PRESETS={LOW:0.11,MED:0.20,HIGH:0.32};
+const DENSITY_STEPS={LOW:3,MED:2,HIGH:1};
+const DENSITY_PRESETS={LOW:.34,MED:.58,HIGH:1};
 const RANGE_PRESETS=[2.5,4.0,6.5];
-let densityMode="MED";
-let rangeIndex=1;
-let currentFar=RANGE_PRESETS[rangeIndex];
-let worldMode="CAMERA";
-let liveTrail=[];
-let captureTick=0;
+let densityMode='MED', rangeIndex=1, currentFar=RANGE_PRESETS[rangeIndex], worldMode='CAMERA', captureTick=0;
+let liveDepthPoints=[];
+const I4=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
 
+const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;uniform float S;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=S;C=c;}`;
+const fs=`precision mediump float;varying vec3 C;uniform float A;void main(){vec2 q=gl_PointCoord-vec2(.5);float r=length(q);if(r>.5)discard;float glow=1.0-smoothstep(0.0,0.5,r);float core=1.0-smoothstep(0.0,0.22,r);vec3 col=min(vec3(1.0),C*(0.50+0.45*glow+0.95*core));gl_FragColor=vec4(col,A*(0.18+0.82*glow));}`;
 
-const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=2.4;C=c;}`;
-const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.95);}`;
-
-function makeShader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s}
-
+function makeShader(type,src){const s=gl.createShader(type);gl.shaderSource(s,src);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error(gl.getShaderInfoLog(s));return s;}
 function invert4(a){
  const o=new Float32Array(16),a00=a[0],a01=a[1],a02=a[2],a03=a[3],a10=a[4],a11=a[5],a12=a[6],a13=a[7],a20=a[8],a21=a[9],a22=a[10],a23=a[11],a30=a[12],a31=a[13],a32=a[14],a33=a[15];
  const b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32;
@@ -156,24 +163,19 @@ function invert4(a){
  o[0]=(a11*b11-a12*b10+a13*b09)*d;o[1]=(a02*b10-a01*b11-a03*b09)*d;o[2]=(a31*b05-a32*b04+a33*b03)*d;o[3]=(a22*b04-a21*b05-a23*b03)*d;
  o[4]=(a12*b08-a10*b11-a13*b07)*d;o[5]=(a00*b11-a02*b08+a03*b07)*d;o[6]=(a32*b02-a30*b05-a33*b01)*d;o[7]=(a20*b05-a22*b02+a23*b01)*d;
  o[8]=(a10*b10-a11*b08+a13*b06)*d;o[9]=(a01*b08-a00*b10-a03*b06)*d;o[10]=(a30*b04-a31*b02+a33*b00)*d;o[11]=(a21*b02-a20*b04-a23*b00)*d;
- o[12]=(a11*b07-a10*b09-a12*b06)*d;o[13]=(a00*b09-a01*b07+a02*b06)*d;o[14]=(a31*b01-a30*b03-a32*b00)*d;o[15]=(a20*b03-a21*b01-a22*b00)*d;return o
+ o[12]=(a11*b07-a10*b09-a12*b06)*d;o[13]=(a00*b09-a01*b07+a02*b06)*d;o[14]=(a31*b01-a30*b03-a32*b00)*d;o[15]=(a20*b03-a21*b01-a22*b00)*d;return o;
 }
 function mul(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
+function hash2(x,y,s=0){const t=Math.sin(x*127.1+y*311.7+s*74.7)*43758.5453123;return t-Math.floor(t);}
 
 function depthColor(d){
  if(!Number.isFinite(d)||d<=0)return[0,0,0];
  let t=Math.max(0,Math.min(1,(d-MIN_D)/(currentFar-MIN_D)));
  const s=[[255,65,35],[255,195,35],[55,235,100],[25,210,220],[45,65,215]];
  const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),a=p-i;
- return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a))
+ return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a));
 }
-function pointColor(d){const c=depthColor(d);return[c[0]/255,c[1]/255,c[2]/255]}
-
-
-function hash2(x,y,s=0){
-  const t=Math.sin(x*127.1+y*311.7+s*74.7)*43758.5453123;
-  return t-Math.floor(t);
-}
+function pointColor(d){const c=depthColor(d);return[c[0]/255,c[1]/255,c[2]/255];}
 function readDepthField(info){
   const W=info.width||160,H=info.height||90;
   const field=new Float32Array(W*H);
@@ -186,243 +188,225 @@ function readDepthField(info){
   return {W,H,field};
 }
 function smoothDepth(df,x,y){
-  const {W,H,field}=df;
-  let sum=0,w=0;
-  for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
-    const xx=x+dx, yy=y+dy;
-    if(xx<0||yy<0||xx>=W||yy>=H)continue;
-    const d=field[yy*W+xx];
-    if(!Number.isFinite(d))continue;
-    const ww=(dx===0&&dy===0)?4:((dx===0||dy===0)?2:1);
-    sum+=d*ww; w+=ww;
-  }
-  return w?sum/w:NaN;
-}
-function edgeStrength(df,x,y,d0){
-  const {W,H,field}=df;
-  let e=0;
-  const nbrs=[[1,0],[-1,0],[0,1],[0,-1]];
-  for(const [dx,dy] of nbrs){
-    const xx=x+dx, yy=y+dy;
-    if(xx<0||yy<0||xx>=W||yy>=H)continue;
-    const d=field[yy*W+xx];
-    if(Number.isFinite(d))e=Math.max(e,Math.abs(d-d0));
-  }
-  return e;
-}
-function buildLiveDepthPoints(df){
-  const {W,H,field}=df;
-  const pts=[];
-  const prob=DENSITY_PRESETS[densityMode];
-  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-    const d=field[y*W+x];
-    if(!Number.isFinite(d))continue;
-    // stochastic acceptance reduces horizontal banding versus a rigid scan grid
-    if(hash2(x,y,captureTick)>prob)continue;
-    const ds=smoothDepth(df,x,y);
-    if(!Number.isFinite(ds))continue;
-    const e=edgeStrength(df,x,y,ds);
-    const jx=(hash2(x,y,11)-0.5)*0.7;
-    const jy=(hash2(x,y,23)-0.5)*0.7;
-    pts.push({
-      u:(x+0.5+jx)/W,
-      v:(y+0.5+jy)/H,
-      d:ds,
-      edge:e
-    });
-  }
-  liveDepthPoints=pts;
-  liveTrail.push(pts);
-  if(liveTrail.length>3)liveTrail.shift();
-  $("liveCount").textContent=pts.length.toLocaleString();
-}
-function drawDepth(df){
- const {W,H,field}=df,img=depthCtx.createImageData(W,H);
- for(let y=0;y<H;y++)for(let x=0;x<W;x++){
-  const d=field[y*W+x];
-  const c=depthColor(d),i=(y*W+x)*4;
-  img.data[i]=c[0];img.data[i+1]=c[1];img.data[i+2]=c[2];img.data[i+3]=255;
+ const {W,H,field}=df; let sum=0,w=0;
+ for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+   const xx=x+dx, yy=y+dy; if(xx<0||yy<0||xx>=W||yy>=H)continue;
+   const d=field[yy*W+xx]; if(!Number.isFinite(d))continue;
+   const ww=(dx===0&&dy===0)?4:((dx===0||dy===0)?2:1); sum+=d*ww; w+=ww;
  }
- depthCtx.putImageData(img,0,0);
- buildLiveDepthPoints(df);
- if(currentView==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
- if(currentView==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
+ return w?sum/w:NaN;
 }
-function drawLive3DTo(ctx,canvas){
-  const w=canvas.width,h=canvas.height;
-  ctx.save();
-  ctx.clearRect(0,0,w,h);
-  ctx.fillStyle="#000";
-  ctx.fillRect(0,0,w,h);
-  if(!liveTrail.length){ctx.restore();return;}
-  ctx.globalCompositeOperation="lighter";
-  const alphas=[0.20,0.45,0.95].slice(-liveTrail.length);
-  for(let fi=0;fi<liveTrail.length;fi++){
-    const frame=liveTrail[fi], baseA=alphas[fi];
-    for(const p of frame){
-      const x=p.u*w, y=p.v*h;
-      const c=depthColor(p.d);
-      const t=Math.max(0,Math.min(1,(p.d-MIN_D)/(currentFar-MIN_D)));
-      const edgeBoost=Math.min(1,p.edge*8);
-      const r=(t<0.2?2.3:t<0.55?1.8:1.35) + edgeBoost*0.6;
-      const a=baseA*(0.72+edgeBoost*0.5);
-      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${a*0.18})`;
-      ctx.beginPath(); ctx.arc(x,y,r*2.1,0,Math.PI*2); ctx.fill();
-      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${Math.min(1,a)})`;
-      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
-    }
-  }
-  ctx.globalCompositeOperation="source-over";
-  const g=ctx.createLinearGradient(18,0,220,0);
-  g.addColorStop(0,"#ff9d22"); g.addColorStop(.34,"#57ef64"); g.addColorStop(.68,"#22d7dd"); g.addColorStop(1,"#334ddb");
-  ctx.fillStyle=g; ctx.fillRect(18,h-35,190,6);
-  ctx.fillStyle="rgba(220,248,252,.86)";
-  ctx.font=`${Math.max(14,Math.round(w/42))}px monospace`;
-  ctx.fillText("LIVE DEPTH POINT CLOUD",18,28);
-  const livePts=liveTrail[liveTrail.length-1]?.length||0;
-  ctx.fillText(`${livePts.toLocaleString()} pts · ${densityMode} · ${currentFar.toFixed(1)}m`,18,52);
-  ctx.fillText("NEAR",18,h-42); ctx.fillText("FAR",180,h-42);
-  ctx.restore();
+function edgeAt(df,x,y){
+ const {W,H,field}=df, c=field[y*W+x]; if(!Number.isFinite(c))return 0;
+ const r=(x+1<W&&Number.isFinite(field[y*W+x+1]))?Math.abs(c-field[y*W+x+1]):0;
+ const b=(y+1<H&&Number.isFinite(field[(y+1)*W+x]))?Math.abs(c-field[(y+1)*W+x]):0;
+ return Math.max(r,b);
+}
+function uploadWorld(){
+  if(!gl||!pb||!cb)return;
+  gl.bindBuffer(gl.ARRAY_BUFFER,pb); gl.bufferData(gl.ARRAY_BUFFER,positions.subarray(0,pointCount*3),gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,cb); gl.bufferData(gl.ARRAY_BUFFER,colors.subarray(0,pointCount*3),gl.DYNAMIC_DRAW);
+  $("pointCount").textContent=pointCount.toLocaleString();
+}
+function uploadLive(){
+  if(!gl||!lpb||!lcb)return;
+  gl.bindBuffer(gl.ARRAY_BUFFER,lpb); gl.bufferData(gl.ARRAY_BUFFER,livePositions.subarray(0,livePointCount*3),gl.DYNAMIC_DRAW);
+  gl.bindBuffer(gl.ARRAY_BUFFER,lcb); gl.bufferData(gl.ARRAY_BUFFER,liveColors.subarray(0,livePointCount*3),gl.DYNAMIC_DRAW);
+  $("liveCount").textContent=livePointCount.toLocaleString();
+}
+function writeWorldPoint(idx,x,y,z,d,count){
+  const i=idx*3, c=pointColor(d), boost=Math.min(1.0,0.82+count*0.04);
+  positions[i]=x; positions[i+1]=y; positions[i+2]=z;
+  colors[i]=Math.min(1,c[0]*boost); colors[i+1]=Math.min(1,c[1]*boost); colors[i+2]=Math.min(1,c[2]*boost);
+}
+function addPoint(x,y,z,d){
+  const key=`${Math.round(x/CELL)},${Math.round(y/CELL)},${Math.round(z/CELL)}`;
+  let s=voxelStats.get(key);
+  if(!s){ voxelStats.set(key,{count:1,x,y,z,d,idx:-1}); return; }
+  s.count+=1;
+  const n=s.count;
+  s.x += (x-s.x)/n; s.y += (y-s.y)/n; s.z += (z-s.z)/n; s.d += (d-s.d)/n;
+  if(s.idx<0){
+    if(s.count>=2 && pointCount<MAX_WORLD_POINTS){ s.idx=pointCount; writeWorldPoint(pointCount,s.x,s.y,s.z,s.d,s.count); pointCount++; }
+  }else writeWorldPoint(s.idx,s.x,s.y,s.z,s.d,s.count);
 }
 
-function addPoint(x,y,z,d){
- const key=`${Math.round(x/CELL)},${Math.round(y/CELL)},${Math.round(z/CELL)}`;
- if(voxels.has(key)||pointCount>=MAX_POINTS)return;
- voxels.set(key,pointCount);const i=pointCount*3,c=pointColor(d);
- positions[i]=x;positions[i+1]=y;positions[i+2]=z;colors[i]=c[0];colors[i+1]=c[1];colors[i+2]=c[2];pointCount++
+function drawDepth(df){
+  const {W,H,field}=df, img=depthCtx.createImageData(W,H);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    const d=field[y*W+x], c=depthColor(d), i=(y*W+x)*4;
+    img.data[i]=c[0]; img.data[i+1]=c[1]; img.data[i+2]=c[2]; img.data[i+3]=Number.isFinite(d)?255:0;
+  }
+  depthCtx.putImageData(img,0,0);
+}
+
+function buildLiveCloud(df,invProj){
+  livePointCount=0; liveDepthPoints=[];
+  const stride=DENSITY_STEPS[densityMode], phase=captureTick%stride;
+  for(let y=0;y<df.H;y++){
+    const start=(y+phase)%stride;
+    for(let x=start;x<df.W;x+=stride){
+      const d=smoothDepth(df,x,y);
+      if(!Number.isFinite(d)||d<MIN_D||d>currentFar)continue;
+      const u=(x+0.5)/df.W, v=(y+0.5)/df.H;
+      const q=mul(invProj,u*2-1,1-v*2,-1,1); if(Math.abs(q[3])<1e-6)continue;
+      const rx=q[0]/q[3], ry=q[1]/q[3], rz=q[2]/q[3]; if(Math.abs(rz)<1e-6)continue;
+      const scale=(-d)/rz;
+      const px=rx*scale, py=ry*scale, pz=rz*scale;
+      if(livePointCount<MAX_LIVE_POINTS){
+        const k=livePointCount*3, c=pointColor(d);
+        livePositions[k]=px; livePositions[k+1]=py; livePositions[k+2]=pz;
+        liveColors[k]=c[0]; liveColors[k+1]=c[1]; liveColors[k+2]=c[2]; liveDepths[livePointCount]=d;
+        livePointCount++;
+      }
+      liveDepthPoints.push({u,v,d,edge:edgeAt(df,x,y)});
+    }
+  }
+  uploadLive();
+}
+
+function drawLive3DTo(ctx,canvas){
+  const w=canvas.width,h=canvas.height;
+  ctx.save(); ctx.clearRect(0,0,w,h); ctx.fillStyle='#000'; ctx.fillRect(0,0,w,h);
+  ctx.globalCompositeOperation='lighter';
+  for(const p of liveDepthPoints){
+    const x=p.u*w, y=p.v*h, c=depthColor(p.d), t=Math.max(0,Math.min(1,(p.d-MIN_D)/(currentFar-MIN_D)));
+    const edgeBoost=Math.min(1,p.edge*8), r=(t<0.2?2.6:t<0.55?2.0:1.5)+edgeBoost*0.55;
+    ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},0.12)`; ctx.beginPath(); ctx.arc(x,y,r*2.4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},0.95)`; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalCompositeOperation='source-over';
+  const g=ctx.createLinearGradient(18,0,220,0); g.addColorStop(0,'#ff9d22'); g.addColorStop(.34,'#57ef64'); g.addColorStop(.68,'#22d7dd'); g.addColorStop(1,'#334ddb');
+  ctx.fillStyle='rgba(235,247,251,.88)'; ctx.font='36px monospace'; ctx.fillText('LIVE DEPTH POINT CLOUD',18,46);
+  ctx.fillStyle='rgba(214,240,246,.78)'; ctx.font='30px monospace'; ctx.fillText(`${livePointCount.toLocaleString()} pts · ${densityMode} · ${currentFar.toFixed(1)}m`,18,82);
+  ctx.fillStyle=g; ctx.fillRect(18,94,210,4); ctx.restore();
 }
 
 function capture(view,depth){
- const df=readDepthField(depth);
- const ip=invert4(view.projectionMatrix); if(!ip)return;
- const wm=view.transform.matrix;
- captureTick++;
- // Build live views and depth heatmap from the same field
- $("depthInfo").textContent=`${df.W}×${df.H}`;
- if(currentView==="DEPTH"||currentView==="POINTS"||currentView==="COMPARE")drawDepth(df);
- // Randomized, smoothed sampling for world accumulation to reduce banding
- const prob=Math.min(0.22, DENSITY_PRESETS[densityMode]*0.7);
- for(let y=0;y<df.H;y++)for(let x=0;x<df.W;x++){
-  if(hash2(x,y,captureTick+101)>prob)continue;
-  const d=smoothDepth(df,x,y);
-  if(!Number.isFinite(d)||d<MIN_D||d>currentFar)continue;
-  const jx=(hash2(x,y,131)-0.5)*0.8;
-  const jy=(hash2(x,y,151)-0.5)*0.8;
-  const u=(x+0.5+jx)/df.W, v=(y+0.5+jy)/df.H;
-  const q=mul(ip,u*2-1,1-v*2,-1,1); if(Math.abs(q[3])<1e-6)continue;
-  const rx=q[0]/q[3], ry=q[1]/q[3], rz=q[2]/q[3];
-  if(Math.abs(rz)<1e-6)continue;
-  const scale=(-d)/rz;
-  const px=rx*scale, py=ry*scale, pz=rz*scale;
-  const p=mul(wm,px,py,pz,1);
-  addPoint(p[0],p[1],p[2],d);
- }
+  const df=readDepthField(depth), ip=invert4(view.projectionMatrix); if(!ip)return; const wm=view.transform.matrix;
+  captureTick++;
+  $("depthInfo").textContent=`${df.W}×${df.H}`;
+  drawDepth(df);
+  buildLiveCloud(df,ip);
+  if(currentView==='COMPARE')drawLive3DTo(compareCtx,compareCanvas);
+
+  const keepProb=densityMode==='HIGH'?1:(densityMode==='MED'?0.78:0.55);
+  for(let i=0;i<livePointCount;i++){
+    if(hash2(i,captureTick,7)>keepProb)continue;
+    const k=i*3, p=mul(wm,livePositions[k],livePositions[k+1],livePositions[k+2],1);
+    addPoint(p[0],p[1],p[2],liveDepths[i]);
+  }
 }
 
-function upload(){
- gl.bindBuffer(gl.ARRAY_BUFFER,pb);gl.bufferData(gl.ARRAY_BUFFER,positions.subarray(0,pointCount*3),gl.DYNAMIC_DRAW);
- gl.bindBuffer(gl.ARRAY_BUFFER,cb);gl.bufferData(gl.ARRAY_BUFFER,colors.subarray(0,pointCount*3),gl.DYNAMIC_DRAW);
- $("pointCount").textContent=pointCount.toLocaleString()
+function renderBuffer(P,V,bufferPos,bufferColor,count,size,alpha){
+  if(!count)return;
+  gl.useProgram(program);
+  gl.uniformMatrix4fv(gl.getUniformLocation(program,'P'),false,P);
+  gl.uniformMatrix4fv(gl.getUniformLocation(program,'V'),false,V);
+  gl.uniform1f(gl.getUniformLocation(program,'S'),size);
+  gl.uniform1f(gl.getUniformLocation(program,'A'),alpha);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bufferPos); const ap=gl.getAttribLocation(program,'p'); gl.enableVertexAttribArray(ap); gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);
+  gl.bindBuffer(gl.ARRAY_BUFFER,bufferColor); const ac=gl.getAttribLocation(program,'c'); gl.enableVertexAttribArray(ac); gl.vertexAttribPointer(ac,3,gl.FLOAT,false,0,0);
+  gl.drawArrays(gl.POINTS,0,count);
 }
-
-function renderPoints(view){
- if(!pointCount)return;gl.useProgram(program);
- gl.uniformMatrix4fv(gl.getUniformLocation(program,"P"),false,view.projectionMatrix);
- gl.uniformMatrix4fv(gl.getUniformLocation(program,"V"),false,view.transform.inverse.matrix);
- gl.bindBuffer(gl.ARRAY_BUFFER,pb);const ap=gl.getAttribLocation(program,"p");gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,3,gl.FLOAT,false,0,0);
- gl.bindBuffer(gl.ARRAY_BUFFER,cb);const ac=gl.getAttribLocation(program,"c");gl.enableVertexAttribArray(ac);gl.vertexAttribPointer(ac,3,gl.FLOAT,false,0,0);
- gl.drawArrays(gl.POINTS,0,pointCount)
-}
+function renderLive(view){ renderBuffer(view.projectionMatrix,I4,lpb,lcb,livePointCount,densityMode==='HIGH'?4.2:(densityMode==='MED'?4.6:5.0),1.0); }
+function renderWorld(view){ renderBuffer(view.projectionMatrix,view.transform.inverse.matrix,pb,cb,pointCount,2.6,.96); }
 
 function drawWorld(){
  const c=worldCanvas,ctx=worldCtx,w=c.width,h=c.height,s=Math.min(w,h)/mapRange;
- ctx.fillStyle="#02070b";ctx.fillRect(0,0,w,h);
- ctx.strokeStyle="#11313a";ctx.lineWidth=1;
- for(let m=-10;m<=10;m++){ctx.beginPath();ctx.moveTo(w/2+m*s,0);ctx.lineTo(w/2+m*s,h);ctx.stroke();ctx.beginPath();ctx.moveTo(0,h/2+m*s);ctx.lineTo(w,h/2+m*s);ctx.stroke()}
+ ctx.fillStyle='#02070b'; ctx.fillRect(0,0,w,h);
+ ctx.strokeStyle='#11313a'; ctx.lineWidth=1;
+ for(let m=-10;m<=10;m++){
+   ctx.beginPath(); ctx.moveTo(w/2+m*s,0); ctx.lineTo(w/2+m*s,h); ctx.stroke();
+   ctx.beginPath(); ctx.moveTo(0,h/2+m*s); ctx.lineTo(w,h/2+m*s); ctx.stroke();
+ }
  if(!origin)return;
  const project=(x,z)=>[w/2-(x-origin.x)*s,h/2-(z-origin.z)*s];
  for(let i=0;i<pointCount;i++){
   const k=i*3,q=project(positions[k],positions[k+2]); if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;
   const r=Math.floor(colors[k]*255), g=Math.floor(colors[k+1]*255), b=Math.floor(colors[k+2]*255);
-  ctx.fillStyle=`rgba(${r},${g},${b},0.72)`; ctx.fillRect(q[0]-1.1,q[1]-1.1,2.2,2.2);
+  ctx.fillStyle=`rgba(${r},${g},${b},0.76)`; ctx.fillRect(q[0]-1.3,q[1]-1.3,2.6,2.6);
  }
- ctx.strokeStyle="rgba(255,255,255,.92)"; ctx.lineWidth=2.2; ctx.beginPath();
+ ctx.strokeStyle='rgba(255,255,255,.92)'; ctx.lineWidth=2.2; ctx.beginPath();
  path.forEach((p,i)=>{const q=project(p.x,p.z); i?ctx.lineTo(...q):ctx.moveTo(...q)}); ctx.stroke();
- const phone=project(cx,cz); ctx.save(); ctx.translate(...phone); ctx.rotate(yaw); ctx.fillStyle="#fff"; ctx.beginPath(); ctx.moveTo(0,-14); ctx.lineTo(8,10); ctx.lineTo(-8,10); ctx.closePath(); ctx.fill(); ctx.restore();
- ctx.fillStyle="rgba(52,229,255,.96)"; ctx.font=`${Math.max(15,Math.round(w/46))}px monospace`; ctx.fillText("WORLD 3D · TOP VIEW",18,28);
- ctx.fillStyle="rgba(220,248,252,.78)"; ctx.fillText(`${pointCount.toLocaleString()} pts · ${currentFar.toFixed(1)}m`,18,52);
+ const phone=project(cx,cz); ctx.save(); ctx.translate(...phone); ctx.rotate(yaw); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(0,-14); ctx.lineTo(8,10); ctx.lineTo(-8,10); ctx.closePath(); ctx.fill(); ctx.restore();
+ ctx.fillStyle='rgba(52,229,255,.96)'; ctx.font=`${Math.max(15,Math.round(w/46))}px monospace`; ctx.fillText('WORLD 3D · TOP VIEW',18,28);
+ ctx.fillStyle='rgba(220,248,252,.78)'; ctx.fillText(`${pointCount.toLocaleString()} pts · ${currentFar.toFixed(1)}m`,18,52);
 }
 
 function setView(v){
  currentView=v;
- $("viewName").textContent=v==="POINTS"?"LIVE 3D":v==="WORLD"?"WORLD 3D":v;
- ["rgbBtn","depthBtn","pointsBtn","worldBtn","compareBtn"].forEach(id=>$(id).classList.remove("active"));
- const map={RGB:"rgbBtn",DEPTH:"depthBtn",POINTS:"pointsBtn",WORLD:"worldBtn",COMPARE:"compareBtn"};
- $(map[v]).classList.add("active");
- depthCanvas.style.display=v==="DEPTH"?"block":"none";
- live3dCanvas.style.display=v==="POINTS"?"block":"none";
- $("compare").style.display=v==="COMPARE"?"block":"none";
- $("worldHud").style.display=v==="WORLD"?"flex":"none";
- if(v!=="WORLD"){ worldCanvas.style.display="none"; document.body.classList.remove("world-top"); }
- else if(worldMode==="TOP"){ worldCanvas.style.display="block"; document.body.classList.add("world-top"); drawWorld(); }
- else { worldCanvas.style.display="none"; document.body.classList.remove("world-top"); }
- if(v==="POINTS")drawLive3DTo(live3dCtx,live3dCanvas);
- if(v==="COMPARE")drawLive3DTo(compareCtx,compareCanvas);
+ $("viewName").textContent=v==='POINTS'?'LIVE 3D':v==='WORLD'?'WORLD 3D':v;
+ ['rgbBtn','depthBtn','pointsBtn','worldBtn','compareBtn'].forEach(id=>$(id).classList.remove('active'));
+ const map={RGB:'rgbBtn',DEPTH:'depthBtn',POINTS:'pointsBtn',WORLD:'worldBtn',COMPARE:'compareBtn'};
+ $(map[v]).classList.add('active');
+ depthCanvas.style.display=v==='DEPTH'?'block':'none';
+ $("compare").style.display=v==='COMPARE'?'block':'none';
+ $("worldHud").style.display=v==='WORLD'?'flex':'none';
+ if(v!=='WORLD'){ worldCanvas.style.display='none'; document.body.classList.remove('world-top'); }
+ else if(worldMode==='TOP'){ worldCanvas.style.display='block'; document.body.classList.add('world-top'); drawWorld(); }
+ else { worldCanvas.style.display='none'; document.body.classList.remove('world-top'); }
+ if(v==='COMPARE')drawLive3DTo(compareCtx,compareCanvas);
 }
 
 async function startXR(){
  try{
-  gl=$("xrCanvas").getContext("webgl",{xrCompatible:true,alpha:true,antialias:false});if(!gl)throw Error("WebGL no disponible");
-  await gl.makeXRCompatible();program=gl.createProgram();gl.attachShader(program,makeShader(gl.VERTEX_SHADER,vs));gl.attachShader(program,makeShader(gl.FRAGMENT_SHADER,fs));gl.linkProgram(program);
-  pb=gl.createBuffer();cb=gl.createBuffer();gl.enable(gl.DEPTH_TEST);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
-  session=await navigator.xr.requestSession("immersive-ar",{requiredFeatures:["local","depth-sensing","dom-overlay"],depthSensing:{usagePreference:["cpu-optimized"],dataFormatPreference:["luminance-alpha","float32"]},domOverlay:{root:document.body}});
-  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)});space=await session.requestReferenceSpace("local");
-  $("home").style.display="none";$("xrCanvas").style.display="block";$("hud").style.display="flex";$("pipeline").style.display="flex";$("controls").style.display="flex";
-  session.addEventListener("end",endXR);session.requestAnimationFrame(frame)
- }catch(e){alert("No se pudo iniciar WebXR:\n"+(e.message||e));console.error(e)}
+  gl=xrCanvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false,premultipliedAlpha:true}); if(!gl)throw Error('WebGL no disponible');
+  await gl.makeXRCompatible();
+  program=gl.createProgram(); gl.attachShader(program,makeShader(gl.VERTEX_SHADER,vs)); gl.attachShader(program,makeShader(gl.FRAGMENT_SHADER,fs)); gl.linkProgram(program); if(!gl.getProgramParameter(program,gl.LINK_STATUS)) throw Error(gl.getProgramInfoLog(program));
+  pb=gl.createBuffer(); cb=gl.createBuffer(); lpb=gl.createBuffer(); lcb=gl.createBuffer();
+  gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA,gl.ONE); gl.disable(gl.DEPTH_TEST);
+  session=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local','depth-sensing','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},domOverlay:{root:document.body}});
+  session.updateRenderState({baseLayer:new XRWebGLLayer(session,gl)}); space=await session.requestReferenceSpace('local');
+  $("home").style.display='none'; xrCanvas.style.display='block'; $("hud").style.display='flex'; $("pipeline").style.display='flex'; $("controls").style.display='flex';
+  session.addEventListener('end',endXR); session.requestAnimationFrame(frame);
+ }catch(e){ alert('No se pudo iniciar WebXR:\n'+(e.message||e)); console.error(e); }
 }
 
 function frame(t,f){
- session.requestAnimationFrame(frame);const pose=f.getViewerPose(space);if(!pose)return;$("tracking").textContent="activo";
- const v0=pose.views[0],m=v0.transform.matrix;cx=m[12];cy=m[13];cz=m[14];yaw=Math.atan2(-m[8],-m[10]);
- if(!origin){origin={x:cx,z:cz};lastPath={x:cx,z:cz};path.push({x:cx,z:cz})}
- const step=Math.hypot(cx-lastPath.x,cz-lastPath.z);if(step>.06){if(step<1)totalDistance+=step;lastPath={x:cx,z:cz};path.push({x:cx,z:cz});$("distance").textContent=totalDistance.toFixed(1)+" m"}
- const layer=session.renderState.baseLayer;gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
- const black=currentView==="WORLD" && worldMode==="CAMERA";gl.clearColor(0,0,0,black?1:0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
+ if(!session)return; session.requestAnimationFrame(frame); const pose=f.getViewerPose(space); if(!pose)return; $("tracking").textContent='activo';
+ const v0=pose.views[0],m=v0.transform.matrix; cx=m[12]; cy=m[13]; cz=m[14]; yaw=Math.atan2(-m[8],-m[10]);
+ if(!origin){ origin={x:cx,z:cz}; lastPath={x:cx,z:cz}; path.push({x:cx,z:cz}); }
+ const step=Math.hypot(cx-lastPath.x,cz-lastPath.z); if(step>.06){ if(step<1)totalDistance+=step; lastPath={x:cx,z:cz}; path.push({x:cx,z:cz}); $("distance").textContent=totalDistance.toFixed(1)+' m'; }
+ const layer=session.renderState.baseLayer; gl.bindFramebuffer(gl.FRAMEBUFFER,layer.framebuffer);
+ const black=(currentView==='POINTS')||(currentView==='WORLD'&&worldMode==='CAMERA');
+ gl.clearColor(0,0,0,black?1:0); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
  for(const view of pose.views){
-  const vp=layer.getViewport(view);gl.viewport(vp.x,vp.y,vp.width,vp.height);
-  if(!paused&&t-lastCapture>180){try{const d=f.getDepthInformation(view);if(d)capture(view,d)}catch{}}
-  if(currentView==="WORLD" && worldMode==="CAMERA")renderPoints(view);
+   const vp=layer.getViewport(view); gl.viewport(vp.x,vp.y,vp.width,vp.height);
+   if(!paused && t-lastCapture>120){ try{ const d=f.getDepthInformation(view); if(d)capture(view,d); }catch(e){} }
+   if(currentView==='POINTS')renderLive(view);
+   else if(currentView==='WORLD' && worldMode==='CAMERA')renderWorld(view);
  }
- if(!paused&&t-lastCapture>180)lastCapture=t;
- if(t-lastUpload>800){upload();lastUpload=t}
- if(currentView==="WORLD" && worldMode==="TOP" && t-lastWorld>150){drawWorld();lastWorld=t}
- frames++;if(t-lastFps>1000){$("fps").textContent=frames;frames=0;lastFps=t}
+ if(!paused && t-lastCapture>120)lastCapture=t;
+ if(t-lastUpload>500){ uploadWorld(); lastUpload=t; }
+ if(currentView==='WORLD' && worldMode==='TOP' && t-lastWorld>140){ drawWorld(); lastWorld=t; }
+ frames++; if(t-lastFps>1000){ $("fps").textContent=frames; frames=0; lastFps=t; }
 }
 
-function resetAll(){voxels.clear();pointCount=0;origin=null;lastPath=null;totalDistance=0;path.length=0;liveTrail.length=0;liveDepthPoints=[];upload();$("distance").textContent="0.0 m";drawWorld()}
-function endXR(){$("home").style.display="block";["xrCanvas","depthCanvas","live3dCanvas","worldCanvas","hud","pipeline","controls","worldHud","compare"].forEach(id=>$(id).style.display="none");session=null}
+function resetAll(){ voxelStats.clear(); pointCount=0; livePointCount=0; origin=null; lastPath=null; totalDistance=0; path.length=0; liveDepthPoints=[]; uploadWorld(); uploadLive(); $("distance").textContent='0.0 m'; drawWorld(); }
+function endXR(){ $("home").style.display='block'; ['xrCanvas','depthCanvas','live3dCanvas','worldCanvas','hud','pipeline','controls','worldHud','compare'].forEach(id=>$(id).style.display='none'); session=null; }
 
 $("startBtn").onclick=startXR;
-$("rgbBtn").onclick=()=>setView("RGB");
-$("depthBtn").onclick=()=>setView("DEPTH");
-$("pointsBtn").onclick=()=>setView("POINTS");
-$("worldBtn").onclick=()=>setView("WORLD");
-$("compareBtn").onclick=()=>setView("COMPARE");
-$("liveBtn").onclick=()=>{paused=!paused; $("liveBtn").classList.toggle("on",!paused); $("liveBtn").textContent=paused?"PAUSA":"LIVE";};
-$("densityBtn").onclick=()=>{const o=["LOW","MED","HIGH"]; densityMode=o[(o.indexOf(densityMode)+1)%o.length]; $("densityBtn").textContent=`DENSIDAD ${densityMode}`; liveTrail.length=0;};
-$("rangeBtn").onclick=()=>{rangeIndex=(rangeIndex+1)%RANGE_PRESETS.length; currentFar=RANGE_PRESETS[rangeIndex]; $("rangeBtn").textContent=`RANGO ${currentFar.toFixed(1)}M`; liveTrail.length=0;};
-$("worldModeBtn").onclick=()=>{worldMode=worldMode==="CAMERA"?"TOP":"CAMERA"; $("worldModeBtn").textContent=worldMode==="CAMERA"?"WORLD CAM":"WORLD TOP"; if(currentView==="WORLD")setView("WORLD");};
+$("rgbBtn").onclick=()=>setView('RGB');
+$("depthBtn").onclick=()=>setView('DEPTH');
+$("pointsBtn").onclick=()=>setView('POINTS');
+$("worldBtn").onclick=()=>setView('WORLD');
+$("compareBtn").onclick=()=>setView('COMPARE');
+$("liveBtn").onclick=()=>{ paused=!paused; $("liveBtn").classList.toggle('on',!paused); $("liveBtn").textContent=paused?'PAUSA':'LIVE'; };
+$("densityBtn").onclick=()=>{ const o=['LOW','MED','HIGH']; densityMode=o[(o.indexOf(densityMode)+1)%o.length]; $("densityBtn").textContent=`DENSIDAD ${densityMode}`; liveDepthPoints=[]; };
+$("rangeBtn").onclick=()=>{ rangeIndex=(rangeIndex+1)%RANGE_PRESETS.length; currentFar=RANGE_PRESETS[rangeIndex]; $("rangeBtn").textContent=`RANGO ${currentFar.toFixed(1)}M`; };
+$("worldModeBtn").onclick=()=>{ worldMode=worldMode==='CAMERA'?'TOP':'CAMERA'; $("worldModeBtn").textContent=worldMode==='CAMERA'?'WORLD CAM':'WORLD TOP'; if(currentView==='WORLD')setView('WORLD'); };
 $("resetBtn").onclick=resetAll;
 $("exitBtn").onclick=()=>session?.end();
 
 (async function init(){
- $("secureStatus").textContent=window.isSecureContext?"OK":"NO — requiere HTTPS";
+ $("secureStatus").textContent=window.isSecureContext?'OK':'NO — requiere HTTPS';
  if(!window.isSecureContext)return;
- if(!navigator.xr){$("xrStatus").textContent="no disponible";return}
- try{const ok=await navigator.xr.isSessionSupported("immersive-ar");$("xrStatus").textContent=ok?"compatible":"no compatible";$("startBtn").disabled=!ok}
- catch(e){$("xrStatus").textContent="error";console.error(e)}
+ if(!navigator.xr){ $("xrStatus").textContent='no disponible'; return; }
+ try{ const ok=await navigator.xr.isSessionSupported('immersive-ar'); $("xrStatus").textContent=ok?'compatible':'no compatible'; $("startBtn").disabled=!ok; }
+ catch(e){ $("xrStatus").textContent='error'; console.error(e); }
 })();
+
 </script>
 </body>
 </html>

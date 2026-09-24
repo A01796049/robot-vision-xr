@@ -1,2 +1,1 @@
-Robot Vision XR
-Version: V16 Anti-Banding Clear Point Cloud
+V17 - Dense WebGL Point Cloud
