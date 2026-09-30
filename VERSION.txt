@@ -1,2 +1,2 @@
 Robot Vision XR
-V19.1 Fusion Hotfix
+V19.2 AI Diagnostic

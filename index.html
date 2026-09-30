@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · V19.1 Fusion Hotfix</title>
+<title>Robot Vision XR · V19.2 AI Diagnostic</title>
 <style>
 :root{
   --bg:#02070b;--panel:rgba(3,13,19,.88);--line:#1d6674;--cyan:#34e5ff;
@@ -53,13 +53,34 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
 .objRow:last-child{border:0}
 .pill{border:1px solid rgba(52,229,255,.38);border-radius:999px;padding:2px 6px;color:#c9faff}
 @media(max-width:560px){.heroActions{grid-template-columns:1fr} h1{font-size:20px}}
+
+#aiDiag{
+  position:absolute;left:8px;right:8px;top:92px;z-index:24;
+  display:none;grid-template-columns:repeat(3,1fr);gap:6px;
+  pointer-events:none
+}
+.diagCard{
+  background:rgba(2,8,12,.78);border:1px solid rgba(52,229,255,.22);
+  border-radius:8px;padding:6px 7px;font-size:8.5px;line-height:1.45;
+  backdrop-filter:blur(7px)
+}
+.diagCard b{color:#dcf8fc}.diagOK{color:#67ff7c}.diagWARN{color:#ffb347}.diagBAD{color:#ff6b6b}
+#testPanel{
+  position:absolute;left:8px;right:8px;bottom:108px;z-index:26;display:none;gap:6px
+}
+#testPanel button{
+  flex:1;min-height:38px;border-radius:9px;border:1px solid #235762;
+  background:rgba(2,12,16,.88);color:#bcebf4;font-size:9px
+}
+@media(max-width:560px){#aiDiag{grid-template-columns:1fr 1fr 1fr}.diagCard{font-size:8px}}
+
 </style>
 </head>
 <body>
 
 <main id="home">
   <div class="wrap">
-    <h1>ROBOT VISION XR · V19.1 FUSION HOTFIX</h1>
+    <h1>ROBOT VISION XR · V19.2 AI DIAGNOSTIC</h1>
     <p class="sub">Dos motores complementarios en una sola demo: <b>AI Vision</b> crea profundidad estimada, nube RGB/Neon y detección de objetos desde la cámara; <b>XR Sensor</b> usa ARCore Depth para una nube métrica y WORLD 3D.</p>
 
     <section class="card">
@@ -75,7 +96,7 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
         <button id="startXR" class="start secondary" disabled>INICIAR XR SENSOR</button>
       </div>
       <small>
-        AI Vision usa <b>Depth Anything V2 Small</b> para profundidad relativa y <b>YOLOS-Tiny</b> para objetos. La primera ejecución descarga los modelos; después el navegador puede reutilizar la caché. XR Sensor conserva el pipeline ARCore Depth que ya funcionó en tu Moto G55.
+        AI Vision usa <b>Depth Anything V2 Small</b> y <b>YOLOS-Tiny</b>. En V19.2 ya no se fuerza WebGPU/q4: primero se valida el runtime, luego cada modelo y finalmente una inferencia de prueba. XR Sensor conserva ARCore Depth.
       </small>
     </section>
 
@@ -83,7 +104,7 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
       <small><b style="color:#34e5ff">Ruta de demo sugerida</b><br>
       AI: RGB → AI DEPTH → LIVE 3D → OBJECTS → SEMANTIC MAP.<br>
       XR: RGB → DEPTH → LIVE 3D → WORLD 3D.<br><br>
-      El modo <b>LIVE 3D RGB</b> busca el efecto visual de tu referencia: la misma escena reconocible, pero reconstruida con miles de puntos coloreados. <b>V19.1 corrige la pantalla negra de AI Vision de V19.</b>
+      El modo <b>LIVE 3D RGB</b> busca el efecto visual de tu referencia: la misma escena reconocible, pero reconstruida con miles de puntos coloreados. <b>V19.2 añade inferencia estable y diagnóstico visible para Depth y Object Detection.</b>
       </small>
     </section>
   </div>
@@ -103,7 +124,7 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
 
   <div id="topHud">
     <div class="panel">
-      <b>V19.1 · <span id="engineName">--</span></b><br>
+      <b>V19.2 · <span id="engineName">--</span></b><br>
       vista <span id="viewName" class="metric">RGB</span><br>
       estado <span id="tracking" class="metric">--</span>
     </div>
@@ -114,6 +135,15 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
     </div>
   </div>
 
+  <div id="aiDiag">
+    <div class="diagCard"><b>RUNTIME</b><br><span id="diagRuntime" class="diagWARN">pendiente</span></div>
+    <div class="diagCard"><b>DEPTH</b><br><span id="diagDepth" class="diagWARN">no cargado</span></div>
+    <div class="diagCard"><b>OBJECTS</b><br><span id="diagObjects" class="diagWARN">no cargado</span></div>
+  </div>
+  <div id="testPanel">
+    <button id="testDepthBtn">TEST DEPTH</button>
+    <button id="testObjectsBtn">TEST OBJECTS</button>
+  </div>
   <div id="legend">RGB CLOUD · color real<br>NEON · color por profundidad</div>
   <div id="objectsList"></div>
 
@@ -155,6 +185,11 @@ let latestDetections = [];
 let semanticMemory = [];
 let lastDetTime = 0;
 let lastDepthTime = 0;
+let autoAI = false;
+let depthTestPassed = false;
+let objectTestPassed = false;
+let aiSourceCanvas = null;
+let aiSourceCtx = null;
 let fpsFrames = 0, fpsLast = performance.now();
 
 let pointGL = null, pointProgram = null, pointPosBuf = null, pointColBuf = null;
@@ -223,6 +258,8 @@ function setCanvasVisibility(name){
 
     $('legend').style.display=name==='LIVE3D'?'block':'none';
     $('objectsList').style.display=(name==='OBJECTS'||name==='SEMANTIC')?'block':'none';
+    $('aiDiag').style.display='grid';
+    $('testPanel').style.display='flex';
   }else{
     show($('aiStage'),false);
 
@@ -237,15 +274,26 @@ function setCanvasVisibility(name){
 
     $('legend').style.display='none';
     $('objectsList').style.display='none';
+    $('aiDiag').style.display='none';
+    $('testPanel').style.display='none';
   }
 }
 function setView(v){
   view=v; $('viewName').textContent=v.replace('LIVE3D','LIVE 3D').replace('WORLD','WORLD 3D');
   [...$('tabs').children].forEach(b=>b.classList.toggle('active',b.dataset.view===v));
   setCanvasVisibility(v);
-  if(engine==='AI'&&v==='LIVE3D') drawAIPointCloud();
-  if(engine==='AI'&&v==='DEPTH'&&latestDepth) drawAIDepth();
-  if(engine==='AI'&&v==='OBJECTS') drawObjects();
+  if(engine==='AI'&&v==='LIVE3D'){
+    if(latestDepth)drawAIPointCloud();
+    else setDiag('diagDepth','toca TEST DEPTH primero','warn');
+  }
+  if(engine==='AI'&&v==='DEPTH'){
+    if(latestDepth)drawAIDepth();
+    else setDiag('diagDepth','toca TEST DEPTH primero','warn');
+  }
+  if(engine==='AI'&&v==='OBJECTS'){
+    drawObjects();
+    if(!objectTestPassed)setDiag('diagObjects','toca TEST OBJECTS primero','warn');
+  }
   if(engine==='AI'&&v==='SEMANTIC') drawSemanticMap();
   if(engine==='XR'&&v==='WORLD_TOP') drawXRWorldTop();
 }
@@ -274,32 +322,81 @@ function openApp(which){
   buildTabs();
 }
 
+function setDiag(id,text,state='warn'){
+  const el=$(id);
+  el.textContent=text;
+  el.className=state==='ok'?'diagOK':state==='bad'?'diagBAD':'diagWARN';
+}
+function progressText(x){
+  if(!x)return '';
+  const p=x.progress!=null?Math.round(x.progress):null;
+  if(x.status==='progress' && p!=null)return `${x.file||'model'} ${p}%`;
+  if(x.status==='download')return `descargando ${x.file||'archivo'}`;
+  if(x.status==='ready')return 'listo';
+  return x.status||'cargando';
+}
 async function loadTransformers(){
-  if(pipelineFn) return;
-  showLoading('Cargando AI runtime','Importando Transformers.js...');
-  const mod=await import(TF_URL);
-  pipelineFn=mod.pipeline;
+  if(pipelineFn)return true;
+  setDiag('diagRuntime','cargando runtime...','warn');
+  showLoading('AI Runtime','Cargando Transformers.js...');
+  try{
+    const mod=await import(TF_URL);
+    pipelineFn=mod.pipeline;
+    setDiag('diagRuntime','OK · Transformers.js','ok');
+    return true;
+  }catch(e){
+    console.error('runtime',e);
+    setDiag('diagRuntime',String(e.message||e).slice(0,42),'bad');
+    hideLoading();
+    return false;
+  }
 }
 async function ensureDepthModel(){
-  if(depthEstimator)return;
-  await loadTransformers();
-  showLoading('Depth Anything V2','Primera vez: descargando modelo de profundidad...');
-  const opts = navigator.gpu ? {device:'webgpu', dtype:'q4'} : {dtype:'q8'};
+  if(depthEstimator)return true;
+  if(!(await loadTransformers()))return false;
+  setDiag('diagDepth','cargando modelo...','warn');
+  showLoading('Depth Anything V2','Descargando modelo estable (WASM/CPU)...');
   try{
-    depthEstimator=await pipelineFn('depth-estimation','onnx-community/depth-anything-v2-small',opts);
+    depthEstimator=await pipelineFn(
+      'depth-estimation',
+      'onnx-community/depth-anything-v2-small',
+      {progress_callback:(x)=>{
+        const t=progressText(x);
+        if(t){setDiag('diagDepth',t,'warn');$('loadingMsg').textContent=t;}
+      }}
+    );
+    setDiag('diagDepth','modelo listo · falta test','warn');
+    hideLoading();
+    return true;
   }catch(e){
-    depthEstimator=await pipelineFn('depth-estimation','onnx-community/depth-anything-v2-small');
+    console.error('depth model',e);
+    setDiag('diagDepth',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
+    hideLoading();
+    return false;
   }
 }
 async function ensureDetector(){
-  if(objectDetector)return;
-  await loadTransformers();
-  showLoading('YOLOS-Tiny','Descargando detector de objetos...');
-  const opts = navigator.gpu ? {device:'webgpu', dtype:'q4'} : {dtype:'q8'};
+  if(objectDetector)return true;
+  if(!(await loadTransformers()))return false;
+  setDiag('diagObjects','cargando modelo...','warn');
+  showLoading('YOLOS-Tiny','Descargando detector estable...');
   try{
-    objectDetector=await pipelineFn('object-detection','Xenova/yolos-tiny',opts);
+    objectDetector=await pipelineFn(
+      'object-detection',
+      'Xenova/yolos-tiny',
+      {progress_callback:(x)=>{
+        const t=progressText(x);
+        if(t){setDiag('diagObjects',t,'warn');$('loadingMsg').textContent=t;}
+      }}
+    );
+    setDiag('diagObjects','modelo listo · falta test','warn');
+    hideLoading();
+    return true;
   }catch(e){
-    objectDetector=await pipelineFn('object-detection','Xenova/yolos-tiny');
+    console.error('object model',e);
+    setDiag('diagObjects',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
+    hideLoading();
+    return false;
   }
 }
 
@@ -320,64 +417,113 @@ async function startAI(){
     aiVideo.style.opacity='1';
 
     initPointGL();
+    if(!aiSourceCanvas){
+      aiSourceCanvas=document.createElement('canvas');
+      aiSourceCtx=aiSourceCanvas.getContext('2d',{willReadFrequently:true});
+    }
     $('tracking').textContent=`camera OK ${aiVideo.videoWidth||0}×${aiVideo.videoHeight||0}`;
+    $('aiDiag').style.display='grid';
+    $('testPanel').style.display='flex';
+    setDiag('diagRuntime','pendiente · toca TEST','warn');
+    setDiag('diagDepth','no cargado','warn');
+    setDiag('diagObjects','no cargado','warn');
     hideLoading();
     aiLoopId=requestAnimationFrame(aiLoop);
-    setTimeout(()=>ensureDepthModel().then(()=>{$('modelStatus').textContent='Depth listo';hideLoading();}).catch(e=>{hideLoading();console.error(e)}),250);
-    setTimeout(()=>ensureDetector().then(()=>{$('modelStatus').textContent='Depth + objects listos';hideLoading();}).catch(e=>{hideLoading();console.error(e)}),1500);
   }catch(e){
     hideLoading(); alert('No se pudo iniciar AI Vision:\\n'+(e.message||e)); exitApp();
   }
 }
 
 function sourceFrameCanvas(){
-  const c=document.createElement('canvas');
-  const w=320,h=Math.round(320*(aiVideo.videoHeight||480)/(aiVideo.videoWidth||640));
-  c.width=w;c.height=h;
-  c.getContext('2d').drawImage(aiVideo,0,0,w,h);
-  return c;
+  if(!aiSourceCanvas){
+    aiSourceCanvas=document.createElement('canvas');
+    aiSourceCtx=aiSourceCanvas.getContext('2d',{willReadFrequently:true});
+  }
+  const vw=aiVideo.videoWidth||480, vh=aiVideo.videoHeight||640;
+  const maxSide=320;
+  const scale=Math.min(1,maxSide/Math.max(vw,vh));
+  const w=Math.max(64,Math.round(vw*scale)),h=Math.max(64,Math.round(vh*scale));
+  if(aiSourceCanvas.width!==w||aiSourceCanvas.height!==h){
+    aiSourceCanvas.width=w; aiSourceCanvas.height=h;
+  }
+  aiSourceCtx.drawImage(aiVideo,0,0,w,h);
+  return aiSourceCanvas;
 }
-async function canvasURL(c){
-  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.82));
-  return {url:URL.createObjectURL(blob), revoke:()=>URL.revokeObjectURL(this?.url)};
-}
-async function runDepth(){
-  if(aiBusy||!depthEstimator||aiVideo.readyState<2)return;
+async function runDepth(manual=false){
+  if(aiBusy||!depthEstimator||aiVideo.readyState<2)return false;
   aiBusy=true;
-  let url=null;
+  const t0=performance.now();
   try{
     const src=sourceFrameCanvas();
-    const blob=await new Promise(r=>src.toBlob(r,'image/jpeg',.82));
-    url=URL.createObjectURL(blob);
-    const out=await depthEstimator(url);
-    const t=out.predicted_depth;
-    const dims=t.dims;
+
+    // V19.2: pass HTMLCanvasElement directly. Transformers.js supports Canvas as ImageInput.
+    const out=await depthEstimator(src);
+    const tensor=out?.predicted_depth;
+    if(!tensor||!tensor.data||!tensor.dims)throw new Error('predicted_depth no disponible');
+
+    const dims=tensor.dims;
     const H=dims[dims.length-2],W=dims[dims.length-1];
-    const data=t.data;
+    const data=tensor.data;
     let min=Infinity,max=-Infinity;
-    for(let i=0;i<data.length;i++){const v=data[i];if(Number.isFinite(v)){if(v<min)min=v;if(v>max)max=v;}}
-    latestDepth={W,H,data:new Float32Array(data),min,max,source:src};
-    if(view==='DEPTH')drawAIDepth();
+    for(let i=0;i<data.length;i++){
+      const v=data[i];
+      if(Number.isFinite(v)){if(v<min)min=v;if(v>max)max=v;}
+    }
+    if(!Number.isFinite(min)||!Number.isFinite(max)||max<=min)throw new Error('tensor de profundidad inválido');
+
+    // Make an immutable RGB copy for point-cloud colors.
+    const copy=document.createElement('canvas');
+    copy.width=src.width;copy.height=src.height;
+    copy.getContext('2d').drawImage(src,0,0);
+
+    latestDepth={W,H,data:new Float32Array(data),min,max,source:copy};
+    depthTestPassed=true;
+    const ms=Math.round(performance.now()-t0);
+    setDiag('diagDepth',`OK · ${W}×${H} · ${ms}ms`,'ok');
+    $('modelStatus').textContent='Depth OK';
+    drawAIDepth();
     buildAIPointCloud();
-  }catch(e){console.error('depth',e)}
-  finally{if(url)URL.revokeObjectURL(url);aiBusy=false;}
+    if(view==='LIVE3D')drawAIPointCloud();
+    return true;
+  }catch(e){
+    console.error('depth inference',e);
+    depthTestPassed=false;
+    setDiag('diagDepth',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
+    return false;
+  }finally{
+    aiBusy=false;
+    if(manual)hideLoading();
+  }
 }
-async function runDetection(){
-  if(detBusy||!objectDetector||aiVideo.readyState<2)return;
-  detBusy=true;let url=null;
+async function runDetection(manual=false){
+  if(detBusy||!objectDetector||aiVideo.readyState<2)return false;
+  detBusy=true;
+  const t0=performance.now();
   try{
     const src=sourceFrameCanvas();
-    const blob=await new Promise(r=>src.toBlob(r,'image/jpeg',.82));
-    url=URL.createObjectURL(blob);
-    latestDetections=await objectDetector(url,{threshold:.55});
+
+    // V19.2: direct canvas input avoids Blob/ObjectURL issues on Android.
+    const result=await objectDetector(src,{threshold:.40});
+    latestDetections=Array.isArray(result)?result:[];
+    objectTestPassed=true;
+    const ms=Math.round(performance.now()-t0);
+    setDiag('diagObjects',`OK · ${latestDetections.length} det · ${ms}ms`,'ok');
+    $('modelStatus').textContent='Depth/Objects diagnostics';
     enrichDetections();
     if(view==='OBJECTS')drawObjects();
     if(view==='SEMANTIC')drawSemanticMap();
     updateObjectsList();
-  }catch(e){console.error('objects',e)}
-  finally{if(url)URL.revokeObjectURL(url);detBusy=false;}
+    return true;
+  }catch(e){
+    console.error('object inference',e);
+    objectTestPassed=false;
+    setDiag('diagObjects',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
+    return false;
+  }finally{
+    detBusy=false;
+    if(manual)hideLoading();
+  }
 }
-
 function normalizedDepthAt(px,py,srcW,srcH){
   if(!latestDepth)return null;
   const x=Math.max(0,Math.min(latestDepth.W-1,Math.round(px/srcW*latestDepth.W)));
@@ -515,16 +661,26 @@ function drawSemanticMap(){
     semanticCtx.fillStyle='#34e5ff';semanticCtx.beginPath();semanticCtx.arc(x,y,7+Math.min(8,m.seen),0,Math.PI*2);semanticCtx.fill();
     semanticCtx.fillStyle='#dcf8fc';semanticCtx.fillText(`${m.label} ${dist.toFixed(1)}m*`,x+10,y-8);
   }
-  semanticCtx.fillStyle='rgba(220,248,252,.7)';semanticCtx.fillText('* AI depth: distancia relativa aproximada',18,30);
+  semanticCtx.fillStyle='rgba(220,248,252,.7)';semanticCtx.fillText('* AI depth: distancia relativa aproximada · valida TEST DEPTH',18,30);
 }
 
 function aiLoop(t){
   if(engine!=='AI')return;
   aiLoopId=requestAnimationFrame(aiLoop);
-  if(t-lastDepthTime>1000){lastDepthTime=t;runDepth();}
-  if(t-lastDetTime>1800){lastDetTime=t;runDetection();}
+
+  // Only run continuous inference after the user has proven each model works.
+  if(depthTestPassed && t-lastDepthTime>1400){
+    lastDepthTime=t;
+    runDepth(false);
+  }
+  if(objectTestPassed && (view==='OBJECTS'||view==='SEMANTIC') && t-lastDetTime>2200){
+    lastDetTime=t;
+    runDetection(false);
+  }
+
   if(view==='LIVE3D')drawAIPointCloud();
-  fpsFrames++;if(t-fpsLast>1000){$('fps').textContent=fpsFrames;fpsFrames=0;fpsLast=t;}
+  fpsFrames++;
+  if(t-fpsLast>1000){$('fps').textContent=fpsFrames;fpsFrames=0;fpsLast=t;}
 }
 
 /* ---------------- XR SENSOR ENGINE ---------------- */
@@ -628,10 +784,36 @@ function xrLoop(t,f){
 /* controls */
 $('startAI').addEventListener('click',startAI);
 $('startXR').addEventListener('click',startXR);
+
+$('testDepthBtn').addEventListener('click',async()=>{
+  showLoading('TEST DEPTH','1/3 runtime · 2/3 modelo · 3/3 inferencia');
+  const ok=await ensureDepthModel();
+  if(!ok){hideLoading();return;}
+  $('loadingTitle').textContent='TEST DEPTH';
+  $('loadingMsg').textContent='Ejecutando un frame de prueba...';
+  const pass=await runDepth(true);
+  if(pass){
+    setView('DEPTH');
+    autoAI=true;
+  }
+});
+$('testObjectsBtn').addEventListener('click',async()=>{
+  showLoading('TEST OBJECTS','1/3 runtime · 2/3 modelo · 3/3 inferencia');
+  const ok=await ensureDetector();
+  if(!ok){hideLoading();return;}
+  $('loadingTitle').textContent='TEST OBJECTS';
+  $('loadingMsg').textContent='Analizando un frame de prueba...';
+  const pass=await runDetection(true);
+  if(pass){
+    setView('OBJECTS');
+    autoAI=true;
+  }
+});
+
 $('styleBtn').addEventListener('click',()=>{styleMode=styleMode==='RGB'?'NEON':'RGB';$('styleBtn').textContent='STYLE '+styleMode;if(engine==='AI'){buildAIPointCloud();if(view==='LIVE3D')drawAIPointCloud();}});
 $('densityBtn').addEventListener('click',()=>{const o=['LOW','MED','HIGH'];density=o[(o.indexOf(density)+1)%3];$('densityBtn').textContent='DENSIDAD '+density;if(engine==='AI')buildAIPointCloud();});
 $('rangeBtn').addEventListener('click',()=>{const vals=[2.5,4.0,6.5];let i=vals.indexOf(xrRange);xrRange=vals[(i+1)%vals.length];$('rangeBtn').textContent='RANGO '+xrRange.toFixed(1)+'M';});
-$('resetBtn').addEventListener('click',()=>{semanticMemory=[];latestDetections=[];voxelMap.clear();xrWorldCount=0;$('objectCount').textContent='0';$('pointCount').textContent='0';updateObjectsList();if(view==='SEMANTIC')drawSemanticMap();});
+$('resetBtn').addEventListener('click',()=>{semanticMemory=[];latestDetections=[];latestDepth=null;voxelMap.clear();xrWorldCount=0;pointCountAI=0;depthTestPassed=false;objectTestPassed=false;$('objectCount').textContent='0';$('pointCount').textContent='0';setDiag('diagDepth','modelo '+(depthEstimator?'listo · falta test':'no cargado'),'warn');setDiag('diagObjects','modelo '+(objectDetector?'listo · falta test':'no cargado'),'warn');updateObjectsList();if(view==='SEMANTIC')drawSemanticMap();});
 $('exitBtn').addEventListener('click',exitApp);
 
 function exitApp(){
@@ -642,6 +824,8 @@ function exitApp(){
   $('aiStage').style.display='none';
   $('xrCanvas').style.display='none';
   $('worldCanvas').style.display='none';
+  $('aiDiag').style.display='none';
+  $('testPanel').style.display='none';
 
   engine=null;
   $('app').style.display='none';

@@ -1,24 +1,35 @@
-# Robot Vision XR — V19.1 Fusion Hotfix
+# Robot Vision XR — V19.2 AI Diagnostic
 
-## Corrección principal
-V19 tenía la cámara activa, pero el contenedor visual `#aiStage` permanecía oculto.
-V19.1 corrige esa condición y fuerza la visualización del video RGB antes de iniciar los modelos de IA.
+## Qué cambia
+V19.2 está enfocada en hacer visible y estable la parte de IA:
 
-## Prueba recomendada
+- Ya no fuerza `WebGPU` ni `q4`.
+- Transformers.js recibe directamente un `HTMLCanvasElement` como entrada.
+- Agrega diagnóstico visible:
+  - RUNTIME
+  - DEPTH
+  - OBJECTS
+- Agrega dos pruebas manuales:
+  - `TEST DEPTH`
+  - `TEST OBJECTS`
+- Solo después de una prueba exitosa se activa la inferencia continua.
+
+## Orden de prueba
 1. Inicia `AI VISION`.
-2. Confirma que RGB muestre la cámara inmediatamente.
-3. Después prueba:
-   - AI DEPTH
-   - LIVE 3D
-   - OBJECTS
-   - SEMANTIC MAP
+2. Debes ver RGB.
+3. Presiona `TEST DEPTH`.
+4. Espera a que DEPTH muestre `OK`.
+5. Revisa `AI DEPTH` y `LIVE 3D`.
+6. Presiona `TEST OBJECTS`.
+7. Espera a que OBJECTS muestre `OK`.
+8. Revisa `OBJECTS` y `SEMANTIC MAP`.
 
 ## GitHub Pages
-Sube estos cuatro archivos a la raíz del repositorio:
+Sube:
 - index.html
 - .nojekyll
 - README.md
 - VERSION.txt
 
 Prueba con:
-https://a01796049.github.io/robot-vision-xr/?v=19.1
+https://a01796049.github.io/robot-vision-xr/?v=19.2
