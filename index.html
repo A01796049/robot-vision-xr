@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · V19 Fusion</title>
+<title>Robot Vision XR · V19.1 Fusion Hotfix</title>
 <style>
 :root{
   --bg:#02070b;--panel:rgba(3,13,19,.88);--line:#1d6674;--cyan:#34e5ff;
@@ -59,7 +59,7 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
 
 <main id="home">
   <div class="wrap">
-    <h1>ROBOT VISION XR · V19 FUSION</h1>
+    <h1>ROBOT VISION XR · V19.1 FUSION HOTFIX</h1>
     <p class="sub">Dos motores complementarios en una sola demo: <b>AI Vision</b> crea profundidad estimada, nube RGB/Neon y detección de objetos desde la cámara; <b>XR Sensor</b> usa ARCore Depth para una nube métrica y WORLD 3D.</p>
 
     <section class="card">
@@ -83,7 +83,7 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
       <small><b style="color:#34e5ff">Ruta de demo sugerida</b><br>
       AI: RGB → AI DEPTH → LIVE 3D → OBJECTS → SEMANTIC MAP.<br>
       XR: RGB → DEPTH → LIVE 3D → WORLD 3D.<br><br>
-      El modo <b>LIVE 3D RGB</b> busca el efecto visual de tu referencia: la misma escena reconocible, pero reconstruida con miles de puntos coloreados.
+      El modo <b>LIVE 3D RGB</b> busca el efecto visual de tu referencia: la misma escena reconocible, pero reconstruida con miles de puntos coloreados. <b>V19.1 corrige la pantalla negra de AI Vision de V19.</b>
       </small>
     </section>
   </div>
@@ -103,7 +103,7 @@ small{font-size:11px;line-height:1.5;color:var(--muted)}
 
   <div id="topHud">
     <div class="panel">
-      <b>V19 · <span id="engineName">--</span></b><br>
+      <b>V19.1 · <span id="engineName">--</span></b><br>
       vista <span id="viewName" class="metric">RGB</span><br>
       estado <span id="tracking" class="metric">--</span>
     </div>
@@ -207,21 +207,36 @@ fitAll();
 
 function setCanvasVisibility(name){
   const show = (el,yes)=> el.style.display=yes?'block':'none';
+
   if(engine==='AI'){
+    // V19.1: explicitly show the whole AI stage.
+    show($('aiStage'),true);
+    show($('xrCanvas'),false);
+
     show(aiVideo, name==='RGB'||name==='OBJECTS');
     show(aiCanvas,false);
     show(depthCanvas,name==='DEPTH');
     show(pointCanvas,name==='LIVE3D');
     show(objectCanvas,name==='OBJECTS');
     show(semanticCanvas,name==='SEMANTIC');
-    show(worldCanvas,false); show($('xrCanvas'),false);
+    show(worldCanvas,false);
+
     $('legend').style.display=name==='LIVE3D'?'block':'none';
     $('objectsList').style.display=(name==='OBJECTS'||name==='SEMANTIC')?'block':'none';
   }else{
-    show(aiVideo,false);show(depthCanvas,false);show(pointCanvas,false);show(objectCanvas,false);show(semanticCanvas,false);
+    show($('aiStage'),false);
+
+    show(aiVideo,false);
+    show(depthCanvas,false);
+    show(pointCanvas,false);
+    show(objectCanvas,false);
+    show(semanticCanvas,false);
+
     show($('xrCanvas'),name!=='WORLD_TOP');
     show(worldCanvas,name==='WORLD_TOP');
-    $('legend').style.display='none'; $('objectsList').style.display='none';
+
+    $('legend').style.display='none';
+    $('objectsList').style.display='none';
   }
 }
 function setView(v){
@@ -247,7 +262,13 @@ function buildTabs(){
 }
 function openApp(which){
   engine=which;
-  $('home').style.display='none';$('app').style.display='block';
+  $('home').style.display='none';
+  $('app').style.display='block';
+
+  // HOTFIX V19.1: the AI stage was left hidden in V19.
+  $('aiStage').style.display = which==='AI' ? 'block' : 'none';
+  $('xrCanvas').style.display = which==='XR' ? 'block' : 'none';
+
   $('engineName').textContent=which==='AI'?'AI VISION':'XR SENSOR';
   $('tracking').textContent='iniciando';
   buildTabs();
@@ -289,9 +310,17 @@ async function startAI(){
       video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480}},
       audio:false
     });
-    aiVideo.srcObject=aiStream; await aiVideo.play();
+    aiVideo.srcObject=aiStream;
+    await aiVideo.play();
+
+    // Ensure first RGB frame is visible before starting AI.
+    $('aiStage').style.display='block';
+    aiVideo.style.display='block';
+    aiVideo.style.visibility='visible';
+    aiVideo.style.opacity='1';
+
     initPointGL();
-    $('tracking').textContent='camera OK';
+    $('tracking').textContent=`camera OK ${aiVideo.videoWidth||0}×${aiVideo.videoHeight||0}`;
     hideLoading();
     aiLoopId=requestAnimationFrame(aiLoop);
     setTimeout(()=>ensureDepthModel().then(()=>{$('modelStatus').textContent='Depth listo';hideLoading();}).catch(e=>{hideLoading();console.error(e)}),250);
@@ -609,7 +638,14 @@ function exitApp(){
   if(aiLoopId)cancelAnimationFrame(aiLoopId);aiLoopId=0;
   if(aiStream){aiStream.getTracks().forEach(t=>t.stop());aiStream=null;}
   if(xrSession){const s=xrSession;xrSession=null;try{s.end()}catch{}}
-  engine=null;$('app').style.display='none';$('home').style.display='block';
+
+  $('aiStage').style.display='none';
+  $('xrCanvas').style.display='none';
+  $('worldCanvas').style.display='none';
+
+  engine=null;
+  $('app').style.display='none';
+  $('home').style.display='block';
 }
 
 (async function init(){

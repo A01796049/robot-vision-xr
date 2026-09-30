@@ -1,31 +1,24 @@
-# Robot Vision XR — V19 Fusion
+# Robot Vision XR — V19.1 Fusion Hotfix
 
-Esta versión integra dos motores en una sola app:
+## Corrección principal
+V19 tenía la cámara activa, pero el contenedor visual `#aiStage` permanecía oculto.
+V19.1 corrige esa condición y fuerza la visualización del video RGB antes de iniciar los modelos de IA.
 
-## AI Vision
-- Cámara trasera con `getUserMedia`
-- Depth Anything V2 Small (profundidad relativa por IA)
-- Nube de puntos RGB / NEON
-- YOLOS-Tiny para detección de objetos
-- Mapa semántico aproximado
+## Prueba recomendada
+1. Inicia `AI VISION`.
+2. Confirma que RGB muestre la cámara inmediatamente.
+3. Después prueba:
+   - AI DEPTH
+   - LIVE 3D
+   - OBJECTS
+   - SEMANTIC MAP
 
-## XR Sensor
-- WebXR + ARCore Depth
-- DEPTH
-- LIVE 3D
-- WORLD 3D
-- WORLD TOP
+## GitHub Pages
+Sube estos cuatro archivos a la raíz del repositorio:
+- index.html
+- .nojekyll
+- README.md
+- VERSION.txt
 
-## Publicación
-Sube estos archivos a la raíz de tu repositorio GitHub Pages:
-- `index.html`
-- `.nojekyll`
-- `README.md`
-- `VERSION.txt`
-
-Prueba:
-`https://a01796049.github.io/robot-vision-xr/?v=19`
-
-## Importante
-La primera ejecución de AI Vision descarga modelos desde Hugging Face/CDN, por lo que puede tardar.
-Las distancias marcadas con `*` en AI Vision son aproximadas/relativas. Para distancia métrica usa XR Sensor.
+Prueba con:
+https://a01796049.github.io/robot-vision-xr/?v=19.1
