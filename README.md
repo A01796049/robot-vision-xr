@@ -1,35 +1,32 @@
-# Robot Vision XR — V19.2 AI Diagnostic
+# Robot Vision XR — V19.3 Fast Robot Vision
 
-## Qué cambia
-V19.2 está enfocada en hacer visible y estable la parte de IA:
+## Objetivo
+Priorizar velocidad y estabilidad en Moto G55.
 
-- Ya no fuerza `WebGPU` ni `q4`.
-- Transformers.js recibe directamente un `HTMLCanvasElement` como entrada.
-- Agrega diagnóstico visible:
-  - RUNTIME
-  - DEPTH
-  - OBJECTS
-- Agrega dos pruebas manuales:
-  - `TEST DEPTH`
-  - `TEST OBJECTS`
-- Solo después de una prueba exitosa se activa la inferencia continua.
+## XR SENSOR
+- ARCore Depth
+- RGB
+- DEPTH
+- LIVE 3D
+- WORLD 3D
+- WORLD TOP
+- Estilos LIVE 3D: DEPTH / NEON / DENSE
 
-## Orden de prueba
-1. Inicia `AI VISION`.
-2. Debes ver RGB.
-3. Presiona `TEST DEPTH`.
-4. Espera a que DEPTH muestre `OK`.
-5. Revisa `AI DEPTH` y `LIVE 3D`.
-6. Presiona `TEST OBJECTS`.
-7. Espera a que OBJECTS muestre `OK`.
-8. Revisa `OBJECTS` y `SEMANTIC MAP`.
+## OBJECT AI
+- Cámara trasera normal
+- COCO-SSD Lite MobileNet V2
+- Inferencia sólo cuando se pulsa `SCAN OBJECTS`
+- SEMANTIC MAP visual (no métrico)
 
-## GitHub Pages
+## Cambio clave
+Se eliminó completamente Depth Anything del teléfono.
+
+## Publicación
 Sube:
 - index.html
 - .nojekyll
 - README.md
 - VERSION.txt
 
-Prueba con:
-https://a01796049.github.io/robot-vision-xr/?v=19.2
+URL:
+https://a01796049.github.io/robot-vision-xr/?v=19.3

@@ -4,689 +4,269 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · V19.2 AI Diagnostic</title>
+<title>Robot Vision XR · V19.3 Fast</title>
 <style>
-:root{
-  --bg:#02070b;--panel:rgba(3,13,19,.88);--line:#1d6674;--cyan:#34e5ff;
-  --green:#67ff7c;--orange:#ffb347;--text:#dcf8fc;--muted:#8aaeb8;--danger:#ff6b6b
-}
+:root{--bg:#02070b;--panel:rgba(3,13,19,.86);--cyan:#34e5ff;--green:#67ff7c;--orange:#ffb347;--text:#dcf8fc;--muted:#8aaeb8;--line:#1d6674}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 button{font:inherit}
-#home{position:fixed;inset:0;overflow:auto;padding:18px;background:radial-gradient(circle at 50% 15%,#0b2630 0,#02070b 48%)}
-.wrap{max-width:820px;margin:auto}
-h1{font-size:24px;color:var(--cyan);margin:10px 0}
-.sub{font-size:12px;line-height:1.55;color:var(--muted)}
+#home{position:fixed;inset:0;overflow:auto;background:radial-gradient(circle at 50% 12%,#0b2731 0,#02070b 50%);padding:18px}
+.wrap{max-width:800px;margin:auto}
+h1{font-size:22px;color:var(--cyan);margin:8px 0}.sub{font-size:12px;line-height:1.55;color:var(--muted)}
 .card{background:#071118;border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
-.row{display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}
-.row:last-child{border-bottom:0}
-.ok{color:var(--green)} .warn{color:var(--orange)} .bad{color:var(--danger)}
-.heroActions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.start{border:1px solid #37d6ec;background:#062932;color:#bff9ff;border-radius:12px;padding:15px 12px;font-weight:800}
-.start.secondary{border-color:#6ccf7b;background:#0c2514;color:#d9ffe0}
-.start:disabled{opacity:.45}
+.row{display:flex;justify-content:space-between;gap:16px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}.row:last-child{border-bottom:0}
+.ok{color:var(--green)}.warn{color:var(--orange)}
+.hero{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.start{border:1px solid #37d6ec;background:#062932;color:#d9fbff;border-radius:12px;padding:14px 10px;font-weight:800}.start.secondary{border-color:#64d574;background:#0b2412}.start:disabled{opacity:.45}
 small{font-size:11px;line-height:1.5;color:var(--muted)}
-#app,#xrCanvas,#aiStage,#aiVideo,#aiCanvas,#depthCanvas,#pointCanvas,#semanticCanvas,#objectCanvas,#worldCanvas{display:none}
-#app{position:fixed;inset:0;background:#000}
-.stage{position:absolute;inset:0;background:#000;overflow:hidden}
-#aiVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.overlay{position:absolute;inset:0;width:100%;height:100%}
-#xrCanvas{position:absolute;inset:0;width:100%;height:100%}
-#topHud{position:absolute;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;display:flex;justify-content:space-between;gap:8px;z-index:20;pointer-events:none}
-.panel{background:rgba(2,8,12,.74);border:1px solid rgba(52,229,255,.34);border-radius:9px;padding:8px 10px;font-size:10px;line-height:1.55;backdrop-filter:blur(8px)}
+#app{display:none;position:fixed;inset:0;background:#000}
+#cameraStage,#xrCanvas,#depthCanvas,#pointCanvas,#worldCanvas,#objectCanvas,#semanticCanvas{display:none}
+.stage,.overlay,#xrCanvas{position:absolute;inset:0;width:100%;height:100%}
+#cameraStage{position:absolute;inset:0;background:#000}
+#cameraVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#hud{position:absolute;top:max(8px,env(safe-area-inset-top));left:8px;right:8px;z-index:20;display:flex;justify-content:space-between;gap:8px;pointer-events:none}
+.panel{background:rgba(2,8,12,.76);border:1px solid rgba(52,229,255,.32);border-radius:9px;padding:8px 10px;font-size:10px;line-height:1.55;backdrop-filter:blur(8px)}
 .panel.r{text-align:right}.metric{color:var(--green)}
-#tabs{position:absolute;left:6px;right:6px;bottom:58px;z-index:25;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
-#tabs::-webkit-scrollbar{display:none}
-#tabs button,#controls button{min-height:40px;border-radius:9px;border:1px solid #235762;background:rgba(2,12,16,.88);color:#9bc9d2;padding:8px 10px;white-space:nowrap;font-size:9px}
-#tabs button.active{border-color:var(--cyan);color:#fff;background:#0b3842}
-#controls{position:absolute;left:6px;right:6px;bottom:max(8px,env(safe-area-inset-bottom));z-index:25;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
-#controls::-webkit-scrollbar{display:none}
+#tabs{position:absolute;left:7px;right:7px;bottom:58px;z-index:24;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+#controls{position:absolute;left:7px;right:7px;bottom:max(8px,env(safe-area-inset-bottom));z-index:24;display:flex;gap:5px;overflow-x:auto;scrollbar-width:none}
+#tabs::-webkit-scrollbar,#controls::-webkit-scrollbar{display:none}
+#tabs button,#controls button{min-height:40px;border-radius:9px;border:1px solid #235762;background:rgba(2,12,16,.9);color:#a9d7df;padding:8px 10px;white-space:nowrap;font-size:9px}
+#tabs button.active{border-color:var(--cyan);background:#0a3540;color:#fff}
 #controls button.on{border-color:var(--green);color:var(--green)}
-#loading{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:rgba(2,8,12,.92);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:260px;text-align:center;display:none}
-#loading b{display:block;color:var(--cyan);margin-bottom:7px}
-#loading .bar{height:4px;background:#10262c;border-radius:99px;overflow:hidden;margin-top:8px}
-#loading .bar>i{display:block;height:100%;width:40%;background:var(--cyan);animation:load 1.3s infinite}
-@keyframes load{0%{transform:translateX(-120%)}100%{transform:translateX(350%)}}
-#legend{position:absolute;right:8px;top:92px;z-index:22;background:rgba(2,8,12,.68);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:7px;font-size:9px;display:none}
-#objectsList{position:absolute;left:8px;right:8px;bottom:112px;z-index:22;background:rgba(2,8,12,.78);border:1px solid rgba(52,229,255,.22);border-radius:10px;padding:8px;font-size:10px;display:none;max-height:28%;overflow:auto}
-.objRow{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}
-.objRow:last-child{border:0}
-.pill{border:1px solid rgba(52,229,255,.38);border-radius:999px;padding:2px 6px;color:#c9faff}
-@media(max-width:560px){.heroActions{grid-template-columns:1fr} h1{font-size:20px}}
-
-#aiDiag{
-  position:absolute;left:8px;right:8px;top:92px;z-index:24;
-  display:none;grid-template-columns:repeat(3,1fr);gap:6px;
-  pointer-events:none
-}
-.diagCard{
-  background:rgba(2,8,12,.78);border:1px solid rgba(52,229,255,.22);
-  border-radius:8px;padding:6px 7px;font-size:8.5px;line-height:1.45;
-  backdrop-filter:blur(7px)
-}
-.diagCard b{color:#dcf8fc}.diagOK{color:#67ff7c}.diagWARN{color:#ffb347}.diagBAD{color:#ff6b6b}
-#testPanel{
-  position:absolute;left:8px;right:8px;bottom:108px;z-index:26;display:none;gap:6px
-}
-#testPanel button{
-  flex:1;min-height:38px;border-radius:9px;border:1px solid #235762;
-  background:rgba(2,12,16,.88);color:#bcebf4;font-size:9px
-}
-@media(max-width:560px){#aiDiag{grid-template-columns:1fr 1fr 1fr}.diagCard{font-size:8px}}
-
+#loading{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:rgba(2,8,12,.94);border:1px solid var(--line);border-radius:12px;padding:14px 16px;width:min(86vw,360px);text-align:center}
+#loading b{display:block;color:var(--cyan);margin-bottom:6px}.bar{height:4px;background:#10262c;border-radius:99px;overflow:hidden;margin-top:8px}.bar i{display:block;height:100%;width:35%;background:var(--cyan);animation:ld 1.25s infinite}
+@keyframes ld{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
+#objectList{display:none;position:absolute;left:8px;right:8px;bottom:108px;z-index:23;max-height:27%;overflow:auto;background:rgba(2,8,12,.78);border:1px solid rgba(52,229,255,.25);border-radius:10px;padding:8px;font-size:10px}
+.obj{display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)}.obj:last-child{border-bottom:0}
+#modeNote{display:none;position:absolute;right:8px;top:90px;z-index:22;background:rgba(2,8,12,.72);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:7px;font-size:9px}
+@media(max-width:560px){.hero{grid-template-columns:1fr}}
 </style>
+<!-- Lightweight object detector. Loaded only when the page loads; model weights load lazily on first scan. -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
 </head>
 <body>
 
 <main id="home">
   <div class="wrap">
-    <h1>ROBOT VISION XR · V19.2 AI DIAGNOSTIC</h1>
-    <p class="sub">Dos motores complementarios en una sola demo: <b>AI Vision</b> crea profundidad estimada, nube RGB/Neon y detección de objetos desde la cámara; <b>XR Sensor</b> usa ARCore Depth para una nube métrica y WORLD 3D.</p>
-
+    <h1>ROBOT VISION XR · V19.3 FAST</h1>
+    <p class="sub">La versión rápida elimina Depth Anything. La geometría usa exclusivamente <b>ARCore Depth</b>; la detección de objetos usa un detector ligero separado para evitar bloquear WebXR.</p>
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
-      <div class="row"><span>WebGPU</span><span id="gpuStatus" class="ok">comprobando…</span></div>
       <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
-      <div class="row"><span>AI models</span><span id="modelStatus" class="warn">se descargan al iniciar AI</span></div>
+      <div class="row"><span>Object AI</span><span id="aiStatus" class="warn">se carga sólo al usar OBJECTS</span></div>
+      <div class="row"><span>Arquitectura</span><span class="ok">FAST / dual mode</span></div>
     </section>
-
     <section class="card">
-      <div class="heroActions">
-        <button id="startAI" class="start">INICIAR AI VISION</button>
+      <div class="hero">
         <button id="startXR" class="start secondary" disabled>INICIAR XR SENSOR</button>
+        <button id="startAI" class="start">INICIAR OBJECT AI</button>
       </div>
       <small>
-        AI Vision usa <b>Depth Anything V2 Small</b> y <b>YOLOS-Tiny</b>. En V19.2 ya no se fuerza WebGPU/q4: primero se valida el runtime, luego cada modelo y finalmente una inferencia de prueba. XR Sensor conserva ARCore Depth.
+        <b>XR SENSOR</b>: RGB → DEPTH → LIVE 3D → WORLD 3D.<br>
+        <b>OBJECT AI</b>: cámara RGB → SCAN OBJECTS → SEMANTIC MAP.<br>
+        La detección no corre continuamente; analiza un frame cuando tú lo pides para mantener la interfaz fluida.
       </small>
     </section>
-
     <section class="card">
-      <small><b style="color:#34e5ff">Ruta de demo sugerida</b><br>
-      AI: RGB → AI DEPTH → LIVE 3D → OBJECTS → SEMANTIC MAP.<br>
-      XR: RGB → DEPTH → LIVE 3D → WORLD 3D.<br><br>
-      El modo <b>LIVE 3D RGB</b> busca el efecto visual de tu referencia: la misma escena reconocible, pero reconstruida con miles de puntos coloreados. <b>V19.2 añade inferencia estable y diagnóstico visible para Depth y Object Detection.</b>
+      <small><b style="color:#34e5ff">Para la demo espectacular</b><br>
+      En XR usa <b>LIVE 3D</b> con DENSIDAD HIGH y alterna <b>DEPTH / NEON / DENSE</b>. V19.3 prioriza velocidad y estabilidad.
       </small>
     </section>
   </div>
 </main>
 
 <section id="app">
-  <div id="aiStage" class="stage">
-    <video id="aiVideo" autoplay playsinline muted></video>
-    <canvas id="aiCanvas" class="overlay"></canvas>
-    <canvas id="depthCanvas" class="overlay"></canvas>
-    <canvas id="pointCanvas" class="overlay"></canvas>
+  <section id="cameraStage" class="stage">
+    <video id="cameraVideo" autoplay playsinline muted></video>
     <canvas id="objectCanvas" class="overlay"></canvas>
     <canvas id="semanticCanvas" class="overlay"></canvas>
-  </div>
+  </section>
+
   <canvas id="xrCanvas"></canvas>
+  <canvas id="depthCanvas" class="overlay"></canvas>
+  <canvas id="pointCanvas" class="overlay"></canvas>
   <canvas id="worldCanvas" class="overlay"></canvas>
 
-  <div id="topHud">
+  <div id="hud">
     <div class="panel">
-      <b>V19.2 · <span id="engineName">--</span></b><br>
+      <b>V19.3 · <span id="engineName">--</span></b><br>
       vista <span id="viewName" class="metric">RGB</span><br>
-      estado <span id="tracking" class="metric">--</span>
+      estado <span id="state" class="metric">--</span>
     </div>
     <div class="panel r">
       fps <span id="fps" class="metric">0</span><br>
-      puntos <span id="pointCount" class="metric">0</span><br>
-      objetos <span id="objectCount" class="metric">0</span>
+      puntos <span id="points" class="metric">0</span><br>
+      objetos <span id="objects" class="metric">0</span>
     </div>
   </div>
 
-  <div id="aiDiag">
-    <div class="diagCard"><b>RUNTIME</b><br><span id="diagRuntime" class="diagWARN">pendiente</span></div>
-    <div class="diagCard"><b>DEPTH</b><br><span id="diagDepth" class="diagWARN">no cargado</span></div>
-    <div class="diagCard"><b>OBJECTS</b><br><span id="diagObjects" class="diagWARN">no cargado</span></div>
-  </div>
-  <div id="testPanel">
-    <button id="testDepthBtn">TEST DEPTH</button>
-    <button id="testObjectsBtn">TEST OBJECTS</button>
-  </div>
-  <div id="legend">RGB CLOUD · color real<br>NEON · color por profundidad</div>
-  <div id="objectsList"></div>
+  <div id="modeNote">LIVE 3D<br>DEPTH / NEON / DENSE</div>
+  <div id="objectList"></div>
 
   <nav id="tabs"></nav>
   <nav id="controls">
-    <button id="styleBtn">STYLE RGB</button>
+    <button id="styleBtn">STYLE DEPTH</button>
     <button id="densityBtn">DENSIDAD MED</button>
     <button id="rangeBtn">RANGO 4.0M</button>
+    <button id="scanBtn">SCAN OBJECTS</button>
     <button id="resetBtn">RESET</button>
     <button id="exitBtn">SALIR</button>
   </nav>
 
   <div id="loading">
     <b id="loadingTitle">Cargando...</b>
-    <span id="loadingMsg">Preparando motor</span>
+    <span id="loadingMsg">Preparando...</span>
     <div class="bar"><i></i></div>
   </div>
 </section>
 
-<script type="module">
-const $ = id => document.getElementById(id);
-const TF_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1/+esm';
+<script>
+const $=id=>document.getElementById(id);
+let engine=null,view='RGB',styleMode='DEPTH',density='MED',range=4.0;
+let fpsFrames=0,fpsLast=performance.now();
 
-let pipelineFn = null;
-let depthEstimator = null;
-let objectDetector = null;
+const cameraVideo=$('cameraVideo'), cameraStage=$('cameraStage');
+const objectCanvas=$('objectCanvas'), objectCtx=objectCanvas.getContext('2d');
+const semanticCanvas=$('semanticCanvas'), semanticCtx=semanticCanvas.getContext('2d');
+const depthCanvas=$('depthCanvas'), depthCtx=depthCanvas.getContext('2d');
+const pointCanvas=$('pointCanvas'), pointCtx=pointCanvas.getContext('2d');
+const worldCanvas=$('worldCanvas'), worldCtx=worldCanvas.getContext('2d');
+const xrCanvas=$('xrCanvas');
 
-let engine = null; // AI | XR
-let view = 'RGB';
-let styleMode = 'RGB';
-let density = 'MED';
-let densityStep = {LOW:4, MED:3, HIGH:2};
-let aiStream = null;
-let aiLoopId = 0;
-let aiBusy = false;
-let detBusy = false;
-let latestDepth = null;
-let latestDetections = [];
-let semanticMemory = [];
-let lastDetTime = 0;
-let lastDepthTime = 0;
-let autoAI = false;
-let depthTestPassed = false;
-let objectTestPassed = false;
-let aiSourceCanvas = null;
-let aiSourceCtx = null;
-let fpsFrames = 0, fpsLast = performance.now();
-
-let pointGL = null, pointProgram = null, pointPosBuf = null, pointColBuf = null;
-let pointCountAI = 0;
-let pointPos = new Float32Array(200000 * 3);
-let pointCol = new Float32Array(200000 * 3);
-
-let xrSession = null, xrSpace = null, xrGL = null, xrProgram = null, xrPB = null, xrCB = null;
-let xrWorldPos = new Float32Array(120000 * 3), xrWorldCol = new Float32Array(120000 * 3), xrWorldCount = 0;
-let xrLivePos = new Float32Array(25000 * 3), xrLiveCol = new Float32Array(25000 * 3), xrLiveCount = 0;
-let voxelMap = new Map();
-let xrFrameCounter = 0, xrLastCapture = 0, xrLastUpload = 0;
-let worldMode = 'CAMERA';
-let xrRange = 4.0;
-let xrOrigin = null, xrCx = 0, xrCz = 0, xrYaw = 0;
-let worldCtx = null;
-
-const aiVideo = $('aiVideo');
-const aiCanvas = $('aiCanvas');
-const aiCtx = aiCanvas.getContext('2d');
-const depthCanvas = $('depthCanvas');
-const depthCtx = depthCanvas.getContext('2d');
-const objectCanvas = $('objectCanvas');
-const objectCtx = objectCanvas.getContext('2d');
-const semanticCanvas = $('semanticCanvas');
-const semanticCtx = semanticCanvas.getContext('2d');
-const pointCanvas = $('pointCanvas');
-const worldCanvas = $('worldCanvas');
-worldCtx = worldCanvas.getContext('2d');
-
-function showLoading(title,msg){
-  $('loadingTitle').textContent=title;
-  $('loadingMsg').textContent=msg;
-  $('loading').style.display='block';
-}
-function hideLoading(){ $('loading').style.display='none'; }
+let camStream=null,detector=null,latestObjects=[],semanticMemory=[];
+let xrSession=null,xrSpace=null,xrGL=null,xrProgram=null,xrPB=null,xrCB=null;
+let xrWorldPos=new Float32Array(120000*3),xrWorldCol=new Float32Array(120000*3),xrWorldCount=0;
+let voxelMap=new Map(),xrLive=[],xrLastCapture=0,xrLastUpload=0,xrOrigin=null,xrCx=0,xrCz=0;
+const densityStep={LOW:4,MED:3,HIGH:2};
 
 function fitCanvas(c){
-  const dpr=Math.min(2,devicePixelRatio||1);
-  const w=Math.max(1,Math.floor(innerWidth*dpr));
-  const h=Math.max(1,Math.floor(innerHeight*dpr));
-  if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
+ const dpr=Math.min(2,devicePixelRatio||1),w=Math.max(1,Math.floor(innerWidth*dpr)),h=Math.max(1,Math.floor(innerHeight*dpr));
+ if(c.width!==w||c.height!==h){c.width=w;c.height=h;}
 }
-function fitAll(){
-  [aiCanvas,depthCanvas,objectCanvas,semanticCanvas,pointCanvas,worldCanvas].forEach(fitCanvas);
-  if(pointGL) pointGL.viewport(0,0,pointCanvas.width,pointCanvas.height);
-}
-addEventListener('resize',fitAll);
-fitAll();
+function fitAll(){[objectCanvas,semanticCanvas,depthCanvas,pointCanvas,worldCanvas].forEach(fitCanvas)}
+addEventListener('resize',fitAll);fitAll();
 
-function setCanvasVisibility(name){
-  const show = (el,yes)=> el.style.display=yes?'block':'none';
+function showLoading(t,m){$('loadingTitle').textContent=t;$('loadingMsg').textContent=m;$('loading').style.display='block'}
+function hideLoading(){$('loading').style.display='none'}
+function show(el,on){el.style.display=on?'block':'none'}
 
-  if(engine==='AI'){
-    // V19.1: explicitly show the whole AI stage.
-    show($('aiStage'),true);
-    show($('xrCanvas'),false);
-
-    show(aiVideo, name==='RGB'||name==='OBJECTS');
-    show(aiCanvas,false);
-    show(depthCanvas,name==='DEPTH');
-    show(pointCanvas,name==='LIVE3D');
-    show(objectCanvas,name==='OBJECTS');
-    show(semanticCanvas,name==='SEMANTIC');
-    show(worldCanvas,false);
-
-    $('legend').style.display=name==='LIVE3D'?'block':'none';
-    $('objectsList').style.display=(name==='OBJECTS'||name==='SEMANTIC')?'block':'none';
-    $('aiDiag').style.display='grid';
-    $('testPanel').style.display='flex';
-  }else{
-    show($('aiStage'),false);
-
-    show(aiVideo,false);
-    show(depthCanvas,false);
-    show(pointCanvas,false);
-    show(objectCanvas,false);
-    show(semanticCanvas,false);
-
-    show($('xrCanvas'),name!=='WORLD_TOP');
-    show(worldCanvas,name==='WORLD_TOP');
-
-    $('legend').style.display='none';
-    $('objectsList').style.display='none';
-    $('aiDiag').style.display='none';
-    $('testPanel').style.display='none';
-  }
-}
-function setView(v){
-  view=v; $('viewName').textContent=v.replace('LIVE3D','LIVE 3D').replace('WORLD','WORLD 3D');
-  [...$('tabs').children].forEach(b=>b.classList.toggle('active',b.dataset.view===v));
-  setCanvasVisibility(v);
-  if(engine==='AI'&&v==='LIVE3D'){
-    if(latestDepth)drawAIPointCloud();
-    else setDiag('diagDepth','toca TEST DEPTH primero','warn');
-  }
-  if(engine==='AI'&&v==='DEPTH'){
-    if(latestDepth)drawAIDepth();
-    else setDiag('diagDepth','toca TEST DEPTH primero','warn');
-  }
-  if(engine==='AI'&&v==='OBJECTS'){
-    drawObjects();
-    if(!objectTestPassed)setDiag('diagObjects','toca TEST OBJECTS primero','warn');
-  }
-  if(engine==='AI'&&v==='SEMANTIC') drawSemanticMap();
-  if(engine==='XR'&&v==='WORLD_TOP') drawXRWorldTop();
+function openApp(which){
+ engine=which;$('home').style.display='none';$('app').style.display='block';
+ $('engineName').textContent=which==='XR'?'XR SENSOR':'OBJECT AI';
+ $('state').textContent='iniciando';buildTabs();syncLayers();
 }
 function buildTabs(){
-  const tabs = engine==='AI'
-    ? [['RGB','RGB'],['DEPTH','AI DEPTH'],['LIVE3D','LIVE 3D'],['OBJECTS','OBJECTS'],['SEMANTIC','SEMANTIC MAP']]
-    : [['RGB','RGB'],['DEPTH','DEPTH'],['LIVE3D','LIVE 3D'],['WORLD','WORLD 3D'],['WORLD_TOP','WORLD TOP']];
-  $('tabs').innerHTML='';
-  tabs.forEach(([v,label])=>{
-    const b=document.createElement('button'); b.textContent=label;b.dataset.view=v;
-    b.addEventListener('click',()=>setView(v));$('tabs').appendChild(b);
-  });
-  setView('RGB');
+ const data=engine==='XR'
+   ?[['RGB','RGB'],['DEPTH','DEPTH'],['LIVE','LIVE 3D'],['WORLD','WORLD 3D'],['TOP','WORLD TOP']]
+   :[['RGB','RGB'],['OBJECTS','OBJECTS'],['SEMANTIC','SEMANTIC MAP']];
+ $('tabs').innerHTML='';
+ data.forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.dataset.view=v;b.onclick=()=>setView(v);$('tabs').appendChild(b)});
+ setView('RGB');
 }
-function openApp(which){
-  engine=which;
-  $('home').style.display='none';
-  $('app').style.display='block';
-
-  // HOTFIX V19.1: the AI stage was left hidden in V19.
-  $('aiStage').style.display = which==='AI' ? 'block' : 'none';
-  $('xrCanvas').style.display = which==='XR' ? 'block' : 'none';
-
-  $('engineName').textContent=which==='AI'?'AI VISION':'XR SENSOR';
-  $('tracking').textContent='iniciando';
-  buildTabs();
+function setView(v){
+ view=v;$('viewName').textContent=v==='LIVE'?'LIVE 3D':v==='WORLD'?'WORLD 3D':v==='TOP'?'WORLD TOP':v;
+ [...$('tabs').children].forEach(b=>b.classList.toggle('active',b.dataset.view===v));syncLayers();
+ if(engine==='AI'&&v==='OBJECTS')drawObjects();
+ if(engine==='AI'&&v==='SEMANTIC')drawSemantic();
+ if(engine==='XR'&&v==='TOP')drawTop();
 }
-
-function setDiag(id,text,state='warn'){
-  const el=$(id);
-  el.textContent=text;
-  el.className=state==='ok'?'diagOK':state==='bad'?'diagBAD':'diagWARN';
-}
-function progressText(x){
-  if(!x)return '';
-  const p=x.progress!=null?Math.round(x.progress):null;
-  if(x.status==='progress' && p!=null)return `${x.file||'model'} ${p}%`;
-  if(x.status==='download')return `descargando ${x.file||'archivo'}`;
-  if(x.status==='ready')return 'listo';
-  return x.status||'cargando';
-}
-async function loadTransformers(){
-  if(pipelineFn)return true;
-  setDiag('diagRuntime','cargando runtime...','warn');
-  showLoading('AI Runtime','Cargando Transformers.js...');
-  try{
-    const mod=await import(TF_URL);
-    pipelineFn=mod.pipeline;
-    setDiag('diagRuntime','OK · Transformers.js','ok');
-    return true;
-  }catch(e){
-    console.error('runtime',e);
-    setDiag('diagRuntime',String(e.message||e).slice(0,42),'bad');
-    hideLoading();
-    return false;
-  }
-}
-async function ensureDepthModel(){
-  if(depthEstimator)return true;
-  if(!(await loadTransformers()))return false;
-  setDiag('diagDepth','cargando modelo...','warn');
-  showLoading('Depth Anything V2','Descargando modelo estable (WASM/CPU)...');
-  try{
-    depthEstimator=await pipelineFn(
-      'depth-estimation',
-      'onnx-community/depth-anything-v2-small',
-      {progress_callback:(x)=>{
-        const t=progressText(x);
-        if(t){setDiag('diagDepth',t,'warn');$('loadingMsg').textContent=t;}
-      }}
-    );
-    setDiag('diagDepth','modelo listo · falta test','warn');
-    hideLoading();
-    return true;
-  }catch(e){
-    console.error('depth model',e);
-    setDiag('diagDepth',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
-    hideLoading();
-    return false;
-  }
-}
-async function ensureDetector(){
-  if(objectDetector)return true;
-  if(!(await loadTransformers()))return false;
-  setDiag('diagObjects','cargando modelo...','warn');
-  showLoading('YOLOS-Tiny','Descargando detector estable...');
-  try{
-    objectDetector=await pipelineFn(
-      'object-detection',
-      'Xenova/yolos-tiny',
-      {progress_callback:(x)=>{
-        const t=progressText(x);
-        if(t){setDiag('diagObjects',t,'warn');$('loadingMsg').textContent=t;}
-      }}
-    );
-    setDiag('diagObjects','modelo listo · falta test','warn');
-    hideLoading();
-    return true;
-  }catch(e){
-    console.error('object model',e);
-    setDiag('diagObjects',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
-    hideLoading();
-    return false;
-  }
+function syncLayers(){
+ if(engine==='AI'){
+  show(cameraStage,true);show(xrCanvas,false);show(depthCanvas,false);show(pointCanvas,false);show(worldCanvas,false);
+  show(cameraVideo,view==='RGB'||view==='OBJECTS');
+  show(objectCanvas,view==='OBJECTS');show(semanticCanvas,view==='SEMANTIC');
+  $('objectList').style.display=(view==='OBJECTS'||view==='SEMANTIC')?'block':'none';
+  $('scanBtn').style.display='block';$('modeNote').style.display='none';
+ }else{
+  show(cameraStage,false);show(objectCanvas,false);show(semanticCanvas,false);
+  show(xrCanvas,view!=='TOP');show(depthCanvas,view==='DEPTH');show(pointCanvas,view==='LIVE');show(worldCanvas,view==='TOP');
+  $('objectList').style.display='none';$('scanBtn').style.display='none';$('modeNote').style.display=view==='LIVE'?'block':'none';
+ }
 }
 
 async function startAI(){
-  try{
-    openApp('AI'); showLoading('AI Vision','Solicitando cámara trasera...');
-    aiStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480}},
-      audio:false
-    });
-    aiVideo.srcObject=aiStream;
-    await aiVideo.play();
-
-    // Ensure first RGB frame is visible before starting AI.
-    $('aiStage').style.display='block';
-    aiVideo.style.display='block';
-    aiVideo.style.visibility='visible';
-    aiVideo.style.opacity='1';
-
-    initPointGL();
-    if(!aiSourceCanvas){
-      aiSourceCanvas=document.createElement('canvas');
-      aiSourceCtx=aiSourceCanvas.getContext('2d',{willReadFrequently:true});
-    }
-    $('tracking').textContent=`camera OK ${aiVideo.videoWidth||0}×${aiVideo.videoHeight||0}`;
-    $('aiDiag').style.display='grid';
-    $('testPanel').style.display='flex';
-    setDiag('diagRuntime','pendiente · toca TEST','warn');
-    setDiag('diagDepth','no cargado','warn');
-    setDiag('diagObjects','no cargado','warn');
-    hideLoading();
-    aiLoopId=requestAnimationFrame(aiLoop);
-  }catch(e){
-    hideLoading(); alert('No se pudo iniciar AI Vision:\\n'+(e.message||e)); exitApp();
-  }
+ try{
+  openApp('AI');showLoading('OBJECT AI','Solicitando cámara trasera...');
+  camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:640},height:{ideal:480}},audio:false});
+  cameraVideo.srcObject=camStream;await cameraVideo.play();
+  $('state').textContent=`camera OK ${cameraVideo.videoWidth}×${cameraVideo.videoHeight}`;
+  hideLoading();requestAnimationFrame(uiLoop);
+ }catch(e){hideLoading();alert('No se pudo iniciar cámara:\\n'+(e.message||e));exitApp()}
 }
-
-function sourceFrameCanvas(){
-  if(!aiSourceCanvas){
-    aiSourceCanvas=document.createElement('canvas');
-    aiSourceCtx=aiSourceCanvas.getContext('2d',{willReadFrequently:true});
-  }
-  const vw=aiVideo.videoWidth||480, vh=aiVideo.videoHeight||640;
-  const maxSide=320;
-  const scale=Math.min(1,maxSide/Math.max(vw,vh));
-  const w=Math.max(64,Math.round(vw*scale)),h=Math.max(64,Math.round(vh*scale));
-  if(aiSourceCanvas.width!==w||aiSourceCanvas.height!==h){
-    aiSourceCanvas.width=w; aiSourceCanvas.height=h;
-  }
-  aiSourceCtx.drawImage(aiVideo,0,0,w,h);
-  return aiSourceCanvas;
+async function ensureDetector(){
+ if(detector)return true;
+ if(!window.cocoSsd||!window.tf){alert('No se cargó TensorFlow.js / COCO-SSD. Revisa conexión a Internet.');return false}
+ showLoading('OBJECT AI','Cargando COCO-SSD MobileNet...');
+ try{
+   await tf.ready();
+   try{await tf.setBackend('webgl')}catch{}
+   detector=await cocoSsd.load({base:'lite_mobilenet_v2'});
+   $('aiStatus').textContent='COCO-SSD listo';
+   hideLoading();return true;
+ }catch(e){hideLoading();console.error(e);alert('Error cargando detector:\\n'+(e.message||e));return false}
 }
-async function runDepth(manual=false){
-  if(aiBusy||!depthEstimator||aiVideo.readyState<2)return false;
-  aiBusy=true;
+async function scanObjects(){
+ if(engine!=='AI'||cameraVideo.readyState<2)return;
+ if(!(await ensureDetector()))return;
+ showLoading('SCAN OBJECTS','Analizando un solo frame...');
+ try{
   const t0=performance.now();
-  try{
-    const src=sourceFrameCanvas();
-
-    // V19.2: pass HTMLCanvasElement directly. Transformers.js supports Canvas as ImageInput.
-    const out=await depthEstimator(src);
-    const tensor=out?.predicted_depth;
-    if(!tensor||!tensor.data||!tensor.dims)throw new Error('predicted_depth no disponible');
-
-    const dims=tensor.dims;
-    const H=dims[dims.length-2],W=dims[dims.length-1];
-    const data=tensor.data;
-    let min=Infinity,max=-Infinity;
-    for(let i=0;i<data.length;i++){
-      const v=data[i];
-      if(Number.isFinite(v)){if(v<min)min=v;if(v>max)max=v;}
-    }
-    if(!Number.isFinite(min)||!Number.isFinite(max)||max<=min)throw new Error('tensor de profundidad inválido');
-
-    // Make an immutable RGB copy for point-cloud colors.
-    const copy=document.createElement('canvas');
-    copy.width=src.width;copy.height=src.height;
-    copy.getContext('2d').drawImage(src,0,0);
-
-    latestDepth={W,H,data:new Float32Array(data),min,max,source:copy};
-    depthTestPassed=true;
-    const ms=Math.round(performance.now()-t0);
-    setDiag('diagDepth',`OK · ${W}×${H} · ${ms}ms`,'ok');
-    $('modelStatus').textContent='Depth OK';
-    drawAIDepth();
-    buildAIPointCloud();
-    if(view==='LIVE3D')drawAIPointCloud();
-    return true;
-  }catch(e){
-    console.error('depth inference',e);
-    depthTestPassed=false;
-    setDiag('diagDepth',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
-    return false;
-  }finally{
-    aiBusy=false;
-    if(manual)hideLoading();
-  }
+  latestObjects=await detector.detect(cameraVideo,12,.42);
+  const ms=Math.round(performance.now()-t0);
+  $('objects').textContent=latestObjects.length;
+  $('state').textContent=`scan OK · ${ms}ms`;
+  updateSemantic();updateList();hideLoading();setView('OBJECTS');
+ }catch(e){hideLoading();alert('Error detectando objetos:\\n'+(e.message||e))}
 }
-async function runDetection(manual=false){
-  if(detBusy||!objectDetector||aiVideo.readyState<2)return false;
-  detBusy=true;
-  const t0=performance.now();
-  try{
-    const src=sourceFrameCanvas();
-
-    // V19.2: direct canvas input avoids Blob/ObjectURL issues on Android.
-    const result=await objectDetector(src,{threshold:.40});
-    latestDetections=Array.isArray(result)?result:[];
-    objectTestPassed=true;
-    const ms=Math.round(performance.now()-t0);
-    setDiag('diagObjects',`OK · ${latestDetections.length} det · ${ms}ms`,'ok');
-    $('modelStatus').textContent='Depth/Objects diagnostics';
-    enrichDetections();
-    if(view==='OBJECTS')drawObjects();
-    if(view==='SEMANTIC')drawSemanticMap();
-    updateObjectsList();
-    return true;
-  }catch(e){
-    console.error('object inference',e);
-    objectTestPassed=false;
-    setDiag('diagObjects',`ERROR: ${String(e.message||e).slice(0,34)}`,'bad');
-    return false;
-  }finally{
-    detBusy=false;
-    if(manual)hideLoading();
-  }
-}
-function normalizedDepthAt(px,py,srcW,srcH){
-  if(!latestDepth)return null;
-  const x=Math.max(0,Math.min(latestDepth.W-1,Math.round(px/srcW*latestDepth.W)));
-  const y=Math.max(0,Math.min(latestDepth.H-1,Math.round(py/srcH*latestDepth.H)));
-  const raw=latestDepth.data[y*latestDepth.W+x];
-  const n=(raw-latestDepth.min)/(latestDepth.max-latestDepth.min+1e-6);
-  // Depth Anything may represent inverse-like relative depth; use visually stable relative distance.
-  return 0.6 + (1-n)*4.4;
-}
-function enrichDetections(){
-  if(!latestDepth)return;
-  const srcW=latestDepth.source.width,srcH=latestDepth.source.height;
-  latestDetections=latestDetections.slice(0,12).map(d=>{
-    const b=d.box,cx=(b.xmin+b.xmax)/2,cy=(b.ymin+b.ymax)/2;
-    const dist=normalizedDepthAt(cx,cy,srcW,srcH);
-    return {...d,dist};
-  });
-  // Memory with coarse dedup by label + relative screen sector.
-  for(const d of latestDetections){
-    const b=d.box, sx=Math.round(((b.xmin+b.xmax)/2)/srcW*4), sy=Math.round(((b.ymin+b.ymax)/2)/srcH*4);
-    const key=`${d.label}-${sx}-${sy}`;
-    let m=semanticMemory.find(x=>x.key===key);
-    if(!m){m={key,label:d.label,score:d.score,dist:d.dist,seen:1,last:Date.now(),x:sx,y:sy};semanticMemory.push(m)}
-    else{m.score=(m.score+d.score)/2;m.dist=d.dist??m.dist;m.seen++;m.last=Date.now();}
-  }
-  semanticMemory=semanticMemory.filter(x=>Date.now()-x.last<20000).slice(-40);
-  $('objectCount').textContent=latestDetections.length;
-}
-
-function drawAIDepth(){
-  if(!latestDepth)return;
-  fitCanvas(depthCanvas);
-  const img=depthCtx.createImageData(latestDepth.W,latestDepth.H);
-  for(let i=0;i<latestDepth.data.length;i++){
-    const raw=latestDepth.data[i],n=(raw-latestDepth.min)/(latestDepth.max-latestDepth.min+1e-6);
-    const c=heat(1-n);
-    const k=i*4;img.data[k]=c[0];img.data[k+1]=c[1];img.data[k+2]=c[2];img.data[k+3]=255;
-  }
-  const tmp=document.createElement('canvas');tmp.width=latestDepth.W;tmp.height=latestDepth.H;tmp.getContext('2d').putImageData(img,0,0);
-  depthCtx.clearRect(0,0,depthCanvas.width,depthCanvas.height);
-  depthCtx.imageSmoothingEnabled=true;depthCtx.drawImage(tmp,0,0,depthCanvas.width,depthCanvas.height);
-}
-function heat(t){
-  t=Math.max(0,Math.min(1,t));
-  const s=[[255,95,30],[255,220,45],[50,235,110],[25,215,225],[55,70,220]];
-  const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),a=p-i;
-  return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a));
-}
-
-function initPointGL(){
-  pointGL=pointCanvas.getContext('webgl',{alpha:false,antialias:false});
-  const vs=`attribute vec3 p;attribute vec3 c;uniform float size;varying vec3 C;void main(){gl_Position=vec4(p,1.0);gl_PointSize=size;C=c;}`;
-  const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;float r=length(q);if(r>.5)discard;float g=1.0-smoothstep(.05,.5,r);gl_FragColor=vec4(min(vec3(1.0),C*(.55+1.15*g)),1.0);}`;
-  const sh=(type,src)=>{const s=pointGL.createShader(type);pointGL.shaderSource(s,src);pointGL.compileShader(s);return s};
-  pointProgram=pointGL.createProgram();pointGL.attachShader(pointProgram,sh(pointGL.VERTEX_SHADER,vs));pointGL.attachShader(pointProgram,sh(pointGL.FRAGMENT_SHADER,fs));pointGL.linkProgram(pointProgram);
-  pointPosBuf=pointGL.createBuffer();pointColBuf=pointGL.createBuffer();pointGL.clearColor(0,0,0,1);
-}
-function buildAIPointCloud(){
-  if(!latestDepth||!pointGL)return;
-  const src=latestDepth.source,ctx=src.getContext('2d');
-  const rgb=ctx.getImageData(0,0,src.width,src.height).data;
-  const step=densityStep[density];
-  const fov=60*Math.PI/180;
-  const focal=.5/Math.tan(fov/2);
-  let n=0;
-  for(let y=0;y<src.height;y+=step){
-    for(let x=0;x<src.width;x+=step){
-      const d=normalizedDepthAt(x,y,src.width,src.height);if(!d)continue;
-      const u=(x+.5)/src.width,v=(y+.5)/src.height;
-      const nx=(u-.5)*2,ny=(.5-v)*2;
-      // same perspective, slightly compressed depth for legibility
-      const z=-0.78 - (d/5)*0.18;
-      const px=nx*.98,py=ny*.98;
-      const k=n*3;if(k+2>=pointPos.length)break;
-      pointPos[k]=px;pointPos[k+1]=py;pointPos[k+2]=z;
-      if(styleMode==='RGB'){
-        const ri=(Math.min(src.height-1,y)*src.width+Math.min(src.width-1,x))*4;
-        pointCol[k]=rgb[ri]/255;pointCol[k+1]=rgb[ri+1]/255;pointCol[k+2]=rgb[ri+2]/255;
-      }else{
-        const c=heat(Math.min(1,d/5));
-        pointCol[k]=c[0]/255;pointCol[k+1]=c[1]/255;pointCol[k+2]=c[2]/255;
-      }
-      n++;
-    }
-  }
-  pointCountAI=n;$('pointCount').textContent=n.toLocaleString();
-  pointGL.bindBuffer(pointGL.ARRAY_BUFFER,pointPosBuf);pointGL.bufferData(pointGL.ARRAY_BUFFER,pointPos.subarray(0,n*3),pointGL.DYNAMIC_DRAW);
-  pointGL.bindBuffer(pointGL.ARRAY_BUFFER,pointColBuf);pointGL.bufferData(pointGL.ARRAY_BUFFER,pointCol.subarray(0,n*3),pointGL.DYNAMIC_DRAW);
-  if(view==='LIVE3D')drawAIPointCloud();
-}
-function drawAIPointCloud(){
-  if(!pointGL)return;fitCanvas(pointCanvas);pointGL.viewport(0,0,pointCanvas.width,pointCanvas.height);
-  pointGL.clear(pointGL.COLOR_BUFFER_BIT);pointGL.useProgram(pointProgram);
-  const ap=pointGL.getAttribLocation(pointProgram,'p'),ac=pointGL.getAttribLocation(pointProgram,'c');
-  pointGL.bindBuffer(pointGL.ARRAY_BUFFER,pointPosBuf);pointGL.enableVertexAttribArray(ap);pointGL.vertexAttribPointer(ap,3,pointGL.FLOAT,false,0,0);
-  pointGL.bindBuffer(pointGL.ARRAY_BUFFER,pointColBuf);pointGL.enableVertexAttribArray(ac);pointGL.vertexAttribPointer(ac,3,pointGL.FLOAT,false,0,0);
-  pointGL.uniform1f(pointGL.getUniformLocation(pointProgram,'size'),density==='HIGH'?3.0:(density==='MED'?3.8:5.0));
-  pointGL.drawArrays(pointGL.POINTS,0,pointCountAI);
-}
-
 function drawObjects(){
-  fitCanvas(objectCanvas);objectCtx.clearRect(0,0,objectCanvas.width,objectCanvas.height);
-  if(!latestDepth)return;
-  const sx=objectCanvas.width/latestDepth.source.width,sy=objectCanvas.height/latestDepth.source.height;
-  objectCtx.lineWidth=Math.max(2,objectCanvas.width/260);objectCtx.font=`${Math.max(16,objectCanvas.width/30)}px monospace`;
-  for(const d of latestDetections){
-    const b=d.box,x=b.xmin*sx,y=b.ymin*sy,w=(b.xmax-b.xmin)*sx,h=(b.ymax-b.ymin)*sy;
-    objectCtx.strokeStyle='#34e5ff';objectCtx.strokeRect(x,y,w,h);
-    const label=`${d.label.toUpperCase()} ${Math.round(d.score*100)}%${d.dist?` · ${d.dist.toFixed(1)}m*`:''}`;
-    const tw=objectCtx.measureText(label).width+12;
-    objectCtx.fillStyle='rgba(2,15,20,.86)';objectCtx.fillRect(x,Math.max(0,y-28),tw,28);
-    objectCtx.fillStyle='#dffcff';objectCtx.fillText(label,x+6,Math.max(20,y-7));
-  }
+ fitCanvas(objectCanvas);objectCtx.clearRect(0,0,objectCanvas.width,objectCanvas.height);
+ const vw=cameraVideo.videoWidth||640,vh=cameraVideo.videoHeight||480,sx=objectCanvas.width/vw,sy=objectCanvas.height/vh;
+ objectCtx.lineWidth=Math.max(2,objectCanvas.width/260);objectCtx.font=`${Math.max(16,objectCanvas.width/31)}px monospace`;
+ latestObjects.forEach(o=>{
+   const [x,y,w,h]=o.bbox;objectCtx.strokeStyle='#34e5ff';objectCtx.strokeRect(x*sx,y*sy,w*sx,h*sy);
+   const label=`${o.class.toUpperCase()} ${Math.round(o.score*100)}%`;
+   const tw=objectCtx.measureText(label).width+12;
+   objectCtx.fillStyle='rgba(2,15,20,.86)';objectCtx.fillRect(x*sx,Math.max(0,y*sy-28),tw,28);
+   objectCtx.fillStyle='#e0fbff';objectCtx.fillText(label,x*sx+6,Math.max(20,y*sy-7));
+ });
 }
-function updateObjectsList(){
-  const box=$('objectsList');box.innerHTML='';
-  latestDetections.forEach(d=>{
-    const r=document.createElement('div');r.className='objRow';
-    r.innerHTML=`<span>${d.label}</span><span><span class="pill">${Math.round(d.score*100)}%</span> ${d.dist?d.dist.toFixed(1)+'m*':'--'}</span>`;
-    box.appendChild(r);
-  });
-  if(!latestDetections.length)box.textContent='Sin objetos >55% en el último análisis.';
+function updateSemantic(){
+ const vw=cameraVideo.videoWidth||640,vh=cameraVideo.videoHeight||480;
+ latestObjects.forEach(o=>{
+   const [x,y,w,h]=o.bbox,cx=(x+w/2)/vw,cy=(y+h/2)/vh,key=`${o.class}-${Math.round(cx*4)}-${Math.round(cy*4)}`;
+   let m=semanticMemory.find(q=>q.key===key);
+   if(!m){m={key,label:o.class,score:o.score,cx,cy,seen:1,last:Date.now()};semanticMemory.push(m)}
+   else{m.score=(m.score+o.score)/2;m.cx=cx;m.cy=cy;m.seen++;m.last=Date.now()}
+ });
+ semanticMemory=semanticMemory.filter(x=>Date.now()-x.last<30000).slice(-50);
 }
-function drawSemanticMap(){
-  fitCanvas(semanticCanvas);const w=semanticCanvas.width,h=semanticCanvas.height;
-  semanticCtx.fillStyle='#02070b';semanticCtx.fillRect(0,0,w,h);
-  semanticCtx.strokeStyle='#12323b';semanticCtx.lineWidth=1;
-  for(let i=1;i<10;i++){semanticCtx.beginPath();semanticCtx.moveTo(i*w/10,0);semanticCtx.lineTo(i*w/10,h);semanticCtx.stroke();semanticCtx.beginPath();semanticCtx.moveTo(0,i*h/10);semanticCtx.lineTo(w,i*h/10);semanticCtx.stroke();}
-  const cx=w/2,base=h*.82;
-  semanticCtx.fillStyle='#fff';semanticCtx.beginPath();semanticCtx.moveTo(cx,base-18);semanticCtx.lineTo(cx+12,base+12);semanticCtx.lineTo(cx-12,base+12);semanticCtx.closePath();semanticCtx.fill();
-  semanticCtx.font=`${Math.max(15,w/34)}px monospace`;
-  for(const m of semanticMemory){
-    const ang=((m.x-2)/4)*1.2,dist=Math.min(5,m.dist||3),r=(dist/5)*h*.62;
-    const x=cx+Math.sin(ang)*r,y=base-Math.cos(ang)*r;
-    semanticCtx.fillStyle='#34e5ff';semanticCtx.beginPath();semanticCtx.arc(x,y,7+Math.min(8,m.seen),0,Math.PI*2);semanticCtx.fill();
-    semanticCtx.fillStyle='#dcf8fc';semanticCtx.fillText(`${m.label} ${dist.toFixed(1)}m*`,x+10,y-8);
-  }
-  semanticCtx.fillStyle='rgba(220,248,252,.7)';semanticCtx.fillText('* AI depth: distancia relativa aproximada · valida TEST DEPTH',18,30);
+function updateList(){
+ const box=$('objectList');box.innerHTML='';
+ latestObjects.forEach(o=>{const d=document.createElement('div');d.className='obj';d.innerHTML=`<span>${o.class}</span><span>${Math.round(o.score*100)}%</span>`;box.appendChild(d)});
+ if(!latestObjects.length)box.textContent='Sin objetos >42% en este scan.';
 }
-
-function aiLoop(t){
-  if(engine!=='AI')return;
-  aiLoopId=requestAnimationFrame(aiLoop);
-
-  // Only run continuous inference after the user has proven each model works.
-  if(depthTestPassed && t-lastDepthTime>1400){
-    lastDepthTime=t;
-    runDepth(false);
-  }
-  if(objectTestPassed && (view==='OBJECTS'||view==='SEMANTIC') && t-lastDetTime>2200){
-    lastDetTime=t;
-    runDetection(false);
-  }
-
-  if(view==='LIVE3D')drawAIPointCloud();
-  fpsFrames++;
-  if(t-fpsLast>1000){$('fps').textContent=fpsFrames;fpsFrames=0;fpsLast=t;}
+function drawSemantic(){
+ fitCanvas(semanticCanvas);const w=semanticCanvas.width,h=semanticCanvas.height;
+ semanticCtx.fillStyle='#02070b';semanticCtx.fillRect(0,0,w,h);semanticCtx.strokeStyle='#12313a';
+ for(let i=1;i<10;i++){semanticCtx.beginPath();semanticCtx.moveTo(i*w/10,0);semanticCtx.lineTo(i*w/10,h);semanticCtx.stroke();semanticCtx.beginPath();semanticCtx.moveTo(0,i*h/10);semanticCtx.lineTo(w,i*h/10);semanticCtx.stroke()}
+ const px=w/2,py=h*.82;semanticCtx.fillStyle='#fff';semanticCtx.beginPath();semanticCtx.moveTo(px,py-14);semanticCtx.lineTo(px+10,py+10);semanticCtx.lineTo(px-10,py+10);semanticCtx.closePath();semanticCtx.fill();
+ semanticCtx.font=`${Math.max(15,w/34)}px monospace`;
+ semanticMemory.forEach(m=>{
+   const x=w*(.16+.68*m.cx),y=h*(.18+.52*m.cy);
+   semanticCtx.fillStyle='#34e5ff';semanticCtx.beginPath();semanticCtx.arc(x,y,7+Math.min(8,m.seen),0,Math.PI*2);semanticCtx.fill();
+   semanticCtx.fillStyle='#dcf8fc';semanticCtx.fillText(`${m.label} ${Math.round(m.score*100)}%`,x+10,y-7);
+ });
+ semanticCtx.fillStyle='rgba(220,248,252,.68)';semanticCtx.fillText('Visual semantic map · no metric depth',18,28);
 }
 
-/* ---------------- XR SENSOR ENGINE ---------------- */
-function xrHeat(d){
-  if(!Number.isFinite(d)||d<=0)return[0,0,0];
-  return heat(Math.max(0,Math.min(1,(d-.35)/(xrRange-.35))));
+/* XR DEPTH */
+function heat(d){
+ if(!Number.isFinite(d)||d<=0)return[0,0,0];
+ let t=Math.max(0,Math.min(1,(d-.35)/(range-.35)));
+ if(styleMode==='DENSE')return[80,235,220];
+ const s=styleMode==='NEON'?[[255,145,30],[70,255,150],[35,220,255],[80,90,255]]:[[255,90,35],[255,215,45],[55,235,105],[25,210,225],[45,65,215]];
+ const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),a=p-i;return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a))
 }
 function inv4(a){
  const o=new Float32Array(16),a00=a[0],a01=a[1],a02=a[2],a03=a[3],a10=a[4],a11=a[5],a12=a[6],a13=a[7],a20=a[8],a21=a[9],a22=a[10],a23=a[11],a30=a[12],a31=a[13],a32=a[14],a33=a[15];
@@ -697,148 +277,86 @@ function inv4(a){
  o[8]=(a10*b10-a11*b08+a13*b06)*d;o[9]=(a01*b08-a00*b10-a03*b06)*d;o[10]=(a30*b04-a31*b02+a33*b00)*d;o[11]=(a21*b02-a20*b04-a23*b00)*d;
  o[12]=(a11*b07-a10*b09-a12*b06)*d;o[13]=(a00*b09-a01*b07+a02*b06)*d;o[14]=(a31*b01-a30*b03-a32*b00)*d;o[15]=(a20*b03-a21*b01-a22*b00)*d;return o
 }
-function mmul(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
-function makeXRProgram(){
-  const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;uniform float S;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=S;C=c;}`;
-  const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;if(dot(q,q)>.25)discard;gl_FragColor=vec4(C,.96);}`;
-  const mk=(type,src)=>{const s=xrGL.createShader(type);xrGL.shaderSource(s,src);xrGL.compileShader(s);return s};
-  xrProgram=xrGL.createProgram();xrGL.attachShader(xrProgram,mk(xrGL.VERTEX_SHADER,vs));xrGL.attachShader(xrProgram,mk(xrGL.FRAGMENT_SHADER,fs));xrGL.linkProgram(xrProgram);
+function mul(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
+function makeProgram(){
+ const vs=`attribute vec3 p;attribute vec3 c;uniform mat4 P;uniform mat4 V;uniform float S;varying vec3 C;void main(){gl_Position=P*V*vec4(p,1.0);gl_PointSize=S;C=c;}`;
+ const fs=`precision mediump float;varying vec3 C;void main(){vec2 q=gl_PointCoord-.5;float r=length(q);if(r>.5)discard;float glow=1.0-smoothstep(.05,.5,r);gl_FragColor=vec4(min(vec3(1.0),C*(.55+1.1*glow)),.96);}`;
+ const mk=(t,s)=>{const sh=xrGL.createShader(t);xrGL.shaderSource(sh,s);xrGL.compileShader(sh);return sh};
+ xrProgram=xrGL.createProgram();xrGL.attachShader(xrProgram,mk(xrGL.VERTEX_SHADER,vs));xrGL.attachShader(xrProgram,mk(xrGL.FRAGMENT_SHADER,fs));xrGL.linkProgram(xrProgram);
 }
-function addXRWorld(x,y,z,d){
-  const cell=.08,key=`${Math.round(x/cell)},${Math.round(y/cell)},${Math.round(z/cell)}`;
-  let s=voxelMap.get(key);
-  if(!s){voxelMap.set(key,{n:1,x,y,z,d,idx:-1});return}
-  s.n++;s.x+=(x-s.x)/s.n;s.y+=(y-s.y)/s.n;s.z+=(z-s.z)/s.n;s.d+=(d-s.d)/s.n;
-  if(s.idx<0&&s.n>=2&&xrWorldCount<120000){s.idx=xrWorldCount++}
-  if(s.idx>=0){const k=s.idx*3,c=xrHeat(s.d);xrWorldPos[k]=s.x;xrWorldPos[k+1]=s.y;xrWorldPos[k+2]=s.z;xrWorldCol[k]=c[0]/255;xrWorldCol[k+1]=c[1]/255;xrWorldCol[k+2]=c[2]/255;}
+function addWorld(x,y,z,d){
+ const cell=.08,key=`${Math.round(x/cell)},${Math.round(y/cell)},${Math.round(z/cell)}`;let s=voxelMap.get(key);
+ if(!s){voxelMap.set(key,{n:1,x,y,z,d,idx:-1});return}
+ s.n++;s.x+=(x-s.x)/s.n;s.y+=(y-s.y)/s.n;s.z+=(z-s.z)/s.n;s.d+=(d-s.d)/s.n;
+ if(s.idx<0&&s.n>=2&&xrWorldCount<120000)s.idx=xrWorldCount++;
+ if(s.idx>=0){const k=s.idx*3,c=heat(s.d);xrWorldPos[k]=s.x;xrWorldPos[k+1]=s.y;xrWorldPos[k+2]=s.z;xrWorldCol[k]=c[0]/255;xrWorldCol[k+1]=c[1]/255;xrWorldCol[k+2]=c[2]/255}
 }
-function captureXR(viewObj,depth){
-  const ip=inv4(viewObj.projectionMatrix);if(!ip)return;const wm=viewObj.transform.matrix;
-  const W=depth.width||160,H=depth.height||90,step=densityStep[density];
-  xrLiveCount=0;
-  for(let y=0;y<H;y+=step)for(let x=0;x<W;x+=step){
-    let d;try{d=depth.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{continue}
-    if(!Number.isFinite(d)||d<.35||d>xrRange)continue;
-    const u=(x+.5)/W,v=(y+.5)/H,q=mmul(ip,u*2-1,1-v*2,-1,1);if(Math.abs(q[3])<1e-6)continue;
-    const rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3];if(Math.abs(rz)<1e-6)continue;
-    const sc=(-d)/rz,px=rx*sc,py=ry*sc,pz=rz*sc,c=xrHeat(d);
-    const k=xrLiveCount*3;if(k+2<xrLivePos.length){xrLivePos[k]=px;xrLivePos[k+1]=py;xrLivePos[k+2]=pz;xrLiveCol[k]=c[0]/255;xrLiveCol[k+1]=c[1]/255;xrLiveCol[k+2]=c[2]/255;xrLiveCount++}
-    const wp=mmul(wm,px,py,pz,1);addXRWorld(wp[0],wp[1],wp[2],d);
-  }
-  $('pointCount').textContent=(view==='WORLD'||view==='WORLD_TOP'?xrWorldCount:xrLiveCount).toLocaleString();
-  if(view==='DEPTH'){
-    const img=depthCtx.createImageData(W,H);
-    for(let yy=0;yy<H;yy++)for(let xx=0;xx<W;xx++){let d;try{d=depth.getDepthInMeters((xx+.5)/W,(yy+.5)/H)}catch{d=NaN};const c=xrHeat(d),i=(yy*W+xx)*4;img.data[i]=c[0];img.data[i+1]=c[1];img.data[i+2]=c[2];img.data[i+3]=255}
-    const tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;tmp.getContext('2d').putImageData(img,0,0);depthCtx.clearRect(0,0,depthCanvas.width,depthCanvas.height);depthCtx.drawImage(tmp,0,0,depthCanvas.width,depthCanvas.height);
-  }
+function captureXR(v,d){
+ const ip=inv4(v.projectionMatrix);if(!ip)return;const wm=v.transform.matrix,W=d.width||160,H=d.height||90,step=densityStep[density];
+ xrLive=[];const frame=[];
+ for(let y=0;y<H;y+=step)for(let x=0;x<W;x+=step){
+  let z;try{z=d.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{continue}
+  if(!Number.isFinite(z)||z<.35||z>range)continue;
+  const u=(x+.5)/W,vv=(y+.5)/H,q=mul(ip,u*2-1,1-vv*2,-1,1);if(Math.abs(q[3])<1e-6)continue;
+  const rx=q[0]/q[3],ry=q[1]/q[3],rz=q[2]/q[3];if(Math.abs(rz)<1e-6)continue;
+  const sc=(-z)/rz,px=rx*sc,py=ry*sc,pz=rz*sc,c=heat(z);
+  frame.push({u,v:vv,d:z,c});
+  xrLive.push(px,py,pz,c[0]/255,c[1]/255,c[2]/255);
+  const wp=mul(wm,px,py,pz,1);addWorld(wp[0],wp[1],wp[2],z);
+ }
+ $('points').textContent=(view==='WORLD'||view==='TOP'?xrWorldCount:frame.length).toLocaleString();
+ if(view==='DEPTH')drawDepthFrame(d,W,H);
+ if(view==='LIVE')drawPointFrame(frame);
 }
-function uploadXR(){
-  xrGL.bindBuffer(xrGL.ARRAY_BUFFER,xrPB);xrGL.bufferData(xrGL.ARRAY_BUFFER,xrWorldPos.subarray(0,xrWorldCount*3),xrGL.DYNAMIC_DRAW);
-  xrGL.bindBuffer(xrGL.ARRAY_BUFFER,xrCB);xrGL.bufferData(xrGL.ARRAY_BUFFER,xrWorldCol.subarray(0,xrWorldCount*3),xrGL.DYNAMIC_DRAW);
+function drawDepthFrame(d,W,H){
+ fitCanvas(depthCanvas);const small=document.createElement('canvas');small.width=W;small.height=H;const c=small.getContext('2d'),img=c.createImageData(W,H);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){let z;try{z=d.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{z=NaN};const cc=heat(z),i=(y*W+x)*4;img.data[i]=cc[0];img.data[i+1]=cc[1];img.data[i+2]=cc[2];img.data[i+3]=255}
+ c.putImageData(img,0,0);depthCtx.clearRect(0,0,depthCanvas.width,depthCanvas.height);depthCtx.imageSmoothingEnabled=true;depthCtx.drawImage(small,0,0,depthCanvas.width,depthCanvas.height);
 }
-function renderXR(viewObj,live){
-  const pos=live?xrLivePos:xrWorldPos,col=live?xrLiveCol:xrWorldCol,count=live?xrLiveCount:xrWorldCount;
-  const pb=live?xrGL.createBuffer():xrPB,cb=live?xrGL.createBuffer():xrCB;
-  if(live){xrGL.bindBuffer(xrGL.ARRAY_BUFFER,pb);xrGL.bufferData(xrGL.ARRAY_BUFFER,pos.subarray(0,count*3),xrGL.DYNAMIC_DRAW);xrGL.bindBuffer(xrGL.ARRAY_BUFFER,cb);xrGL.bufferData(xrGL.ARRAY_BUFFER,col.subarray(0,count*3),xrGL.DYNAMIC_DRAW);}
-  xrGL.useProgram(xrProgram);xrGL.uniformMatrix4fv(xrGL.getUniformLocation(xrProgram,'P'),false,viewObj.projectionMatrix);
-  const I=new Float32Array([1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1]);
-  xrGL.uniformMatrix4fv(xrGL.getUniformLocation(xrProgram,'V'),false,live?I:viewObj.transform.inverse.matrix);
-  xrGL.uniform1f(xrGL.getUniformLocation(xrProgram,'S'),live?4.0:2.6);
-  xrGL.bindBuffer(xrGL.ARRAY_BUFFER,pb);let a=xrGL.getAttribLocation(xrProgram,'p');xrGL.enableVertexAttribArray(a);xrGL.vertexAttribPointer(a,3,xrGL.FLOAT,false,0,0);
-  xrGL.bindBuffer(xrGL.ARRAY_BUFFER,cb);a=xrGL.getAttribLocation(xrProgram,'c');xrGL.enableVertexAttribArray(a);xrGL.vertexAttribPointer(a,3,xrGL.FLOAT,false,0,0);
-  xrGL.drawArrays(xrGL.POINTS,0,count);
-  if(live){xrGL.deleteBuffer(pb);xrGL.deleteBuffer(cb);}
+function drawPointFrame(frame){
+ fitCanvas(pointCanvas);const w=pointCanvas.width,h=pointCanvas.height;pointCtx.fillStyle='#000';pointCtx.fillRect(0,0,w,h);pointCtx.globalCompositeOperation='lighter';
+ frame.forEach(p=>{const x=p.u*w,y=p.v*h,cc=p.c,r=styleMode==='DENSE'?2.5:(density==='HIGH'?1.7:2.1);pointCtx.fillStyle=`rgba(${cc[0]},${cc[1]},${cc[2]},.16)`;pointCtx.beginPath();pointCtx.arc(x,y,r*2.2,0,Math.PI*2);pointCtx.fill();pointCtx.fillStyle=`rgba(${cc[0]},${cc[1]},${cc[2]},.96)`;pointCtx.beginPath();pointCtx.arc(x,y,r,0,Math.PI*2);pointCtx.fill()});
+ pointCtx.globalCompositeOperation='source-over';
 }
-function drawXRWorldTop(){
-  fitCanvas(worldCanvas);const w=worldCanvas.width,h=worldCanvas.height;worldCtx.fillStyle='#02070b';worldCtx.fillRect(0,0,w,h);
-  worldCtx.strokeStyle='#12313a';for(let i=1;i<10;i++){worldCtx.beginPath();worldCtx.moveTo(i*w/10,0);worldCtx.lineTo(i*w/10,h);worldCtx.stroke();worldCtx.beginPath();worldCtx.moveTo(0,i*h/10);worldCtx.lineTo(w,i*h/10);worldCtx.stroke();}
-  if(!xrOrigin)return;const s=Math.min(w,h)/8,proj=(x,z)=>[w/2-(x-xrOrigin.x)*s,h/2-(z-xrOrigin.z)*s];
-  for(let i=0;i<xrWorldCount;i++){const k=i*3,q=proj(xrWorldPos[k],xrWorldPos[k+2]);if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;worldCtx.fillStyle=`rgb(${xrWorldCol[k]*255},${xrWorldCol[k+1]*255},${xrWorldCol[k+2]*255})`;worldCtx.fillRect(q[0]-1,q[1]-1,2,2)}
-  const p=proj(xrCx,xrCz);worldCtx.fillStyle='#fff';worldCtx.beginPath();worldCtx.arc(p[0],p[1],8,0,Math.PI*2);worldCtx.fill();
+function uploadWorld(){xrGL.bindBuffer(xrGL.ARRAY_BUFFER,xrPB);xrGL.bufferData(xrGL.ARRAY_BUFFER,xrWorldPos.subarray(0,xrWorldCount*3),xrGL.DYNAMIC_DRAW);xrGL.bindBuffer(xrGL.ARRAY_BUFFER,xrCB);xrGL.bufferData(xrGL.ARRAY_BUFFER,xrWorldCol.subarray(0,xrWorldCount*3),xrGL.DYNAMIC_DRAW)}
+function renderWorld(v){
+ if(!xrWorldCount)return;xrGL.useProgram(xrProgram);xrGL.uniformMatrix4fv(xrGL.getUniformLocation(xrProgram,'P'),false,v.projectionMatrix);xrGL.uniformMatrix4fv(xrGL.getUniformLocation(xrProgram,'V'),false,v.transform.inverse.matrix);xrGL.uniform1f(xrGL.getUniformLocation(xrProgram,'S'),2.6);
+ xrGL.bindBuffer(xrGL.ARRAY_BUFFER,xrPB);let a=xrGL.getAttribLocation(xrProgram,'p');xrGL.enableVertexAttribArray(a);xrGL.vertexAttribPointer(a,3,xrGL.FLOAT,false,0,0);xrGL.bindBuffer(xrGL.ARRAY_BUFFER,xrCB);a=xrGL.getAttribLocation(xrProgram,'c');xrGL.enableVertexAttribArray(a);xrGL.vertexAttribPointer(a,3,xrGL.FLOAT,false,0,0);xrGL.drawArrays(xrGL.POINTS,0,xrWorldCount);
+}
+function drawTop(){
+ fitCanvas(worldCanvas);const w=worldCanvas.width,h=worldCanvas.height;worldCtx.fillStyle='#02070b';worldCtx.fillRect(0,0,w,h);worldCtx.strokeStyle='#12313a';
+ for(let i=1;i<10;i++){worldCtx.beginPath();worldCtx.moveTo(i*w/10,0);worldCtx.lineTo(i*w/10,h);worldCtx.stroke();worldCtx.beginPath();worldCtx.moveTo(0,i*h/10);worldCtx.lineTo(w,i*h/10);worldCtx.stroke()}
+ if(!xrOrigin)return;const s=Math.min(w,h)/8,p=(x,z)=>[w/2-(x-xrOrigin.x)*s,h/2-(z-xrOrigin.z)*s];
+ for(let i=0;i<xrWorldCount;i++){const k=i*3,q=p(xrWorldPos[k],xrWorldPos[k+2]);if(q[0]<0||q[0]>w||q[1]<0||q[1]>h)continue;worldCtx.fillStyle=`rgb(${xrWorldCol[k]*255},${xrWorldCol[k+1]*255},${xrWorldCol[k+2]*255})`;worldCtx.fillRect(q[0]-1,q[1]-1,2,2)}
+ const q=p(xrCx,xrCz);worldCtx.fillStyle='#fff';worldCtx.beginPath();worldCtx.arc(q[0],q[1],8,0,Math.PI*2);worldCtx.fill()
 }
 async function startXR(){
-  try{
-    openApp('XR');fitAll();
-    xrGL=$('xrCanvas').getContext('webgl',{xrCompatible:true,alpha:true,antialias:false});
-    await xrGL.makeXRCompatible();makeXRProgram();xrPB=xrGL.createBuffer();xrCB=xrGL.createBuffer();xrGL.enable(xrGL.BLEND);xrGL.blendFunc(xrGL.SRC_ALPHA,xrGL.ONE_MINUS_SRC_ALPHA);
-    xrSession=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local','depth-sensing','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},domOverlay:{root:document.body}});
-    xrSession.updateRenderState({baseLayer:new XRWebGLLayer(xrSession,xrGL)});xrSpace=await xrSession.requestReferenceSpace('local');
-    $('tracking').textContent='ARCore activo';xrSession.addEventListener('end',exitApp);xrSession.requestAnimationFrame(xrLoop);
-  }catch(e){alert('No se pudo iniciar XR:\\n'+(e.message||e));exitApp();}
+ try{
+  openApp('XR');fitAll();xrGL=xrCanvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false});await xrGL.makeXRCompatible();makeProgram();xrPB=xrGL.createBuffer();xrCB=xrGL.createBuffer();xrGL.enable(xrGL.BLEND);xrGL.blendFunc(xrGL.SRC_ALPHA,xrGL.ONE_MINUS_SRC_ALPHA);
+  xrSession=await navigator.xr.requestSession('immersive-ar',{requiredFeatures:['local','depth-sensing','dom-overlay'],depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},domOverlay:{root:document.body}});
+  xrSession.updateRenderState({baseLayer:new XRWebGLLayer(xrSession,xrGL)});xrSpace=await xrSession.requestReferenceSpace('local');$('state').textContent='ARCore activo';xrSession.addEventListener('end',exitApp);xrSession.requestAnimationFrame(xrLoop);
+ }catch(e){alert('No se pudo iniciar XR:\\n'+(e.message||e));exitApp()}
 }
 function xrLoop(t,f){
-  if(!xrSession)return;xrSession.requestAnimationFrame(xrLoop);const pose=f.getViewerPose(xrSpace);if(!pose)return;
-  const v0=pose.views[0],m=v0.transform.matrix;xrCx=m[12];xrCz=m[14];xrYaw=Math.atan2(-m[8],-m[10]);if(!xrOrigin)xrOrigin={x:xrCx,z:xrCz};
-  const layer=xrSession.renderState.baseLayer;xrGL.bindFramebuffer(xrGL.FRAMEBUFFER,layer.framebuffer);
-  const black=(view==='LIVE3D'||view==='WORLD');xrGL.clearColor(0,0,0,black?1:0);xrGL.clear(xrGL.COLOR_BUFFER_BIT|xrGL.DEPTH_BUFFER_BIT);
-  for(const vv of pose.views){
-    const vp=layer.getViewport(vv);xrGL.viewport(vp.x,vp.y,vp.width,vp.height);
-    if(t-xrLastCapture>130){try{const d=f.getDepthInformation(vv);if(d)captureXR(vv,d)}catch{}}
-    if(view==='LIVE3D')renderXR(vv,true); else if(view==='WORLD')renderXR(vv,false);
-  }
-  if(t-xrLastCapture>130)xrLastCapture=t;if(t-xrLastUpload>600){uploadXR();xrLastUpload=t}
-  if(view==='WORLD_TOP')drawXRWorldTop();
-  fpsFrames++;if(t-fpsLast>1000){$('fps').textContent=fpsFrames;fpsFrames=0;fpsLast=t;}
+ if(!xrSession)return;xrSession.requestAnimationFrame(xrLoop);const pose=f.getViewerPose(xrSpace);if(!pose)return;const m=pose.views[0].transform.matrix;xrCx=m[12];xrCz=m[14];if(!xrOrigin)xrOrigin={x:xrCx,z:xrCz};
+ const layer=xrSession.renderState.baseLayer;xrGL.bindFramebuffer(xrGL.FRAMEBUFFER,layer.framebuffer);const black=view==='WORLD';xrGL.clearColor(0,0,0,black?1:0);xrGL.clear(xrGL.COLOR_BUFFER_BIT|xrGL.DEPTH_BUFFER_BIT);
+ for(const v of pose.views){const vp=layer.getViewport(v);xrGL.viewport(vp.x,vp.y,vp.width,vp.height);if(t-xrLastCapture>120){try{const d=f.getDepthInformation(v);if(d)captureXR(v,d)}catch{}}if(view==='WORLD')renderWorld(v)}
+ if(t-xrLastCapture>120)xrLastCapture=t;if(t-xrLastUpload>500){uploadWorld();xrLastUpload=t}if(view==='TOP')drawTop();
+ fpsFrames++;if(t-fpsLast>1000){$('fps').textContent=fpsFrames;fpsFrames=0;fpsLast=t}
 }
+function uiLoop(t){if(engine!=='AI')return;requestAnimationFrame(uiLoop);if(view==='OBJECTS')drawObjects();fpsFrames++;if(t-fpsLast>1000){$('fps').textContent=fpsFrames;fpsFrames=0;fpsLast=t}}
 
-/* controls */
-$('startAI').addEventListener('click',startAI);
-$('startXR').addEventListener('click',startXR);
+$('startAI').onclick=startAI;$('startXR').onclick=startXR;$('scanBtn').onclick=scanObjects;
+$('styleBtn').onclick=()=>{const o=['DEPTH','NEON','DENSE'];styleMode=o[(o.indexOf(styleMode)+1)%o.length];$('styleBtn').textContent='STYLE '+styleMode};
+$('densityBtn').onclick=()=>{const o=['LOW','MED','HIGH'];density=o[(o.indexOf(density)+1)%o.length];$('densityBtn').textContent='DENSIDAD '+density};
+$('rangeBtn').onclick=()=>{const o=[2.5,4.0,6.5],i=o.indexOf(range);range=o[(i+1)%o.length];$('rangeBtn').textContent='RANGO '+range.toFixed(1)+'M'};
+$('resetBtn').onclick=()=>{latestObjects=[];semanticMemory=[];voxelMap.clear();xrWorldCount=0;$('objects').textContent='0';$('points').textContent='0';updateList();if(view==='SEMANTIC')drawSemantic();if(view==='TOP')drawTop()};
+$('exitBtn').onclick=exitApp;
+function exitApp(){if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}if(xrSession){const s=xrSession;xrSession=null;try{s.end()}catch{}}engine=null;$('app').style.display='none';$('home').style.display='block'}
 
-$('testDepthBtn').addEventListener('click',async()=>{
-  showLoading('TEST DEPTH','1/3 runtime · 2/3 modelo · 3/3 inferencia');
-  const ok=await ensureDepthModel();
-  if(!ok){hideLoading();return;}
-  $('loadingTitle').textContent='TEST DEPTH';
-  $('loadingMsg').textContent='Ejecutando un frame de prueba...';
-  const pass=await runDepth(true);
-  if(pass){
-    setView('DEPTH');
-    autoAI=true;
-  }
-});
-$('testObjectsBtn').addEventListener('click',async()=>{
-  showLoading('TEST OBJECTS','1/3 runtime · 2/3 modelo · 3/3 inferencia');
-  const ok=await ensureDetector();
-  if(!ok){hideLoading();return;}
-  $('loadingTitle').textContent='TEST OBJECTS';
-  $('loadingMsg').textContent='Analizando un frame de prueba...';
-  const pass=await runDetection(true);
-  if(pass){
-    setView('OBJECTS');
-    autoAI=true;
-  }
-});
-
-$('styleBtn').addEventListener('click',()=>{styleMode=styleMode==='RGB'?'NEON':'RGB';$('styleBtn').textContent='STYLE '+styleMode;if(engine==='AI'){buildAIPointCloud();if(view==='LIVE3D')drawAIPointCloud();}});
-$('densityBtn').addEventListener('click',()=>{const o=['LOW','MED','HIGH'];density=o[(o.indexOf(density)+1)%3];$('densityBtn').textContent='DENSIDAD '+density;if(engine==='AI')buildAIPointCloud();});
-$('rangeBtn').addEventListener('click',()=>{const vals=[2.5,4.0,6.5];let i=vals.indexOf(xrRange);xrRange=vals[(i+1)%vals.length];$('rangeBtn').textContent='RANGO '+xrRange.toFixed(1)+'M';});
-$('resetBtn').addEventListener('click',()=>{semanticMemory=[];latestDetections=[];latestDepth=null;voxelMap.clear();xrWorldCount=0;pointCountAI=0;depthTestPassed=false;objectTestPassed=false;$('objectCount').textContent='0';$('pointCount').textContent='0';setDiag('diagDepth','modelo '+(depthEstimator?'listo · falta test':'no cargado'),'warn');setDiag('diagObjects','modelo '+(objectDetector?'listo · falta test':'no cargado'),'warn');updateObjectsList();if(view==='SEMANTIC')drawSemanticMap();});
-$('exitBtn').addEventListener('click',exitApp);
-
-function exitApp(){
-  if(aiLoopId)cancelAnimationFrame(aiLoopId);aiLoopId=0;
-  if(aiStream){aiStream.getTracks().forEach(t=>t.stop());aiStream=null;}
-  if(xrSession){const s=xrSession;xrSession=null;try{s.end()}catch{}}
-
-  $('aiStage').style.display='none';
-  $('xrCanvas').style.display='none';
-  $('worldCanvas').style.display='none';
-  $('aiDiag').style.display='none';
-  $('testPanel').style.display='none';
-
-  engine=null;
-  $('app').style.display='none';
-  $('home').style.display='block';
-}
-
-(async function init(){
-  $('secureStatus').textContent=isSecureContext?'OK':'NO — requiere HTTPS';
-  $('gpuStatus').textContent=navigator.gpu?'disponible':'no disponible — usará WASM';
-  if(navigator.xr){
-    try{const ok=await navigator.xr.isSessionSupported('immersive-ar');$('xrStatus').textContent=ok?'compatible':'no compatible';$('startXR').disabled=!ok;}
-    catch{$('xrStatus').textContent='error';}
-  }else $('xrStatus').textContent='no disponible';
+(async function(){
+ $('secureStatus').textContent=isSecureContext?'OK':'NO — requiere HTTPS';
+ if(navigator.xr){try{const ok=await navigator.xr.isSessionSupported('immersive-ar');$('xrStatus').textContent=ok?'compatible':'no compatible';$('startXR').disabled=!ok}catch{$('xrStatus').textContent='error'}}else $('xrStatus').textContent='no disponible';
 })();
 </script>
 </body>
