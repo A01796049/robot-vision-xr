@@ -1,32 +1,35 @@
-# Robot Vision XR — V19.3 Fast Robot Vision
+# Robot Vision XR — V20 Core
 
-## Objetivo
-Priorizar velocidad y estabilidad en Moto G55.
+Versión básica y optimizada para demo en celular.
 
-## XR SENSOR
-- ARCore Depth
-- RGB
-- DEPTH
-- LIVE 3D
-- WORLD 3D
-- WORLD TOP
-- Estilos LIVE 3D: DEPTH / NEON / DENSE
+## Qué incluye
+- `RGB`
+- `DEPTH`
+- `POINT CLOUD`
+- `SHAPES`
 
-## OBJECT AI
-- Cámara trasera normal
-- COCO-SSD Lite MobileNet V2
-- Inferencia sólo cuando se pulsa `SCAN OBJECTS`
-- SEMANTIC MAP visual (no métrico)
+## Enfoque
+- Solo usa `ARCore Depth`
+- No incluye IA pesada
+- Busca emular cómo “ve” un robot usando nube de puntos y formas geométricas simples
 
-## Cambio clave
-Se eliminó completamente Depth Anything del teléfono.
+## Controles
+- `STYLE`: DEPTH / NEON / DENSE
+- `DENSIDAD`: LOW / MED / HIGH
+- `RANGO`: 2.5M / 4.0M / 6.5M
+
+## SHAPES
+La vista SHAPES usa heurísticas geométricas ligeras para marcar:
+- `FLOOR`
+- `SURFACE`
+- `OBSTACLE`
 
 ## Publicación
-Sube:
+Sube estos archivos a la raíz de tu repo GitHub Pages:
 - index.html
 - .nojekyll
 - README.md
 - VERSION.txt
 
-URL:
-https://a01796049.github.io/robot-vision-xr/?v=19.3
+Prueba con:
+https://a01796049.github.io/robot-vision-xr/?v=20
