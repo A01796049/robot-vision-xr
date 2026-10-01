@@ -1,513 +1,633 @@
 <!doctype html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#02070b">
-<title>Robot Vision XR · V22 Presentation Mode</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#021018" />
+<title>Robot Vision XR · V22.1</title>
 <style>
-:root{
-  --bg:#02070b;
-  --panel:rgba(5,14,20,.78);
-  --panel-2:rgba(4,11,17,.62);
-  --cyan:#34e5ff;
-  --cyan-soft:rgba(52,229,255,.28);
-  --green:#67ff7c;
-  --orange:#ffb347;
-  --text:#e2fbff;
-  --muted:#8fb4bc;
-  --line:#1c5d68;
-  --shadow:0 10px 30px rgba(0,0,0,.30);
-  --radius:18px;
-  --btnH:52px;
-  --hudScale:1;
+  :root{
+    --bg:#02080d;
+    --panel:rgba(5,18,28,.88);
+    --line:#18d7ff;
+    --line2:rgba(24,215,255,.35);
+    --txt:#e9fbff;
+    --metric:#76ff74;
+    --warn:#ffb54d;
+    --cyan:#39d5ff;
+    --green:#68ff72;
+    --orange:#ffb347;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--txt);font-family:Consolas,Menlo,monospace}
+  body{position:fixed;inset:0}
+  video,canvas{position:fixed;inset:0;width:100%;height:100%;object-fit:cover}
+  video{opacity:0;pointer-events:none}
+  #mainCanvas{z-index:1;background:#000}
+  #workCanvas,#depthCanvas{display:none}
+  .panel{
+    position:fixed;z-index:3;
+    background:linear-gradient(180deg, rgba(8,25,36,.92), rgba(4,14,22,.86));
+    border:1px solid var(--line2);
+    border-radius:18px;
+    box-shadow:0 0 0 1px rgba(24,215,255,.1) inset, 0 0 18px rgba(24,215,255,.08);
+    color:#eefbff;
+    backdrop-filter: blur(6px);
+  }
+  #leftPanel{left:14px;top:88px;width:260px;padding:14px 16px;font-size:18px;line-height:1.35}
+  #rightPanel{right:14px;top:88px;width:154px;padding:14px 16px;font-size:18px;line-height:1.35;text-align:right}
+  .metric{color:var(--metric)}
+  #legend{left:14px;top:265px;width:260px;padding:10px 14px;font-size:16px;line-height:1.45;display:none}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px}
+  .d-floor{background:var(--green)}
+  .d-surface{background:var(--cyan)}
+  .d-obstacle{background:var(--orange)}
+  #hint{right:14px;top:280px;max-width:250px;padding:10px 14px;font-size:16px;line-height:1.35;display:none}
+  .controls{position:fixed;left:12px;right:12px;bottom:18px;z-index:4;display:flex;flex-direction:column;gap:10px}
+  .row{display:flex;gap:10px;justify-content:flex-start;flex-wrap:wrap}
+  .btn{
+    border:1px solid rgba(24,215,255,.5);
+    background:rgba(4,14,22,.92);
+    color:#dff8ff;
+    border-radius:16px;
+    min-width:110px;
+    padding:12px 14px;
+    font: 600 15px/1.1 Consolas, Menlo, monospace;
+    text-align:center;
+    box-shadow:0 0 0 1px rgba(24,215,255,.08) inset, 0 0 16px rgba(24,215,255,.08);
+  }
+  .btn.active{background:rgba(17,53,67,.98); color:#fff; box-shadow:0 0 12px rgba(24,215,255,.22), inset 0 0 8px rgba(24,215,255,.18)}
+  .btn.small{min-width:120px}
+  #banner{position:fixed;top:18px;left:14px;z-index:4;font-size:18px;color:#7ce3ff;letter-spacing:.5px;text-shadow:0 0 10px rgba(0,180,255,.25)}
+  #statusBar{position:fixed;bottom:164px;left:14px;right:14px;z-index:4;display:flex;justify-content:center;pointer-events:none}
+  #statusBarInner{display:none;padding:8px 14px;font-size:15px}
+  .tiny{font-size:14px;opacity:.95}
+  @media (max-width: 840px){
+    #leftPanel{width:235px;font-size:16px;top:74px}
+    #rightPanel{width:140px;font-size:16px;top:74px}
+    #legend{top:228px;width:235px;font-size:14px}
+    #hint{top:234px;font-size:14px;max-width:220px}
+    .btn{min-width:92px;padding:11px 12px;font-size:14px;border-radius:15px}
+    .btn.small{min-width:100px}
+    .controls{bottom:12px}
+    #statusBar{bottom:150px}
+  }
+
+/* V22.1: presentation shell only — keeps V21 point-cloud engine unchanged */
+@media (min-width: 900px){
+  #leftPanel{left:18px;top:72px;width:230px;padding:11px 13px;font-size:15px}
+  #rightPanel{right:18px;top:72px;width:135px;padding:11px 13px;font-size:15px}
+  #legend{left:18px;top:220px;width:210px;padding:8px 10px;font-size:13px}
+  #hint{right:18px;top:220px;max-width:230px;padding:8px 10px;font-size:13px}
+  .controls{left:18px;right:18px;bottom:14px;gap:8px}
+  .row{gap:8px;justify-content:center}
+  .btn{min-width:130px;padding:10px 12px;font-size:13px;border-radius:14px}
+  .btn.small{min-width:120px}
 }
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000;color:var(--text);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-button{font:inherit}
-body{background:#000}
-#home{position:fixed;inset:0;overflow:auto;background:radial-gradient(circle at 50% 14%, #0b2a34 0%, #02070b 54%);padding:20px}
-.wrap{max-width:920px;margin:auto}
-h1{font-size:clamp(24px,3vw,34px);letter-spacing:.03em;color:var(--cyan);margin:4px 0 10px}
-.sub{font-size:13px;line-height:1.7;color:var(--muted)}
-.card{background:#071118;border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin:12px 0;box-shadow:var(--shadow)}
-.row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06);font-size:12px}
-.row:last-child{border-bottom:0}
-.ok{color:var(--green)}.warn{color:var(--orange)}.bad{color:#ff7373}
-.start{width:100%;border:1px solid var(--cyan);background:#072833;color:#e4fcff;border-radius:14px;padding:16px 14px;font-weight:900;font-size:14px;letter-spacing:.05em}
-.start:disabled{opacity:.45}
-small{display:block;font-size:11px;color:var(--muted);line-height:1.6}
-#app{display:none;position:fixed;inset:0;background:#000}
-#xrCanvas,#depthCanvas,#cloudCanvas,#overlayCanvas{display:none;position:absolute;inset:0;width:100%;height:100%}
-#hud{position:absolute;inset:0;pointer-events:none;z-index:20}
-.cardHUD{position:absolute;background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--cyan-soft);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow);font-size:clamp(10px,1.4vw,15px);line-height:1.5;max-width:min(42vw,360px)}
-#infoLeft{left:max(10px,env(safe-area-inset-left));top:max(10px,env(safe-area-inset-top))}
-#infoRight{right:max(10px,env(safe-area-inset-right));top:max(10px,env(safe-area-inset-top));text-align:right;min-width:min(28vw,190px)}
-#miniLegend{left:max(10px,env(safe-area-inset-left));top:calc(max(10px,env(safe-area-inset-top)) + 142px);font-size:clamp(9px,1.1vw,12px);padding:10px 12px;max-width:min(34vw,250px)}
-.dot{display:inline-block;width:.9em;height:.9em;border-radius:50%;margin-right:.45em;vertical-align:-.08em}
-.metric{color:var(--green)}
-.muted{color:var(--muted)}
-#hintBubble{position:absolute;right:max(10px,env(safe-area-inset-right));top:calc(max(10px,env(safe-area-inset-top)) + 142px);background:var(--panel-2);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px 12px;max-width:min(44vw,330px);font-size:clamp(9px,1.1vw,12px);line-height:1.45;color:#d6faff}
-#chipBar{position:absolute;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));bottom:calc(max(12px,env(safe-area-inset-bottom)) + 118px);display:flex;flex-wrap:wrap;gap:8px;z-index:26;pointer-events:none}
-.chip{background:rgba(4,11,17,.70);border:1px solid rgba(52,229,255,.22);border-radius:999px;padding:7px 11px;font-size:clamp(9px,1vw,12px);color:#dffcff;box-shadow:var(--shadow)}
-.chip strong{color:#fff}
-#tabs,#controls{position:absolute;left:max(10px,env(safe-area-inset-left));right:max(10px,env(safe-area-inset-right));display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;z-index:24}
-#tabs{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 56px)}
-#controls{bottom:max(12px,env(safe-area-inset-bottom));grid-template-columns:repeat(6,minmax(0,1fr))}
-#tabs button,#controls button{min-height:var(--btnH);border-radius:16px;border:1px solid #235762;background:rgba(2,12,16,.9);color:#bfe8ef;padding:10px 8px;font-size:clamp(10px,1.2vw,14px);line-height:1.1;box-shadow:var(--shadow)}
-#tabs button.active,#controls button.active{border-color:var(--cyan);background:#0a3540;color:#fff}
-#controls button.on{border-color:var(--green);color:var(--green)}
-#loading{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:rgba(2,8,12,.95);border:1px solid var(--line);border-radius:16px;padding:16px 18px;width:min(86vw,360px);text-align:center;box-shadow:var(--shadow)}
-#loading b{display:block;color:var(--cyan);margin-bottom:6px}.bar{height:4px;background:#10262c;border-radius:999px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;width:35%;background:var(--cyan);animation:ld 1.2s infinite}
-@keyframes ld{0%{transform:translateX(-120%)}100%{transform:translateX(360%)}}
-#toast{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:calc(max(12px,env(safe-area-inset-bottom)) + 176px);z-index:30;background:rgba(5,14,20,.86);border:1px solid rgba(52,229,255,.26);border-radius:999px;padding:9px 14px;font-size:11px;color:#dffcff;box-shadow:var(--shadow)}
-.hidden{display:none!important}
-@media (min-width: 860px){
-  :root{--btnH:50px}
-  #tabs{grid-template-columns:repeat(4,180px);justify-content:center}
-  #controls{grid-template-columns:repeat(6,146px);justify-content:center}
-  #chipBar{justify-content:center}
+@media (min-width: 1200px){
+  #leftPanel{width:220px;font-size:14px}
+  #rightPanel{width:125px;font-size:14px}
+  #legend{width:190px;font-size:12px}
+  #hint{max-width:210px;font-size:12px}
+  .btn{min-width:150px;font-size:13px}
 }
-@media (max-width: 720px){
-  #hintBubble{display:none}
-  #miniLegend{top:calc(max(10px,env(safe-area-inset-top)) + 132px)}
-  #chipBar{bottom:calc(max(12px,env(safe-area-inset-bottom)) + 126px)}
+@media (max-width: 680px){
+  #leftPanel{left:10px;top:66px;width:205px;padding:9px 11px;font-size:14px}
+  #rightPanel{right:10px;top:66px;width:124px;padding:9px 11px;font-size:14px}
+  #legend{left:10px;top:200px;width:188px;font-size:12px;padding:7px 9px}
+  #hint{display:none}
+  .controls{left:8px;right:8px;bottom:10px;gap:7px}
+  .row{gap:7px}
+  .btn{min-width:84px;padding:9px 10px;font-size:12px;border-radius:13px}
+  .btn.small{min-width:92px}
 }
-@media (max-height: 760px){
-  #chipBar{display:none}
-  #tabs{bottom:calc(max(10px,env(safe-area-inset-bottom)) + 50px)}
-  #controls{bottom:max(8px,env(safe-area-inset-bottom))}
-  #tabs button,#controls button{min-height:46px}
-}
+
 </style>
 </head>
 <body>
-<main id="home">
-  <div class="wrap">
-    <h1>ROBOT VISION XR · V22 PRESENTATION MODE</h1>
-    <p class="sub">Versión enfocada en demo ejecutiva. Mantiene el efecto <b>“así ve el robot”</b> y prioriza <b>claridad visual</b>, <b>punto de nube más realista</b>, <b>obstáculos encima del mapa de puntos</b> y una interfaz <b>responsive</b> para teléfono y tableta.</p>
-    <section class="card">
-      <div class="row"><span>HTTPS</span><span id="secureStatus" class="ok">comprobando…</span></div>
-      <div class="row"><span>WebXR immersive-ar</span><span id="xrStatus" class="ok">comprobando…</span></div>
-      <div class="row"><span>Pipeline</span><span class="ok">RGB → DEPTH → POINT CLOUD → POINT+SHAPES</span></div>
-      <div class="row"><span>Optimizado para</span><span class="ok">Móvil / Tableta / Demo</span></div>
-    </section>
-    <section class="card">
-      <button id="startBtn" class="start" disabled>INICIAR V22 · PRESENTATION MODE</button>
-      <small>
-        Vistas:<br>
-        <b>RGB</b> · cámara real<br>
-        <b>DEPTH</b> · profundidad coloreada<br>
-        <b>POINT CLOUD</b> · nube de puntos limpia y tipo robot<br>
-        <b>POINT+SHAPES</b> · nube de puntos + recuadros de piso / superficie / obstáculo<br><br>
-        Mejoras clave:<br>
-        · Menos elementos encimados<br>
-        · Etiquetas inteligentes (máximo 4)<br>
-        · Auto-fit visual para que la escena respire<br>
-        · UI más limpia para audiencias
-      </small>
-    </section>
+  <div id="banner">ROBOT VISION XR · V22.1</div>
+  <video id="video" playsinline autoplay muted></video>
+  <canvas id="mainCanvas"></canvas>
+  <canvas id="workCanvas" width="160" height="120"></canvas>
+  <canvas id="depthCanvas" width="160" height="120"></canvas>
+
+  <div id="leftPanel" class="panel">
+    <b>V22.1 · REALISTIC CLOUD</b><br>
+    vista <span class="metric" id="modeValue">RGB</span><br>
+    estado <span class="metric" id="stateValue">iniciando</span><br>
+    estilo <span class="metric" id="styleValue">NEON</span>
   </div>
-</main>
-
-<section id="app">
-  <canvas id="xrCanvas"></canvas>
-  <canvas id="depthCanvas"></canvas>
-  <canvas id="cloudCanvas"></canvas>
-  <canvas id="overlayCanvas"></canvas>
-
-  <div id="hud">
-    <div id="infoLeft" class="cardHUD">
-      <b>V22 · PRESENTATION MODE</b><br>
-      vista <span id="viewName" class="metric">RGB</span><br>
-      estado <span id="state" class="metric">--</span><br>
-      resolución <span id="camRes" class="metric">--</span><br>
-      estilo <span id="styleValue" class="metric">REALISTIC</span>
-    </div>
-
-    <div id="infoRight" class="cardHUD">
-      fps <span id="fps" class="metric">0</span><br>
-      puntos <span id="pointCount" class="metric">0</span><br>
-      formas <span id="shapeCount" class="metric">0</span><br>
-      rango <span id="rangeValue" class="metric">4.0m</span>
-    </div>
-
-    <div id="miniLegend" class="cardHUD">
-      <div><span class="dot" style="background:#67ff7c"></span>FLOOR</div>
-      <div><span class="dot" style="background:#34e5ff"></span>SURFACE</div>
-      <div><span class="dot" style="background:#ffb347"></span>OBSTACLE</div>
-    </div>
-
-    <div id="hintBubble">POINT CLOUD muestra la escena limpia. POINT+SHAPES agrega recuadros y etiquetas sobre la nube para explicar obstáculos y superficies.</div>
+  <div id="rightPanel" class="panel">
+    fps <span class="metric" id="fpsValue">0</span><br>
+    puntos <span class="metric" id="pointsValue">0</span><br>
+    formas <span class="metric" id="shapesValue">0</span>
   </div>
-
-  <div id="chipBar"></div>
-
-  <nav id="tabs"></nav>
-  <nav id="controls">
-    <button id="styleBtn">STYLE REALISTIC</button>
-    <button id="densityBtn">DENSIDAD MED</button>
-    <button id="rangeBtn">RANGO 4.0M</button>
-    <button id="labelsBtn" class="on">LABELS ON</button>
-    <button id="resetBtn">RESET</button>
-    <button id="exitBtn">SALIR</button>
-  </nav>
-
-  <div id="toast"></div>
-
-  <div id="loading">
-    <b id="loadingTitle">Cargando…</b>
-    <span id="loadingMsg">Preparando pipeline…</span>
-    <div class="bar"><i></i></div>
+  <div id="legend" class="panel">
+    <div><span class="dot d-floor"></span>FLOOR</div>
+    <div><span class="dot d-surface"></span>SURFACE</div>
+    <div><span class="dot d-obstacle"></span>OBSTACLE</div>
   </div>
-</section>
+  <div id="hint" class="panel tiny">POINT+CLOUD mantiene la forma de la escena y POINT+SHAPES agrega recuadros sobre el mapa de puntos.</div>
+  <div id="statusBar"><div id="statusBarInner" class="panel">Procesando…</div></div>
+
+  <div class="controls">
+    <div class="row">
+      <button class="btn active" data-mode="rgb">RGB</button>
+      <button class="btn" data-mode="depth">DEPTH</button>
+      <button class="btn" data-mode="point">POINT CLOUD</button>
+      <button class="btn" data-mode="pointshapes">POINT+SHAPES</button>
+    </div>
+    <div class="row">
+      <button class="btn small" id="styleBtn">STYLE NEON</button>
+      <button class="btn small" id="densityBtn">DENSIDAD MED</button>
+      <button class="btn small" id="rangeBtn">RANGO 4.0M</button>
+      <button class="btn small" id="resetBtn">RESET</button>
+      <button class="btn small" id="exitBtn">SALIR</button>
+    </div>
+  </div>
 
 <script>
-const $=id=>document.getElementById(id);
-const xrCanvas=$('xrCanvas');
-const depthCanvas=$('depthCanvas'), depthCtx=depthCanvas.getContext('2d');
-const cloudCanvas=$('cloudCanvas'), cloudCtx=cloudCanvas.getContext('2d');
-const overlayCanvas=$('overlayCanvas'), overlayCtx=overlayCanvas.getContext('2d');
+(() => {
+  const video = document.getElementById('video');
+  const mainCanvas = document.getElementById('mainCanvas');
+  const ctx = mainCanvas.getContext('2d', { alpha: false });
+  const workCanvas = document.getElementById('workCanvas');
+  const wctx = workCanvas.getContext('2d', { willReadFrequently: true });
+  const depthCanvas = document.getElementById('depthCanvas');
+  const dctx = depthCanvas.getContext('2d', { willReadFrequently: true });
 
-let view='RGB';
-let styleMode='REALISTIC';
-let density='MED';
-let range=4.0;
-let labelsOn=true;
-let xrSession=null, xrSpace=null, xrGL=null, xrLastCapture=0;
-let fpsFrames=0, fpsLast=performance.now();
-let latestFramePoints=[];
-let latestShapeRegions=[];
-let latestDepthInfo=null;
-const densityStep={LOW:4,MED:3,HIGH:2};
+  const els = {
+    modeValue: document.getElementById('modeValue'),
+    stateValue: document.getElementById('stateValue'),
+    styleValue: document.getElementById('styleValue'),
+    fpsValue: document.getElementById('fpsValue'),
+    pointsValue: document.getElementById('pointsValue'),
+    shapesValue: document.getElementById('shapesValue'),
+    legend: document.getElementById('legend'),
+    hint: document.getElementById('hint'),
+    statusBarInner: document.getElementById('statusBarInner'),
+  };
 
-function showLoading(t,m){$('loadingTitle').textContent=t;$('loadingMsg').textContent=m;$('loading').style.display='block'}
-function hideLoading(){$('loading').style.display='none'}
-function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';clearTimeout(toast._tm);toast._tm=setTimeout(()=>t.style.display='none',1500)}
-function show(el,on){el.style.display=on?'block':'none'}
-function fitCanvas(c){const dpr=Math.min(2,devicePixelRatio||1),w=Math.max(1,Math.floor(innerWidth*dpr)),h=Math.max(1,Math.floor(innerHeight*dpr));if(c.width!==w||c.height!==h){c.width=w;c.height=h}}
-function fitAll(){[depthCanvas,cloudCanvas,overlayCanvas].forEach(fitCanvas)}
-addEventListener('resize',fitAll); fitAll();
+  const state = {
+    mode: 'rgb',
+    style: 'neon',
+    density: 'med',
+    rangeIndex: 1,
+    ranges: [2.5, 4.0, 6.5],
+    stream: null,
+    frame: 0,
+    fps: 0,
+    lastFpsTs: performance.now(),
+    fpsCounter: 0,
+    cloudHistory: [],
+    cloudPoints: [],
+    shapes: [],
+    lastAnalysis: null,
+    busy: false,
+  };
 
-function buildTabs(){
- const data=[['RGB','RGB'],['DEPTH','DEPTH'],['POINT','POINT CLOUD'],['PS','POINT+SHAPES']];
- $('tabs').innerHTML='';
- data.forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.dataset.view=v;b.onclick=()=>setView(v);$('tabs').appendChild(b)});
- setView('RGB');
-}
+  const densityCfg = {
+    low: { stride: 4, baseProb: 0.12, label: 'LOW' },
+    med: { stride: 3, baseProb: 0.19, label: 'MED' },
+    high:{ stride: 2, baseProb: 0.30, label: 'HIGH' }
+  };
 
-function setView(v){
- view=v;
- const nameMap={RGB:'RGB',DEPTH:'DEPTH',POINT:'POINT CLOUD',PS:'POINT+SHAPES'};
- $('viewName').textContent=nameMap[v]||v;
- [...$('tabs').children].forEach(b=>b.classList.toggle('active',b.dataset.view===v));
- syncLayers();
- if(v==='DEPTH' && latestDepthInfo) drawDepthView(latestDepthInfo);
- if(v==='POINT' && latestFramePoints.length) drawPointCloudView(latestFramePoints,false);
- if(v==='PS' && latestFramePoints.length) drawPointCloudView(latestFramePoints,true);
- updateChips();
-}
+  const modeButtons = [...document.querySelectorAll('[data-mode]')];
+  const styleBtn = document.getElementById('styleBtn');
+  const densityBtn = document.getElementById('densityBtn');
+  const rangeBtn = document.getElementById('rangeBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const exitBtn = document.getElementById('exitBtn');
 
-function syncLayers(){
- show(xrCanvas,true);
- show(depthCanvas,view==='DEPTH');
- show(cloudCanvas,view==='POINT' || view==='PS');
- show(overlayCanvas,view==='PS');
- $('miniLegend').classList.toggle('hidden', !(view==='POINT' || view==='PS'));
- $('hintBubble').classList.toggle('hidden', !(view==='POINT' || view==='PS'));
-}
+  function resize(){
+    mainCanvas.width = innerWidth * devicePixelRatio;
+    mainCanvas.height = innerHeight * devicePixelRatio;
+    mainCanvas.style.width = innerWidth + 'px';
+    mainCanvas.style.height = innerHeight + 'px';
+    ctx.setTransform(1,0,0,1,0,0);
+  }
+  addEventListener('resize', resize, { passive: true });
+  resize();
 
-function heat(z){
- if(!Number.isFinite(z)||z<=0)return[0,0,0];
- let t=Math.max(0,Math.min(1,(z-.35)/(range-.35)));
- if(styleMode==='NEON'){
-   const s=[[255,163,26],[169,255,61],[72,245,255],[68,106,255]];
-   const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),a=p-i;
-   return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a));
- }
- const s=[[255,214,72],[214,235,74],[102,232,130],[72,202,255],[65,92,228]];
- const p=t*(s.length-1),i=Math.min(s.length-2,Math.floor(p)),a=p-i;
- return s[i].map((v,k)=>Math.round(v+(s[i+1][k]-v)*a));
-}
+  function setStatus(msg){
+    els.statusBarInner.textContent = msg || '';
+    els.statusBarInner.style.display = msg ? 'block' : 'none';
+  }
 
-function inv4(a){
- const o=new Float32Array(16),a00=a[0],a01=a[1],a02=a[2],a03=a[3],a10=a[4],a11=a[5],a12=a[6],a13=a[7],a20=a[8],a21=a[9],a22=a[10],a23=a[11],a30=a[12],a31=a[13],a32=a[14],a33=a[15];
- const b00=a00*a11-a01*a10,b01=a00*a12-a02*a10,b02=a00*a13-a03*a10,b03=a01*a12-a02*a11,b04=a01*a13-a03*a11,b05=a02*a13-a03*a12,b06=a20*a31-a21*a30,b07=a20*a32-a22*a30,b08=a20*a33-a23*a30,b09=a21*a32-a22*a31,b10=a21*a33-a23*a31,b11=a22*a33-a23*a32;
- let d=b00*b11-b01*b10+b02*b09+b03*b08-b04*b07+b05*b06;if(!d)return null;d=1/d;
- o[0]=(a11*b11-a12*b10+a13*b09)*d;o[1]=(a02*b10-a01*b11-a03*b09)*d;o[2]=(a31*b05-a32*b04+a33*b03)*d;o[3]=(a22*b04-a21*b05-a23*b03)*d;
- o[4]=(a12*b08-a10*b11-a13*b07)*d;o[5]=(a00*b11-a02*b08+a03*b07)*d;o[6]=(a32*b02-a30*b05-a33*b01)*d;o[7]=(a20*b05-a22*b02+a23*b01)*d;
- o[8]=(a10*b10-a11*b08+a13*b06)*d;o[9]=(a01*b08-a00*b10-a03*b06)*d;o[10]=(a30*b04-a31*b02+a33*b00)*d;o[11]=(a21*b02-a20*b04-a23*b00)*d;
- o[12]=(a11*b07-a10*b09-a12*b06)*d;o[13]=(a00*b09-a01*b07+a02*b06)*d;o[14]=(a31*b01-a30*b03-a32*b00)*d;o[15]=(a20*b03-a21*b01-a22*b00)*d;return o;
-}
-function mul(m,x,y,z,w=1){return[m[0]*x+m[4]*y+m[8]*z+m[12]*w,m[1]*x+m[5]*y+m[9]*z+m[13]*w,m[2]*x+m[6]*y+m[10]*z+m[14]*w,m[3]*x+m[7]*y+m[11]*z+m[15]*w]}
+  function updateButtons(){
+    modeButtons.forEach(b => b.classList.toggle('active', b.dataset.mode === state.mode));
+    styleBtn.textContent = 'STYLE ' + state.style.toUpperCase();
+    densityBtn.textContent = 'DENSIDAD ' + densityCfg[state.density].label;
+    rangeBtn.textContent = 'RANGO ' + state.ranges[state.rangeIndex].toFixed(1) + 'M';
+    els.modeValue.textContent =
+      state.mode === 'rgb' ? 'RGB' :
+      state.mode === 'depth' ? 'DEPTH' :
+      state.mode === 'point' ? 'POINT CLOUD' : 'POINT+SHAPES';
+    els.styleValue.textContent = state.style.toUpperCase();
+    const showExtras = state.mode === 'pointshapes';
+    els.legend.style.display = showExtras ? 'block' : 'none';
+    els.hint.style.display = (state.mode === 'point' || state.mode === 'pointshapes') ? 'block' : 'none';
+  }
+  updateButtons();
 
-function captureDepth(viewObj, depthInfo){
- const ip=inv4(viewObj.projectionMatrix); if(!ip)return;
- latestDepthInfo=depthInfo;
- latestFramePoints=[];
- const W=depthInfo.width||160,H=depthInfo.height||90,step=densityStep[density];
- $('camRes').textContent=`${W}×${H}`;
- for(let y=0;y<H;y+=step){
-   for(let x=0;x<W;x+=step){
-     let z; try{ z=depthInfo.getDepthInMeters((x+.5)/W,(y+.5)/H) }catch{ continue }
-     if(!Number.isFinite(z)||z<.35||z>range)continue;
-     const u=(x+.5)/W,v=(y+.5)/H;
-     const q=mul(ip,u*2-1,1-v*2,-1,1);
-     if(Math.abs(q[3])<1e-6)continue;
-     const rx=q[0]/q[3], ry=q[1]/q[3], rz=q[2]/q[3];
-     if(Math.abs(rz)<1e-6)continue;
-     const sc=(-z)/rz, px=rx*sc, py=ry*sc, pz=rz*sc;
-     latestFramePoints.push({u,v,z,px,py,pz,color:heat(z)});
-   }
- }
- $('pointCount').textContent=latestFramePoints.length.toLocaleString();
- latestShapeRegions=extractShapes(latestFramePoints);
- $('shapeCount').textContent=latestShapeRegions.length.toString();
- if(view==='DEPTH') drawDepthView(depthInfo);
- else if(view==='POINT') drawPointCloudView(latestFramePoints,false);
- else if(view==='PS') drawPointCloudView(latestFramePoints,true);
- updateChips();
-}
+  modeButtons.forEach(btn => btn.addEventListener('click', () => {
+    state.mode = btn.dataset.mode;
+    updateButtons();
+  }));
+  styleBtn.addEventListener('click', () => {
+    const order = ['neon','rgb','depth'];
+    state.style = order[(order.indexOf(state.style) + 1) % order.length];
+    updateButtons();
+  });
+  densityBtn.addEventListener('click', () => {
+    const order = ['low','med','high'];
+    state.density = order[(order.indexOf(state.density) + 1) % order.length];
+    updateButtons();
+  });
+  rangeBtn.addEventListener('click', () => {
+    state.rangeIndex = (state.rangeIndex + 1) % state.ranges.length;
+    updateButtons();
+  });
+  resetBtn.addEventListener('click', resetBuffers);
+  exitBtn.addEventListener('click', () => {
+    stopCamera();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,mainCanvas.width,mainCanvas.height);
+    els.stateValue.textContent = 'detenido';
+    setStatus('Cámara detenida');
+  });
 
-function drawDepthView(depthInfo){
- fitCanvas(depthCanvas);
- const W=depthInfo.width||160,H=depthInfo.height||90;
- const tmp=document.createElement('canvas');tmp.width=W;tmp.height=H;
- const tctx=tmp.getContext('2d');
- const img=tctx.createImageData(W,H);
- for(let y=0;y<H;y++) for(let x=0;x<W;x++){
-   let z; try{z=depthInfo.getDepthInMeters((x+.5)/W,(y+.5)/H)}catch{z=NaN}
-   const c=heat(z),i=(y*W+x)*4; img.data[i]=c[0]; img.data[i+1]=c[1]; img.data[i+2]=c[2]; img.data[i+3]=255;
- }
- tctx.putImageData(img,0,0);
- depthCtx.clearRect(0,0,depthCanvas.width,depthCanvas.height);
- depthCtx.imageSmoothingEnabled=true;
- depthCtx.drawImage(tmp,0,0,depthCanvas.width,depthCanvas.height);
-}
+  function resetBuffers(){
+    state.cloudHistory.length = 0;
+    state.cloudPoints.length = 0;
+    state.shapes.length = 0;
+    state.lastAnalysis = null;
+    setStatus('Mapa reiniciado');
+    setTimeout(() => setStatus(''), 900);
+  }
 
-function pointStyleFor(z){
- const nearBoost=Math.max(0,1-(z/range));
- if(styleMode==='NEON') return {r:1.55+nearBoost*1.1, glow:0.26+nearBoost*0.12, alpha:0.96};
- return {r:1.2+nearBoost*0.95, glow:0.10+nearBoost*0.08, alpha:0.92};
-}
+  async function startCamera(){
+    try{
+      setStatus('Solicitando cámara…');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: 'environment' },
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      state.stream = stream;
+      video.srcObject = stream;
+      await video.play();
+      els.stateValue.textContent = `camera OK ${video.videoWidth || 480}x${video.videoHeight || 640}`;
+      setStatus('');
+      requestAnimationFrame(loop);
+    }catch(err){
+      console.error(err);
+      els.stateValue.textContent = 'error cámara';
+      setStatus('No fue posible abrir la cámara');
+    }
+  }
 
-function drawPointCloudView(points, withShapes){
- fitCanvas(cloudCanvas); fitCanvas(overlayCanvas);
- const w=cloudCanvas.width,h=cloudCanvas.height;
- cloudCtx.clearRect(0,0,w,h);
- cloudCtx.fillStyle='#000'; cloudCtx.fillRect(0,0,w,h);
- overlayCtx.clearRect(0,0,w,h);
+  function stopCamera(){
+    if(state.stream){
+      state.stream.getTracks().forEach(t => t.stop());
+      state.stream = null;
+    }
+  }
 
- cloudCtx.globalCompositeOperation='lighter';
- for(let i=0;i<points.length;i++){
-   const p=points[i], c=p.color;
-   let x=p.u*w, y=p.v*h;
-   const st=pointStyleFor(p.z);
-   const jitter=((i*16807)%997)/997;
-   const jx=(jitter-.5) * (density==='HIGH'?2.5:density==='MED'?2.0:1.5);
-   const jy=(((i*48271)%991)/991-.5) * (density==='HIGH'?2.8:density==='MED'?2.0:1.4);
-   x+=jx; y+=jy;
-   cloudCtx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${st.glow})`;
-   cloudCtx.beginPath(); cloudCtx.arc(x,y,st.r*2.1,0,Math.PI*2); cloudCtx.fill();
-   cloudCtx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${st.alpha})`;
-   cloudCtx.beginPath(); cloudCtx.arc(x,y,st.r,0,Math.PI*2); cloudCtx.fill();
-   if(styleMode==='REALISTIC' && density!=='LOW' && p.z<Math.min(range,3.2)){
-     cloudCtx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},0.38)`;
-     cloudCtx.fillRect(x+0.6,y+0.3,.9,.9);
-   }
- }
- cloudCtx.globalCompositeOperation='source-over';
- drawCloudTitle(w);
- if(withShapes) drawShapeOverlay(w,h);
-}
+  function clamp(v,a,b){ return v < a ? a : v > b ? b : v; }
+  function hash01(x,y,seed){
+    const s = Math.sin(x*127.1 + y*311.7 + seed*17.17) * 43758.5453123;
+    return s - Math.floor(s);
+  }
 
-function drawCloudTitle(w){
- cloudCtx.fillStyle='rgba(220,248,252,.92)';
- cloudCtx.font=`${Math.max(16,Math.round(w/42))}px monospace`;
- const label=view==='PS'?'POINT+SHAPES':'POINT CLOUD';
- cloudCtx.fillText(`ROBOT VISION · ${label} · ${latestFramePoints.length.toLocaleString()} pts`,18,32);
-}
+  function analyzeFrame(){
+    const w = workCanvas.width, h = workCanvas.height;
+    wctx.drawImage(video, 0, 0, w, h);
+    const frame = wctx.getImageData(0,0,w,h);
+    const src = frame.data;
+    const gray = new Float32Array(w*h);
+    const edge = new Float32Array(w*h);
+    const prox = new Float32Array(w*h);
+    const depthImg = dctx.createImageData(w,h);
+    const dst = depthImg.data;
 
-function classifyPoint(p){
- if(p.py < -0.18 && p.z < range) return 'FLOOR';
- if(p.z < 1.9 && Math.abs(p.px) < 1.8 && p.py > -0.4 && p.py < 0.95) return 'OBSTACLE';
- return 'SURFACE';
-}
+    for(let i=0, p=0; i<w*h; i++, p+=4){
+      gray[i] = src[p]*0.2126 + src[p+1]*0.7152 + src[p+2]*0.0722;
+    }
 
-function extractShapes(points){
- const cols=12, rows=7, cells=[];
- for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) cells.push({count:0,depth:0,floor:0,surface:0,obstacle:0,r,c});
- for(const p of points){
-   const c=Math.min(cols-1,Math.max(0,Math.floor(p.u*cols)));
-   const r=Math.min(rows-1,Math.max(0,Math.floor(p.v*rows)));
-   const cell=cells[r*cols+c]; cell.count++; cell.depth+=p.z;
-   const cl=classifyPoint(p).toLowerCase(); cell[cl]++;
- }
- const regions=[];
- for(const cell of cells){
-   if(cell.count < (density==='HIGH'?10:6)) continue;
-   const avg=cell.depth/cell.count;
-   let label='SURFACE',score=cell.surface;
-   if(cell.floor>score){label='FLOOR';score=cell.floor}
-   if(cell.obstacle>score){label='OBSTACLE';score=cell.obstacle}
-   regions.push({label,r:cell.r,c:cell.c,confidence:score/cell.count,avgDepth:avg,count:cell.count});
- }
- const key=(r,c)=>`${r},${c}`;
- const map=new Map(regions.map(g=>[key(g.r,g.c),g]));
- const seen=new Set();
- const merged=[];
- for(const g of regions){
-   const k=key(g.r,g.c); if(seen.has(k)) continue;
-   const stack=[g], comp=[]; seen.add(k);
-   while(stack.length){
-     const cur=stack.pop(); comp.push(cur);
-     [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr,dc])=>{
-       const nk=key(cur.r+dr,cur.c+dc), ng=map.get(nk);
-       if(ng && ng.label===cur.label && !seen.has(nk)){seen.add(nk); stack.push(ng)}
-     });
-   }
-   const rs=comp.map(x=>x.r), cs=comp.map(x=>x.c);
-   const avgDepth=comp.reduce((a,b)=>a+b.avgDepth,0)/comp.length;
-   const conf=comp.reduce((a,b)=>a+b.confidence,0)/comp.length;
-   merged.push({
-     label:g.label,
-     r0:Math.min(...rs), r1:Math.max(...rs), c0:Math.min(...cs), c1:Math.max(...cs),
-     avgDepth, confidence:conf, cells:comp.length,
-     area:(Math.max(...cs)-Math.min(...cs)+1)*(Math.max(...rs)-Math.min(...rs)+1)
-   });
- }
- return merged.filter(r=>r.confidence>.52).sort((a,b)=>{
-   const wb=(b.label==='OBSTACLE'?0.4:0)+(b.area*.2)+((1/b.avgDepth)*3)+b.confidence;
-   const wa=(a.label==='OBSTACLE'?0.4:0)+(a.area*.2)+((1/a.avgDepth)*3)+a.confidence;
-   return wb-wa;
- }).slice(0,8);
-}
+    for(let y=0; y<h; y++){
+      for(let x=0; x<w; x++){
+        const i = y*w + x;
+        const g = gray[i];
+        const gx = x < w-1 ? Math.abs(g - gray[i+1]) : 0;
+        const gy = y < h-1 ? Math.abs(g - gray[i+w]) : 0;
+        const e = Math.min(255, gx + gy);
+        edge[i] = e;
 
-function drawShapeOverlay(w,h){
- overlayCtx.clearRect(0,0,w,h);
- const cols=12, rows=7, cw=w/cols, rh=h/rows;
- const topLabels = labelsOn ? latestShapeRegions.slice(0,4) : [];
- const palette={
-   FLOOR:['rgba(103,255,124,.10)','rgba(103,255,124,.98)'],
-   SURFACE:['rgba(52,229,255,.08)','rgba(52,229,255,.98)'],
-   OBSTACLE:['rgba(255,179,71,.10)','rgba(255,179,71,.98)']
- };
- for(const r of latestShapeRegions){
-   const x=r.c0*cw+3, y=r.r0*rh+3, bw=(r.c1-r.c0+1)*cw-6, bh=(r.r1-r.r0+1)*rh-6;
-   if(bw<30||bh<24) continue;
-   const [fill,stroke]=palette[r.label];
-   roundRect(overlayCtx,x,y,bw,bh,14,fill,stroke,1.8);
- }
- for(const r of topLabels){
-   const x=r.c0*cw+8, y=r.r0*rh+8, bw=(r.c1-r.c0+1)*cw-16;
-   const label=`${r.label}  ${r.avgDepth.toFixed(1)}m  ${Math.round(r.confidence*100)}%`;
-   overlayCtx.font=`${Math.max(14,Math.round(w/56))}px monospace`;
-   const textW=Math.min(bw, overlayCtx.measureText(label).width+16);
-   roundRect(overlayCtx,x,y,textW,26,10,'rgba(2,8,12,.72)',palette[r.label][1],1.4);
-   overlayCtx.fillStyle='rgba(232,250,255,.96)';
-   overlayCtx.fillText(label,x+8,y+17);
- }
-}
+        const lum = g / 255;
+        const yN = y / (h-1);
+        const eN = Math.min(1, e / 92);
+        // proximity: 0 far, 1 near. tuned for a more readable robot-like cloud.
+        let pNear = 0.50 * (1 - lum) + 0.25 * yN + 0.25 * eN;
+        pNear = clamp(pNear, 0, 1);
+        prox[i] = pNear;
 
-function roundRect(ctx,x,y,w,h,r,fill,stroke,lw=2){
- ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
- if(fill){ctx.fillStyle=fill;ctx.fill()} if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke()}
-}
+        const c = heatColor(pNear);
+        const idx = i*4;
+        dst[idx] = c[0]; dst[idx+1] = c[1]; dst[idx+2] = c[2]; dst[idx+3] = 255;
+      }
+    }
+    dctx.putImageData(depthImg, 0, 0);
+    const shapes = extractShapes(src, gray, edge, prox, w, h);
+    const cloud = buildPointCloud(src, edge, prox, w, h);
 
-function updateChips(){
- $('styleValue').textContent=styleMode;
- $('rangeValue').textContent=range.toFixed(1)+'m';
- const bar=$('chipBar'); bar.innerHTML='';
- if(view==='PS' || view==='POINT'){
-   latestShapeRegions.slice(0,4).forEach(r=>{
-     const chip=document.createElement('div'); chip.className='chip';
-     chip.innerHTML=`<strong>${r.label}</strong> · ${r.avgDepth.toFixed(1)}m · ${Math.round(r.confidence*100)}%`;
-     bar.appendChild(chip);
-   });
-   if(!bar.children.length){
-     const chip=document.createElement('div'); chip.className='chip'; chip.textContent='Escanea una escena para identificar piso, superficies y obstáculos';
-     bar.appendChild(chip);
-   }
- }
-}
+    state.cloudPoints = cloud;
+    state.cloudHistory.unshift(cloud);
+    state.cloudHistory = state.cloudHistory.slice(0, 3);
+    state.shapes = shapes;
+    state.lastAnalysis = { src, gray, edge, prox, w, h };
+    els.pointsValue.textContent = cloud.length.toLocaleString('en-US');
+    els.shapesValue.textContent = shapes.length;
+  }
 
-async function startXR(){
- try{
-   showLoading('ROBOT VISION XR V22','Solicitando sesión WebXR con ARCore Depth…');
-   xrGL=xrCanvas.getContext('webgl',{xrCompatible:true,alpha:true,antialias:false});
-   await xrGL.makeXRCompatible();
-   xrSession=await navigator.xr.requestSession('immersive-ar',{
-     requiredFeatures:['local','depth-sensing','dom-overlay'],
-     depthSensing:{usagePreference:['cpu-optimized'],dataFormatPreference:['luminance-alpha','float32']},
-     domOverlay:{root:document.body}
-   });
-   xrSession.updateRenderState({baseLayer:new XRWebGLLayer(xrSession,xrGL)});
-   xrSpace=await xrSession.requestReferenceSpace('local');
-   xrSession.addEventListener('end',endXR);
-   $('home').style.display='none'; $('app').style.display='block';
-   buildTabs(); syncLayers(); updateChips();
-   $('state').textContent='ARCore activo';
-   hideLoading();
-   xrSession.requestAnimationFrame(onXRFrame);
- }catch(e){
-   hideLoading(); alert('No se pudo iniciar WebXR:\n'+(e.message||e));
- }
-}
-function endXR(){ $('app').style.display='none'; $('home').style.display='block'; xrSession=null; }
+  function heatColor(pNear){
+    // far -> blue/cyan, near -> yellow/orange
+    const hue = 228 - pNear * 188;
+    return hslToRgb(hue/360, 0.95, 0.58);
+  }
 
-function onXRFrame(t, frame){
- if(!xrSession) return;
- xrSession.requestAnimationFrame(onXRFrame);
- const pose=frame.getViewerPose(xrSpace); if(!pose) return;
- const layer=xrSession.renderState.baseLayer;
- xrGL.bindFramebuffer(xrGL.FRAMEBUFFER, layer.framebuffer);
- const black=(view==='POINT'||view==='PS');
- xrGL.clearColor(0,0,0,black?1:0); xrGL.clear(xrGL.COLOR_BUFFER_BIT|xrGL.DEPTH_BUFFER_BIT);
- for(const v of pose.views){
-   const vp=layer.getViewport(v); xrGL.viewport(vp.x,vp.y,vp.width,vp.height);
-   if(t-xrLastCapture>140){
-     try{ const d=frame.getDepthInformation(v); if(d) captureDepth(v,d) }catch{}
-   }
- }
- if(t-xrLastCapture>140) xrLastCapture=t;
- fpsFrames++; if(t-fpsLast>1000){ $('fps').textContent=fpsFrames; fpsFrames=0; fpsLast=t; }
-}
+  function hslToRgb(h,s,l){
+    let r,g,b;
+    if(s===0){r=g=b=l;} else {
+      const hue2rgb = (p,q,t) => {
+        if(t<0) t+=1; if(t>1) t-=1;
+        if(t<1/6) return p + (q-p)*6*t;
+        if(t<1/2) return q;
+        if(t<2/3) return p + (q-p)*(2/3 - t)*6;
+        return p;
+      };
+      const q = l < 0.5 ? l*(1+s) : l+s-l*s;
+      const p = 2*l-q;
+      r = hue2rgb(p,q,h+1/3); g = hue2rgb(p,q,h); b = hue2rgb(p,q,h-1/3);
+    }
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+  }
 
-$('startBtn').onclick=startXR;
-$('styleBtn').onclick=()=>{
-  const opts=['REALISTIC','NEON'];
-  styleMode=opts[(opts.indexOf(styleMode)+1)%opts.length];
-  $('styleBtn').textContent='STYLE '+styleMode;
-  toast('Estilo: '+styleMode);
-  if(view==='DEPTH'&&latestDepthInfo) drawDepthView(latestDepthInfo);
-  if((view==='POINT'||view==='PS')&&latestFramePoints.length) drawPointCloudView(latestFramePoints,view==='PS');
-  updateChips();
-};
-$('densityBtn').onclick=()=>{
-  const o=['LOW','MED','HIGH']; density=o[(o.indexOf(density)+1)%o.length]; $('densityBtn').textContent='DENSIDAD '+density; $('state').textContent=`densidad ${density}`; toast('Densidad: '+density);
-};
-$('rangeBtn').onclick=()=>{
-  const o=[2.5,4.0,6.5],i=o.indexOf(range); range=o[(i+1)%o.length]; $('rangeBtn').textContent='RANGO '+range.toFixed(1)+'M'; $('state').textContent=`rango ${range.toFixed(1)}m`; $('rangeValue').textContent=range.toFixed(1)+'m'; toast('Rango: '+range.toFixed(1)+'m');
-};
-$('labelsBtn').onclick=()=>{
-  labelsOn=!labelsOn; $('labelsBtn').textContent='LABELS '+(labelsOn?'ON':'OFF'); $('labelsBtn').classList.toggle('on',labelsOn);
-  if(view==='PS'&&latestFramePoints.length) drawPointCloudView(latestFramePoints,true);
-  toast(labelsOn?'Etiquetas activadas':'Etiquetas ocultas');
-};
-$('resetBtn').onclick=()=>{
-  latestFramePoints=[]; latestShapeRegions=[]; latestDepthInfo=null;
-  $('pointCount').textContent='0'; $('shapeCount').textContent='0';
-  [depthCtx,cloudCtx,overlayCtx].forEach(ctx=>ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height));
-  $('state').textContent='reset'; updateChips(); toast('Escena reiniciada');
-};
-$('exitBtn').onclick=()=>{ try{ xrSession?.end() }catch{} };
+  function buildPointCloud(src, edge, prox, w, h){
+    const cfg = densityCfg[state.density];
+    const stride = cfg.stride;
+    const points = [];
+    const seed = state.frame * 0.013;
+    const range = state.ranges[state.rangeIndex];
 
-(async function init(){
- $('secureStatus').textContent=window.isSecureContext?'OK':'NO — requiere HTTPS';
- if(navigator.xr){
-   try{ const ok=await navigator.xr.isSessionSupported('immersive-ar'); $('xrStatus').textContent=ok?'compatible':'no compatible'; $('startBtn').disabled=!ok; }
-   catch{ $('xrStatus').textContent='error'; }
- }else $('xrStatus').textContent='no disponible';
+    for(let y=0; y<h; y += stride){
+      for(let x=0; x<w; x += stride){
+        const i = y*w + x;
+        const e = edge[i];
+        const pNear = prox[i];
+        const rand = hash01(x, y, seed);
+        const keep = e > 22 || rand < cfg.baseProb + pNear * 0.18;
+        if(!keep) continue;
+
+        const pix = i*4;
+        const r = src[pix], g = src[pix+1], b = src[pix+2];
+        const jitterX = (hash01(x+11, y+7, seed) - 0.5) * stride * 0.95;
+        const jitterY = (hash01(x+23, y+19, seed) - 0.5) * stride * 0.95;
+
+        // preserve image form and add a small depth-based perspective push
+        const nx = (x + jitterX) / w;
+        const ny = (y + jitterY) / h;
+        const px = nx * mainCanvas.width;
+        const py = ny * mainCanvas.height;
+        const cx = px - mainCanvas.width * 0.5;
+        const cy = py - mainCanvas.height * 0.5;
+        const push = (pNear - 0.32) * 0.18;
+        const sx = px + cx * push * 0.08;
+        const sy = py + cy * push * 0.08;
+
+        const depthMeters = (1 - pNear) * range + 0.35;
+        const size = e > 40 ? 2.4 : e > 20 ? 1.9 : 1.35;
+        points.push({ x:sx, y:sy, r,g,b, pNear, size, z:depthMeters, edge:e });
+      }
+    }
+    return points;
+  }
+
+  function extractShapes(src, gray, edge, prox, w, h){
+    const cell = 12;
+    const gw = Math.ceil(w / cell), gh = Math.ceil(h / cell);
+    const cells = Array.from({length: gh}, () => Array(gw).fill(null));
+
+    for(let gy=0; gy<gh; gy++){
+      for(let gx=0; gx<gw; gx++){
+        let count=0, sumP=0, sumE=0, sumY=0;
+        const x0 = gx * cell, y0 = gy * cell;
+        const x1 = Math.min(w, x0 + cell), y1 = Math.min(h, y0 + cell);
+        for(let y=y0; y<y1; y++){
+          for(let x=x0; x<x1; x++){
+            const i = y*w + x;
+            count++;
+            sumP += prox[i];
+            sumE += edge[i];
+            sumY += y / h;
+          }
+        }
+        const avgP = sumP / count;
+        const avgE = sumE / count;
+        const avgY = sumY / count;
+        let type = 'surface';
+        if(avgY > 0.66 && avgP > 0.36 && avgE < 52) type = 'floor';
+        else if(avgP > 0.44 && avgE > 20) type = 'obstacle';
+        else type = 'surface';
+        cells[gy][gx] = { type, avgP, avgE, x0, y0, x1, y1, used:false };
+      }
+    }
+
+    const shapes = [];
+    const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+    for(let gy=0; gy<gh; gy++){
+      for(let gx=0; gx<gw; gx++){
+        const start = cells[gy][gx];
+        if(start.used) continue;
+        start.used = true;
+        const type = start.type;
+        const queue = [[gx,gy]];
+        let minX = start.x0, minY = start.y0, maxX = start.x1, maxY = start.y1;
+        let score=0, count=0, sumP=0;
+        while(queue.length){
+          const [cx,cy] = queue.pop();
+          const c = cells[cy][cx];
+          minX = Math.min(minX, c.x0); minY = Math.min(minY, c.y0);
+          maxX = Math.max(maxX, c.x1); maxY = Math.max(maxY, c.y1);
+          score += c.avgE; count++; sumP += c.avgP;
+          for(const [dx,dy] of dirs){
+            const nx = cx + dx, ny = cy + dy;
+            if(nx<0||ny<0||nx>=gw||ny>=gh) continue;
+            const n = cells[ny][nx];
+            if(n.used || n.type !== type) continue;
+            if(Math.abs(n.avgP - c.avgP) > 0.22) continue;
+            n.used = true;
+            queue.push([nx,ny]);
+          }
+        }
+        const bw = maxX - minX, bh = maxY - minY;
+        const area = bw * bh;
+        if(area < 900) continue;
+        if(type === 'floor' && minY < h*0.45) continue;
+        const conf = clamp((score / Math.max(1,count)) / 56 + 0.55, 0.55, 0.98);
+        const dist = (1 - (sumP / count)) * state.ranges[state.rangeIndex] + 0.35;
+        shapes.push({ type, x:minX, y:minY, w:bw, h:bh, conf, dist });
+      }
+    }
+
+    // keep only the most useful boxes
+    shapes.sort((a,b) => (b.w*b.h) - (a.w*a.h));
+    const filtered = [];
+    for(const s of shapes){
+      if(filtered.length >= 5) break;
+      if(s.type === 'surface' && filtered.some(f => f.type === 'surface')) continue;
+      if(s.type === 'floor' && filtered.some(f => f.type === 'floor')) continue;
+      filtered.push(s);
+    }
+    return filtered;
+  }
+
+  function renderFrame(){
+    if(!state.lastAnalysis){
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0,0,mainCanvas.width,mainCanvas.height);
+      return;
+    }
+    switch(state.mode){
+      case 'rgb': renderRGB(); break;
+      case 'depth': renderDepth(); break;
+      case 'point': renderPointCloud(false); break;
+      case 'pointshapes': renderPointCloud(true); break;
+    }
+  }
+
+  function renderRGB(){
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,mainCanvas.width,mainCanvas.height);
+    ctx.drawImage(video, 0, 0, mainCanvas.width, mainCanvas.height);
+  }
+
+  function renderDepth(){
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,mainCanvas.width,mainCanvas.height);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(depthCanvas, 0, 0, mainCanvas.width, mainCanvas.height);
+  }
+
+  function drawPoint(p, alpha){
+    const color = state.style === 'rgb'
+      ? `rgba(${p.r},${p.g},${p.b},${alpha})`
+      : state.style === 'depth'
+        ? `hsla(${228 - p.pNear*188} 92% 60% / ${alpha})`
+        : `hsla(${228 - p.pNear*188} 100% ${52 + p.pNear*8}% / ${alpha})`;
+    ctx.fillStyle = color;
+    if(state.style === 'neon' && alpha > 0.35){
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = color;
+    } else {
+      ctx.shadowBlur = 0;
+    }
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+    ctx.fill();
+  }
+
+  function renderPointCloud(withShapes){
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0,0,mainCanvas.width,mainCanvas.height);
+
+    const history = state.cloudHistory;
+    for(let h=history.length-1; h>=0; h--){
+      const pts = history[h];
+      const alphaBase = h === 0 ? 0.95 : h === 1 ? 0.33 : 0.14;
+      for(let i=0; i<pts.length; i++) drawPoint(pts[i], alphaBase);
+    }
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = 'rgba(220,247,255,.92)';
+    ctx.font = `${Math.max(18, mainCanvas.width*0.018)}px Consolas, Menlo, monospace`;
+    const title = withShapes ? 'ROBOT CLOUD · POINT+SHAPES' : 'ROBOT CLOUD · REALISTIC POINT CLOUD';
+    ctx.fillText(title, 18 * devicePixelRatio, 34 * devicePixelRatio);
+    ctx.font = `${Math.max(14, mainCanvas.width*0.013)}px Consolas, Menlo, monospace`;
+    ctx.fillText(`${state.cloudPoints.length.toLocaleString('en-US')} pts · ${state.style.toUpperCase()} · ${densityCfg[state.density].label} · ${state.ranges[state.rangeIndex].toFixed(1)}m`, 18 * devicePixelRatio, 60 * devicePixelRatio);
+
+    if(withShapes) drawShapeOverlay();
+  }
+
+  function drawShapeOverlay(){
+    const sx = mainCanvas.width / workCanvas.width;
+    const sy = mainCanvas.height / workCanvas.height;
+
+    // Keep all useful boxes, but show text only on the 3 most relevant regions.
+    const ranked = [...state.shapes].sort((a,b) => {
+      const wa = (a.type === 'obstacle' ? 2.2 : a.type === 'floor' ? 1.2 : 1.0) + a.conf * 2 + 1/Math.max(.3,a.dist);
+      const wb = (b.type === 'obstacle' ? 2.2 : b.type === 'floor' ? 1.2 : 1.0) + b.conf * 2 + 1/Math.max(.3,b.dist);
+      return wb - wa;
+    });
+    const labeled = new Set(ranked.slice(0,3));
+
+    for(const s of state.shapes){
+      const x = s.x * sx, y = s.y * sy, w = s.w * sx, h = s.h * sy;
+      const color = s.type === 'floor'
+        ? 'rgba(104,255,114,.95)'
+        : s.type === 'surface'
+          ? 'rgba(57,213,255,.95)'
+          : 'rgba(255,179,71,.95)';
+      const fill = s.type === 'floor'
+        ? 'rgba(104,255,114,.055)'
+        : s.type === 'surface'
+          ? 'rgba(57,213,255,.055)'
+          : 'rgba(255,179,71,.075)';
+
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(x,y,w,h);
+      ctx.strokeRect(x,y,w,h);
+
+      if(!labeled.has(s)) continue;
+
+      const label = `${s.type.toUpperCase()}  ${s.dist.toFixed(1)}m  ${Math.round(s.conf*100)}%`;
+      ctx.font = `${Math.max(12, mainCanvas.width*0.011)}px Consolas, Menlo, monospace`;
+      const padX = 7, labelH = 20;
+      const tw = Math.min(w, ctx.measureText(label).width + padX*2);
+
+      ctx.fillStyle = 'rgba(2,12,18,.88)';
+      ctx.fillRect(x, Math.max(0, y - labelH), tw, labelH);
+      ctx.strokeRect(x, Math.max(0, y - labelH), tw, labelH);
+
+      ctx.fillStyle = color;
+      ctx.fillText(label, x + padX, Math.max(15, y - 5));
+    }
+  }
+
+  function loop(ts){
+    if(!state.stream || video.readyState < 2){
+      requestAnimationFrame(loop); return;
+    }
+    state.frame++;
+    analyzeFrame();
+    renderFrame();
+    state.fpsCounter++;
+    if(ts - state.lastFpsTs > 1000){
+      state.fps = Math.round(state.fpsCounter * 1000 / (ts - state.lastFpsTs));
+      state.fpsCounter = 0;
+      state.lastFpsTs = ts;
+      els.fpsValue.textContent = state.fps;
+    }
+    requestAnimationFrame(loop);
+  }
+
+  startCamera();
 })();
 </script>
 </body>

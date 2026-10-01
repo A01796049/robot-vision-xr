@@ -1,35 +1,30 @@
-# Robot Vision XR — V20 Core
+# Robot Vision XR — V22.1
 
-Versión básica y optimizada para demo en celular.
+Esta versión corrige la regresión de V22.
 
-## Qué incluye
-- `RGB`
-- `DEPTH`
-- `POINT CLOUD`
-- `SHAPES`
+## Qué se conserva exactamente
+- El motor visual de V21
+- POINT CLOUD orgánico
+- POINT+SHAPES
+- STYLE NEON / RGB / DEPTH
+- Persistencia corta
+- Bordes y detalle visual
 
-## Enfoque
-- Solo usa `ARCore Depth`
-- No incluye IA pesada
-- Busca emular cómo “ve” un robot usando nube de puntos y formas geométricas simples
+## Qué cambia
+- Layout responsive para móvil y tableta
+- HUD más compacto
+- Máximo 3 etiquetas visibles sobre los recuadros
+- Cajas más transparentes y menos invasivas
 
-## Controles
-- `STYLE`: DEPTH / NEON / DENSE
-- `DENSIDAD`: LOW / MED / HIGH
-- `RANGO`: 2.5M / 4.0M / 6.5M
+## Importante
+No se reescribió el algoritmo de nube de puntos que funcionaba en V21.
 
-## SHAPES
-La vista SHAPES usa heurísticas geométricas ligeras para marcar:
-- `FLOOR`
-- `SURFACE`
-- `OBSTACLE`
-
-## Publicación
-Sube estos archivos a la raíz de tu repo GitHub Pages:
+## GitHub Pages
+Sube:
 - index.html
 - .nojekyll
 - README.md
 - VERSION.txt
 
 Prueba con:
-https://a01796049.github.io/robot-vision-xr/?v=20
+https://a01796049.github.io/robot-vision-xr/?v=22.1
