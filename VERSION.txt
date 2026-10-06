@@ -1,2 +1,2 @@
 Robot Vision XR
-V23 Real Depth
+V24 Zero Install
