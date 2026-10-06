@@ -1,31 +1,10 @@
-# Robot Vision XR — V24 Zero Install
+# Robot Vision XR — V24.1 Zero Install
 
-## Objetivo
-Demo 100% browser-only:
-abrir URL → permitir cámara → usarla.
-
-## No requiere
-- WebXR
-- ARCore
-- Google Play Services for AR
-- APK
-- instalación de software
-- modelos de IA
-
-## Modos
-- RGB
-- VISUAL DEPTH
-- POINT CLOUD
-- POINT+SHAPES
-
-## Distancia
-Esta versión NO muestra metros.
-Las regiones se clasifican como:
-- NEAR
-- MID
-- FAR
-
-Esto evita presentar una distancia falsa como si fuera métrica.
+## Cambio frente a V24
+- Reduce el tamaño de fuente de las etiquetas `FLOOR`, `SURFACE` y `OBSTACLE`.
+- Reduce ligeramente la altura de la etiqueta.
+- Mantiene intactos los recuadros, el point cloud y el resto del HUD.
+- Sigue siendo 100% navegador y zero-install.
 
 ## GitHub Pages
 Sube:
@@ -35,4 +14,4 @@ Sube:
 - VERSION.txt
 
 Prueba:
-https://a01796049.github.io/robot-vision-xr/?v=24
+https://a01796049.github.io/robot-vision-xr/?v=24.1
