@@ -49,8 +49,8 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
 
 <main id="home">
   <div class="wrap">
-    <h1>ROBOT VISION XR · V24.1 ZERO INSTALL</h1>
-    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena.</p>
+    <h1>ROBOT VISION XR · V24.2 ZERO INSTALL</h1>
+    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena. En V24.2 se refuerza la nube de puntos y se limpian las capas de POINT+SHAPES para que la nube no se pierda.</p>
 
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="https" class="ok">comprobando…</span></div>
@@ -60,7 +60,7 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
     </section>
 
     <section class="card">
-      <button id="start" class="start">INICIAR V24.1 · ZERO INSTALL</button>
+      <button id="start" class="start">INICIAR V24.2 · ZERO INSTALL</button>
       <small>
         <b>RGB</b> · cámara real<br>
         <b>VISUAL DEPTH</b> · estimación visual ligera, no métrica<br>
@@ -79,7 +79,7 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
   <canvas id="overlay"></canvas>
 
   <div id="lh" class="hud">
-    <b>V24.1 · ZERO INSTALL</b><br>
+    <b>V24.2 · ZERO INSTALL</b><br>
     vista <span id="view" class="metric">RGB</span><br>
     estado <span id="state" class="metric">--</span><br>
     cámara <span id="res" class="metric">--</span><br>
@@ -187,14 +187,26 @@ function analyze(){
 function makeCloud(src,edge,prox,W,H){
   const c=cfg[density],out=[],seed=frameNo*.013;
   for(let y=0;y<H;y+=c.stride){
-    for(let x=0;x<W;x+=c.stride){
+    const rowOffset=((y*7)%c.stride);
+    for(let x=rowOffset;x<W;x+=c.stride){
       const i=y*W+x,e=edge[i],near=prox[i],rnd=hash01(x,y,seed);
-      if(!(e>22||rnd<c.keep+near*.18))continue;
+      const edgeKeep=e>46 ? .98 : e>28 ? .80 : e>16 ? .46 : .14;
+      const keep=edgeKeep + c.keep + near*.14;
+      if(rnd>keep)continue;
+
       const k=i*4,r=src[k],g=src[k+1],b=src[k+2];
-      const jx=(hash01(x+11,y+7,seed)-.5)*c.stride*.95;
-      const jy=(hash01(x+23,y+19,seed)-.5)*c.stride*.95;
+      const jx=(hash01(x+11,y+7,seed)-.5)*c.stride*1.08;
+      const jy=(hash01(x+23,y+19,seed)-.5)*c.stride*1.08;
       const u=(x+jx)/W,v=(y+jy)/H;
-      out.push({u,v,r,g,b,near,size:e>40?2.3:e>20?1.8:1.25});
+      const base=e>48?2.35:e>26?1.85:1.25;
+      out.push({u,v,r,g,b,near,size:base,edge:e});
+
+      // Extra micro-particles around stronger contours for a fuller robot-vision look.
+      if(e>26 && rnd<.64){
+        const u2=(x-jx*.55 + (hash01(x+31,y+13,seed)-.5)*c.stride*.55)/W;
+        const v2=(y-jy*.55 + (hash01(x+41,y+29,seed)-.5)*c.stride*.55)/H;
+        out.push({u:u2,v:v2,r,g,b,near,size:Math.max(1.0,base*.72),edge:e});
+      }
     }
   }
   return out;
@@ -248,14 +260,23 @@ function render(){
     ctx.clearRect(0,0,main.width,main.height);ctx.imageSmoothingEnabled=false;ctx.drawImage(depth,0,0,main.width,main.height);return;
   }
 
+  const inShapes = mode==='PS';
   ctx.fillStyle='#000';ctx.fillRect(0,0,main.width,main.height);ctx.globalCompositeOperation='lighter';
   for(let h=history.length-1;h>=0;h--){
-    const alpha=h===0?.95:h===1?.34:.14;
+    const alpha=h===0?(inShapes?1.0:.95):h===1?(inShapes?.40:.34):.16;
     for(let i=0;i<history[h].length;i++){
       const p=history[h][i],x=p.u*main.width,y=p.v*main.height;
       const c=style==='RGB'?[p.r,p.g,p.b]:heat(p.near);
-      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha*.18})`;ctx.beginPath();ctx.arc(x,y,p.size*2.1,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha})`;ctx.beginPath();ctx.arc(x,y,p.size,0,Math.PI*2);ctx.fill();
+      const glowMul=inShapes?2.35:2.1;
+      const coreMul=inShapes?1.08:1.0;
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha*.16})`;
+      ctx.beginPath();ctx.arc(x,y,p.size*glowMul,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha})`;
+      ctx.beginPath();ctx.arc(x,y,p.size*coreMul,0,Math.PI*2);ctx.fill();
+      if(inShapes && (i%4===0)){
+        ctx.fillStyle=`rgba(${c[0]},${c[1]},${c[2]},${alpha*.42})`;
+        ctx.fillRect(x+.6,y-.3,1,1);
+      }
     }
   }
   ctx.globalCompositeOperation='source-over';
@@ -268,22 +289,38 @@ function render(){
 
 function drawBoxes(){
   const sx=overlay.width/work.width,sy=overlay.height/work.height;
-  const pal={floor:['rgba(103,255,124,.06)','rgba(103,255,124,.98)'],surface:['rgba(52,229,255,.055)','rgba(52,229,255,.98)'],obstacle:['rgba(255,179,71,.075)','rgba(255,179,71,.98)']};
+  const pal={
+    floor:['rgba(103,255,124,.018)','rgba(103,255,124,.95)'],
+    surface:['rgba(52,229,255,.015)','rgba(52,229,255,.95)'],
+    obstacle:['rgba(255,179,71,.02)','rgba(255,179,71,.96)']
+  };
+
   for(const s of shapes){
     const x=s.x*sx,y=s.y*sy,w=s.w*sx,h=s.h*sy,[fill,stroke]=pal[s.type];
-    octx.fillStyle=fill;octx.strokeStyle=stroke;octx.lineWidth=1.5;octx.fillRect(x,y,w,h);octx.strokeRect(x,y,w,h);
+    octx.fillStyle=fill;
+    octx.strokeStyle=stroke;
+    octx.lineWidth=1.15;
+    octx.fillRect(x,y,w,h);
+    octx.strokeRect(x,y,w,h);
   }
+
   if(!labels)return;
-  for(const s of shapes.slice(0,3)){
+
+  // Only label the two most relevant regions so the cloud remains readable.
+  for(const s of shapes.slice(0,2)){
     const x=s.x*sx+7,y=s.y*sy+7,w=s.w*sx-14;
     const lab=`${s.type.toUpperCase()} · ${s.zone} · GEOM ${Math.round(s.conf*100)}%`;
-    // V24.1: smaller shape labels for cleaner phone/tablet presentation.
-    octx.font=`${Math.max(10,Math.round(overlay.width/76))}px monospace`;
-    const labelH=20;
-    const tw=Math.min(Math.max(118,octx.measureText(lab).width+12),Math.max(118,w));
+    octx.font=`${Math.max(10,Math.round(overlay.width/80))}px monospace`;
+    const labelH=18;
+    const tw=Math.min(Math.max(112,octx.measureText(lab).width+12),Math.max(112,w));
     const stroke=pal[s.type][1];
-    octx.fillStyle='rgba(2,9,13,.82)';octx.strokeStyle=stroke;octx.fillRect(x,y,tw,labelH);octx.strokeRect(x,y,tw,labelH);
-    octx.fillStyle='#eefcff';octx.fillText(lab,x+6,y+14);
+    octx.fillStyle='rgba(2,9,13,.70)';
+    octx.strokeStyle=stroke;
+    octx.lineWidth=1.0;
+    octx.fillRect(x,y,tw,labelH);
+    octx.strokeRect(x,y,tw,labelH);
+    octx.fillStyle='#eefcff';
+    octx.fillText(lab,x+6,y+13);
   }
 }
 
@@ -291,7 +328,7 @@ function chips(){
   $('stylev').textContent=style;
   const b=$('chips');b.innerHTML='';
   if(mode!=='POINT'&&mode!=='PS')return;
-  shapes.slice(0,3).forEach(s=>{const d=document.createElement('div');d.className='chip';d.innerHTML=`<b>${s.type.toUpperCase()}</b> · ${s.zone} · GEOM ${Math.round(s.conf*100)}%`;b.appendChild(d)});
+  shapes.slice(0,2).forEach(s=>{const d=document.createElement('div');d.className='chip';d.innerHTML=`<b>${s.type.toUpperCase()}</b> · ${s.zone} · GEOM ${Math.round(s.conf*100)}%`;b.appendChild(d)});
 }
 
 function loop(t){

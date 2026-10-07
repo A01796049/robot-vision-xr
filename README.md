@@ -1,10 +1,17 @@
-# Robot Vision XR — V24.1 Zero Install
+# Robot Vision XR — V24.2 Zero Install
 
-## Cambio frente a V24
-- Reduce el tamaño de fuente de las etiquetas `FLOOR`, `SURFACE` y `OBSTACLE`.
-- Reduce ligeramente la altura de la etiqueta.
-- Mantiene intactos los recuadros, el point cloud y el resto del HUD.
-- Sigue siendo 100% navegador y zero-install.
+## Qué mejora frente a V24.1
+- Nube de puntos más densa y más clara
+- Más peso a bordes y contornos
+- Micro-partículas extra para reforzar el volumen
+- En `POINT+SHAPES` la nube se refuerza para no perder presencia
+- Recuadros mucho más ligeros
+- Máximo 2 etiquetas visibles para reducir saturación
+
+## Sigue siendo
+- 100% navegador
+- Zero-install
+- Sin WebXR / ARCore / APKs
 
 ## GitHub Pages
 Sube:
@@ -14,4 +21,4 @@ Sube:
 - VERSION.txt
 
 Prueba:
-https://a01796049.github.io/robot-vision-xr/?v=24.1
+https://a01796049.github.io/robot-vision-xr/?v=24.2
