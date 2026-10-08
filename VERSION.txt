@@ -1,2 +1,2 @@
 Robot Vision XR
-V24.2 Zero Install — Enhanced Cloud + Clean Shapes
+V24.3 Zero Install — Stable Obstacles

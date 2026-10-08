@@ -49,8 +49,8 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
 
 <main id="home">
   <div class="wrap">
-    <h1>ROBOT VISION XR · V24.2 ZERO INSTALL</h1>
-    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena. En V24.2 se refuerza la nube de puntos y se limpian las capas de POINT+SHAPES para que la nube no se pierda.</p>
+    <h1>ROBOT VISION XR · V24.3 ZERO INSTALL</h1>
+    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena. En V24.3 se conserva la nube de puntos de V24.2 y se añade estabilización temporal de FLOOR / SURFACE / OBSTACLE para que los recuadros salten menos y no desaparezcan ante pequeños movimientos de cámara.</p>
 
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="https" class="ok">comprobando…</span></div>
@@ -60,7 +60,7 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
     </section>
 
     <section class="card">
-      <button id="start" class="start">INICIAR V24.2 · ZERO INSTALL</button>
+      <button id="start" class="start">INICIAR V24.3 · ZERO INSTALL</button>
       <small>
         <b>RGB</b> · cámara real<br>
         <b>VISUAL DEPTH</b> · estimación visual ligera, no métrica<br>
@@ -79,7 +79,7 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
   <canvas id="overlay"></canvas>
 
   <div id="lh" class="hud">
-    <b>V24.2 · ZERO INSTALL</b><br>
+    <b>V24.3 · ZERO INSTALL</b><br>
     vista <span id="view" class="metric">RGB</span><br>
     estado <span id="state" class="metric">--</span><br>
     cámara <span id="res" class="metric">--</span><br>
@@ -126,6 +126,11 @@ const work=document.createElement('canvas');work.width=160;work.height=120;const
 let stream=null,mode='RGB',style='NEON',density='MED',labels=true,persistFrames=3;
 let frameNo=0,fpsC=0,fpsT=performance.now(),lastAnalysis=null;
 let cloud=[],history=[],shapes=[];
+let trackedShapes=[];
+let nextTrackId=1;
+const TRACK_MAX_MISSES=5;
+const TRACK_MIN_HITS=2;
+const TRACK_SMOOTH=0.34;
 const cfg={LOW:{stride:4,keep:.12},MED:{stride:3,keep:.19},HIGH:{stride:2,keep:.30}};
 
 function fit(c){const q=Math.min(2,devicePixelRatio||1),w=Math.floor(innerWidth*q),h=Math.floor(innerHeight*q);if(c.width!==w||c.height!==h){c.width=w;c.height=h}}
@@ -177,7 +182,11 @@ function analyze(){
 
   cloud=makeCloud(src,edge,prox,W,H);
   history.unshift(cloud);history=history.slice(0,persistFrames);
-  shapes=makeShapes(edge,prox,W,H);
+  const rawShapes=makeShapes(edge,prox,W,H);
+  trackedShapes=updateShapeTracks(trackedShapes,rawShapes);
+  shapes=trackedShapes
+    .filter(t=>t.hits>=TRACK_MIN_HITS && t.misses<=TRACK_MAX_MISSES)
+    .map(t=>({type:t.type,x:t.x,y:t.y,w:t.w,h:t.h,conf:t.conf,zone:t.zone,pNear:t.pNear,trackId:t.id}));
   lastAnalysis={src,edge,prox,W,H};
 
   $('pts').textContent=cloud.length.toLocaleString();
@@ -252,6 +261,48 @@ function makeShapes(edge,prox,W,H){
   }).slice(0,5);
 }
 
+
+function iou(a,b){
+  const ax2=a.x+a.w, ay2=a.y+a.h, bx2=b.x+b.w, by2=b.y+b.h;
+  const ix1=Math.max(a.x,b.x), iy1=Math.max(a.y,b.y), ix2=Math.min(ax2,bx2), iy2=Math.min(ay2,by2);
+  const iw=Math.max(0,ix2-ix1), ih=Math.max(0,iy2-iy1), inter=iw*ih, union=a.w*a.h+b.w*b.h-inter;
+  return union>0?inter/union:0;
+}
+function centerDist(a,b){
+  const ax=a.x+a.w*.5, ay=a.y+a.h*.5, bx=b.x+b.w*.5, by=b.y+b.h*.5;
+  return Math.hypot(ax-bx,ay-by);
+}
+function smoothTrack(t,s){
+  const a=TRACK_SMOOTH;
+  t.x=t.x*(1-a)+s.x*a; t.y=t.y*(1-a)+s.y*a; t.w=t.w*(1-a)+s.w*a; t.h=t.h*(1-a)+s.h*a;
+  t.conf=t.conf*(1-a)+s.conf*a; t.pNear=t.pNear*(1-a)+s.pNear*a;
+  t.zone=t.pNear>.62?'NEAR':t.pNear>.38?'MID':'FAR'; t.type=s.type; t.hits++; t.misses=0;
+}
+function updateShapeTracks(tracks,detections){
+  const used=new Set();
+  for(const t of tracks){
+    let best=-1,bestScore=-1;
+    for(let i=0;i<detections.length;i++){
+      if(used.has(i))continue;
+      const d=detections[i]; if(d.type!==t.type)continue;
+      const ov=iou(t,d), cd=centerDist(t,d), norm=Math.max(1,Math.hypot(t.w,t.h));
+      const proximity=Math.max(0,1-cd/(norm*1.25));
+      const score=ov*.72+proximity*.28;
+      if(score>bestScore){bestScore=score;best=i;}
+    }
+    if(best>=0 && bestScore>.18){smoothTrack(t,detections[best]);used.add(best);}else t.misses++;
+  }
+  for(let i=0;i<detections.length;i++) if(!used.has(i)){
+    const d=detections[i];
+    tracks.push({id:nextTrackId++,type:d.type,x:d.x,y:d.y,w:d.w,h:d.h,conf:d.conf,zone:d.zone,pNear:d.pNear,hits:1,misses:0});
+  }
+  return tracks.filter(t=>t.misses<=TRACK_MAX_MISSES).sort((a,b)=>{
+    const wa=(a.type==='obstacle'?2.2:1)+(a.w*a.h)/5000+a.conf+a.pNear+a.hits*.08;
+    const wb=(b.type==='obstacle'?2.2:1)+(b.w*b.h)/5000+b.conf+b.pNear+b.hits*.08;
+    return wb-wa;
+  }).slice(0,8);
+}
+
 function render(){
   if(!lastAnalysis)return;
   if(mode==='RGB')return;
@@ -299,7 +350,7 @@ function drawBoxes(){
     const x=s.x*sx,y=s.y*sy,w=s.w*sx,h=s.h*sy,[fill,stroke]=pal[s.type];
     octx.fillStyle=fill;
     octx.strokeStyle=stroke;
-    octx.lineWidth=1.15;
+    octx.lineWidth=s.type==='obstacle'?1.3:1.05;
     octx.fillRect(x,y,w,h);
     octx.strokeRect(x,y,w,h);
   }
@@ -343,7 +394,7 @@ $('style').onclick=()=>{style=style==='NEON'?'RGB':'NEON';$('style').textContent
 $('density').onclick=()=>{const o=['LOW','MED','HIGH'];density=o[(o.indexOf(density)+1)%o.length];$('density').textContent='DENSIDAD '+density;toast('Densidad: '+density)};
 $('labels').onclick=()=>{labels=!labels;$('labels').textContent='LABELS '+(labels?'ON':'OFF');$('labels').classList.toggle('on',labels);render()};
 $('persist').onclick=()=>{persistFrames=persistFrames===1?2:persistFrames===2?3:1;$('persist').textContent='PERSIST '+persistFrames+'F';history=history.slice(0,persistFrames);toast('Persistencia: '+persistFrames+' frames')};
-$('reset').onclick=()=>{cloud=[];history=[];shapes=[];lastAnalysis=null;$('pts').textContent='0';$('forms').textContent='0';ctx.clearRect(0,0,main.width,main.height);octx.clearRect(0,0,overlay.width,overlay.height);chips();toast('Escena reiniciada')};
+$('reset').onclick=()=>{cloud=[];history=[];shapes=[];trackedShapes=[];nextTrackId=1;lastAnalysis=null;$('pts').textContent='0';$('forms').textContent='0';ctx.clearRect(0,0,main.width,main.height);octx.clearRect(0,0,overlay.width,overlay.height);chips();toast('Escena reiniciada')};
 $('exit').onclick=()=>{if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('app').style.display='none';$('home').style.display='block'};
 
 $('https').textContent=isSecureContext?'OK':'NO — requiere HTTPS';
