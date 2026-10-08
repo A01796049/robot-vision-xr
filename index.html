@@ -39,11 +39,11 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
 #tabs button,#controls button{min-height:50px;border-radius:15px;border:1px solid #235762;background:rgba(2,12,16,.90);color:#c0e8ef;padding:8px;font-size:clamp(10px,1.1vw,13px);box-shadow:var(--shadow)}
 #tabs button.active{border-color:var(--cyan);background:#0a3540;color:#fff}
 #controls button.on{border-color:var(--green);color:var(--green)}
-#rgbRefWrap{display:none;position:absolute;right:10px;top:122px;z-index:22;width:min(30vw,220px);aspect-ratio:16/10;border-radius:15px;overflow:hidden;background:rgba(2,8,12,.84);border:1px solid rgba(52,229,255,.42);box-shadow:var(--shadow)}
+#rgbRefWrap{display:none;position:absolute;right:10px;top:118px;z-index:22;width:min(42vw,320px);aspect-ratio:16/10;border-radius:16px;overflow:hidden;background:rgba(2,8,12,.86);border:1px solid rgba(52,229,255,.46);box-shadow:var(--shadow)}
 #rgbRef{position:absolute;inset:0;width:100%;height:100%}
 #rgbRefTag{position:absolute;left:8px;top:8px;padding:4px 8px;border-radius:999px;background:rgba(2,9,13,.74);border:1px solid rgba(52,229,255,.30);font-size:10px;color:#dffcff;letter-spacing:.04em}
-@media(max-width:760px){#rgbRefWrap{top:108px;width:min(34vw,165px)}#rgbRefTag{font-size:9px;padding:3px 7px}}
-@media(max-height:760px){#rgbRefWrap{top:96px;width:min(32vw,150px)}}#toast{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:185px;z-index:40;background:rgba(2,8,12,.92);border:1px solid #1c5d68;border-radius:999px;padding:8px 13px;font-size:11px}
+@media(max-width:760px){#rgbRefWrap{top:104px;width:min(46vw,220px)}#rgbRefTag{font-size:9px;padding:3px 7px}}
+@media(max-height:760px){#rgbRefWrap{top:92px;width:min(40vw,210px)}}#toast{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:185px;z-index:40;background:rgba(2,8,12,.92);border:1px solid #1c5d68;border-radius:999px;padding:8px 13px;font-size:11px}
 #loading{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(2,8,12,.95);border:1px solid #1c5d68;border-radius:15px;padding:15px 18px;width:min(86vw,350px);text-align:center}
 @media(min-width:900px){#tabs{grid-template-columns:repeat(4,180px);justify-content:center}#controls{grid-template-columns:repeat(6,140px);justify-content:center}}
 @media(max-height:760px){#chips{display:none}#tabs{bottom:58px}#controls{bottom:7px}}
@@ -53,8 +53,8 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
 
 <main id="home">
   <div class="wrap">
-    <h1>ROBOT VISION XR · V24.4 ZERO INSTALL</h1>
-    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena. En V24.4 se conserva la nube de puntos de V24.2, la estabilización temporal de V24.3 y se agrega una ventana RGB REFERENCE en la parte superior derecha para comparar la escena real contra la reconstrucción de POINT+SHAPES.</p>
+    <h1>ROBOT VISION XR · V24.5 ZERO INSTALL</h1>
+    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena. En V24.5 se conserva la nube de puntos de V24.2, la estabilización temporal de V24.3 y se amplía la ventana RGB REFERENCE en la parte superior derecha para que la escena real se perciba con mucha más claridad durante la demo.</p>
 
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="https" class="ok">comprobando…</span></div>
@@ -64,7 +64,7 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
     </section>
 
     <section class="card">
-      <button id="start" class="start">INICIAR V24.4 · ZERO INSTALL</button>
+      <button id="start" class="start">INICIAR V24.5 · ZERO INSTALL</button>
       <small>
         <b>RGB</b> · cámara real<br>
         <b>VISUAL DEPTH</b> · estimación visual ligera, no métrica<br>
@@ -87,7 +87,7 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
   </div>
 
   <div id="lh" class="hud">
-    <b>V24.4 · ZERO INSTALL</b><br>
+    <b>V24.5 · ZERO INSTALL</b><br>
     vista <span id="view" class="metric">RGB</span><br>
     estado <span id="state" class="metric">--</span><br>
     cámara <span id="res" class="metric">--</span><br>

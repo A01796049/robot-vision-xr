@@ -1,16 +1,16 @@
-# Robot Vision XR — V24.4 Zero Install
+# Robot Vision XR — V24.5 Zero Install
 
-## Qué agrega frente a V24.3
-- Ventana `RGB REFERENCE` en la parte superior derecha
-- Visible únicamente en `POINT+SHAPES`
-- Permite comparar la escena real contra la reconstrucción de la nube de puntos
-- Conserva el point cloud de V24.2 y la estabilidad de obstáculos de V24.3
+## Qué cambia frente a V24.4
+- Se hace más grande la ventana `RGB REFERENCE`
+- Se mantiene en la esquina superior derecha
+- Sigue apareciendo solo en `POINT+SHAPES`
+- Diseñada para que se perciba mejor incluso si reduces el zoom del navegador
 
-## Sigue siendo
-- 100% navegador
-- Zero-install
-- Sin WebXR / ARCore
-- Sin APKs ni componentes extra
+## Sigue conservando
+- point cloud de V24.2
+- obstáculos estables de V24.3
+- ventana RGB de referencia
+- zero-install, 100% navegador
 
 ## GitHub Pages
 Sube:
@@ -20,4 +20,4 @@ Sube:
 - VERSION.txt
 
 Prueba:
-https://a01796049.github.io/robot-vision-xr/?v=24.4
+https://a01796049.github.io/robot-vision-xr/?v=24.5

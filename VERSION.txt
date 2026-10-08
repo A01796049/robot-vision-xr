@@ -1,2 +1,2 @@
 Robot Vision XR
-V24.4 Zero Install — RGB Reference View
+V24.5 Zero Install — Large RGB Reference View
