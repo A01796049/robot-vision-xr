@@ -39,7 +39,11 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
 #tabs button,#controls button{min-height:50px;border-radius:15px;border:1px solid #235762;background:rgba(2,12,16,.90);color:#c0e8ef;padding:8px;font-size:clamp(10px,1.1vw,13px);box-shadow:var(--shadow)}
 #tabs button.active{border-color:var(--cyan);background:#0a3540;color:#fff}
 #controls button.on{border-color:var(--green);color:var(--green)}
-#toast{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:185px;z-index:40;background:rgba(2,8,12,.92);border:1px solid #1c5d68;border-radius:999px;padding:8px 13px;font-size:11px}
+#rgbRefWrap{display:none;position:absolute;right:10px;top:122px;z-index:22;width:min(30vw,220px);aspect-ratio:16/10;border-radius:15px;overflow:hidden;background:rgba(2,8,12,.84);border:1px solid rgba(52,229,255,.42);box-shadow:var(--shadow)}
+#rgbRef{position:absolute;inset:0;width:100%;height:100%}
+#rgbRefTag{position:absolute;left:8px;top:8px;padding:4px 8px;border-radius:999px;background:rgba(2,9,13,.74);border:1px solid rgba(52,229,255,.30);font-size:10px;color:#dffcff;letter-spacing:.04em}
+@media(max-width:760px){#rgbRefWrap{top:108px;width:min(34vw,165px)}#rgbRefTag{font-size:9px;padding:3px 7px}}
+@media(max-height:760px){#rgbRefWrap{top:96px;width:min(32vw,150px)}}#toast{display:none;position:absolute;left:50%;transform:translateX(-50%);bottom:185px;z-index:40;background:rgba(2,8,12,.92);border:1px solid #1c5d68;border-radius:999px;padding:8px 13px;font-size:11px}
 #loading{display:none;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:50;background:rgba(2,8,12,.95);border:1px solid #1c5d68;border-radius:15px;padding:15px 18px;width:min(86vw,350px);text-align:center}
 @media(min-width:900px){#tabs{grid-template-columns:repeat(4,180px);justify-content:center}#controls{grid-template-columns:repeat(6,140px);justify-content:center}}
 @media(max-height:760px){#chips{display:none}#tabs{bottom:58px}#controls{bottom:7px}}
@@ -49,8 +53,8 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
 
 <main id="home">
   <div class="wrap">
-    <h1>ROBOT VISION XR · V24.3 ZERO INSTALL</h1>
-    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena. En V24.3 se conserva la nube de puntos de V24.2 y se añade estabilización temporal de FLOOR / SURFACE / OBSTACLE para que los recuadros salten menos y no desaparezcan ante pequeños movimientos de cámara.</p>
+    <h1>ROBOT VISION XR · V24.4 ZERO INSTALL</h1>
+    <p class="sub">Versión 100% navegador. <b>No usa WebXR, ARCore, APKs ni componentes adicionales.</b> Solo solicita permiso a la cámara y ejecuta una visualización ligera local para emular cómo un robot interpreta la escena. En V24.4 se conserva la nube de puntos de V24.2, la estabilización temporal de V24.3 y se agrega una ventana RGB REFERENCE en la parte superior derecha para comparar la escena real contra la reconstrucción de POINT+SHAPES.</p>
 
     <section class="card">
       <div class="row"><span>HTTPS</span><span id="https" class="ok">comprobando…</span></div>
@@ -60,7 +64,7 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
     </section>
 
     <section class="card">
-      <button id="start" class="start">INICIAR V24.3 · ZERO INSTALL</button>
+      <button id="start" class="start">INICIAR V24.4 · ZERO INSTALL</button>
       <small>
         <b>RGB</b> · cámara real<br>
         <b>VISUAL DEPTH</b> · estimación visual ligera, no métrica<br>
@@ -77,9 +81,13 @@ small{font-size:11px;color:var(--muted);line-height:1.55}
   <canvas id="main"></canvas>
   <canvas id="depth" width="160" height="120"></canvas>
   <canvas id="overlay"></canvas>
+  <div id="rgbRefWrap">
+    <canvas id="rgbRef"></canvas>
+    <div id="rgbRefTag">RGB REFERENCE</div>
+  </div>
 
   <div id="lh" class="hud">
-    <b>V24.3 · ZERO INSTALL</b><br>
+    <b>V24.4 · ZERO INSTALL</b><br>
     vista <span id="view" class="metric">RGB</span><br>
     estado <span id="state" class="metric">--</span><br>
     cámara <span id="res" class="metric">--</span><br>
@@ -121,6 +129,8 @@ const video=$('video');
 const main=$('main'),ctx=main.getContext('2d',{alpha:false});
 const depth=$('depth'),dctx=depth.getContext('2d',{willReadFrequently:true});
 const overlay=$('overlay'),octx=overlay.getContext('2d');
+const rgbRef=$('rgbRef'),rctx=rgbRef.getContext('2d',{alpha:false});
+const rgbRefWrap=$('rgbRefWrap');
 const work=document.createElement('canvas');work.width=160;work.height=120;const wctx=work.getContext('2d',{willReadFrequently:true});
 
 let stream=null,mode='RGB',style='NEON',density='MED',labels=true,persistFrames=3;
@@ -134,7 +144,14 @@ const TRACK_SMOOTH=0.34;
 const cfg={LOW:{stride:4,keep:.12},MED:{stride:3,keep:.19},HIGH:{stride:2,keep:.30}};
 
 function fit(c){const q=Math.min(2,devicePixelRatio||1),w=Math.floor(innerWidth*q),h=Math.floor(innerHeight*q);if(c.width!==w||c.height!==h){c.width=w;c.height=h}}
-function fitAll(){fit(main);fit(overlay)}addEventListener('resize',fitAll);fitAll();
+function fitRef(){
+  const q=Math.min(2,devicePixelRatio||1);
+  const rect=rgbRefWrap.getBoundingClientRect();
+  const w=Math.max(1,Math.floor(rect.width*q));
+  const h=Math.max(1,Math.floor(rect.height*q));
+  if(rgbRef.width!==w||rgbRef.height!==h){rgbRef.width=w;rgbRef.height=h}
+}
+function fitAll(){fit(main);fit(overlay);fitRef()}addEventListener('resize',fitAll);fitAll();
 function show(e,v){e.style.display=v?'block':'none'}
 function toast(m){const t=$('toast');t.textContent=m;t.style.display='block';clearTimeout(toast.x);toast.x=setTimeout(()=>t.style.display='none',1300)}
 function clamp(v,a,b){return v<a?a:v>b?b:v}
@@ -144,7 +161,7 @@ function heat(pNear){const hue=228-pNear*188;return hslToRgb(hue/360,.95,.58)}
 
 function tabs(){const a=[['RGB','RGB'],['DEPTH','VISUAL DEPTH'],['POINT','POINT CLOUD'],['PS','POINT+SHAPES']];$('tabs').innerHTML='';a.forEach(([v,l])=>{const b=document.createElement('button');b.textContent=l;b.dataset.v=v;b.onclick=()=>setMode(v);$('tabs').appendChild(b)});setMode('RGB')}
 function setMode(v){mode=v;$('view').textContent={RGB:'RGB',DEPTH:'VISUAL DEPTH',POINT:'POINT CLOUD',PS:'POINT+SHAPES'}[v];[...$('tabs').children].forEach(b=>b.classList.toggle('active',b.dataset.v===v));layers();render();chips()}
-function layers(){show(video,mode==='RGB');show(main,mode!=='RGB');show(overlay,mode==='PS');$('legend').style.display=(mode==='POINT'||mode==='PS')?'block':'none'}
+function layers(){show(video,mode==='RGB');show(main,mode!=='RGB');show(overlay,mode==='PS');show(rgbRefWrap,mode==='PS');$('legend').style.display=(mode==='POINT'||mode==='PS')?'block':'none'; if(mode==='PS')fitRef()}
 
 async function startCamera(){
   $('loading').style.display='block';
@@ -303,6 +320,13 @@ function updateShapeTracks(tracks,detections){
   }).slice(0,8);
 }
 
+
+function drawRgbReference(){
+  if(mode!=='PS' || !stream || video.readyState<2)return;
+  fitRef();
+  rctx.drawImage(video,0,0,rgbRef.width,rgbRef.height);
+}
+
 function render(){
   if(!lastAnalysis)return;
   if(mode==='RGB')return;
@@ -335,7 +359,10 @@ function render(){
   ctx.fillText(`ROBOT VISION · ${mode==='PS'?'POINT+SHAPES':'POINT CLOUD'} · ${cloud.length.toLocaleString()} pts`,16,30);
 
   octx.clearRect(0,0,overlay.width,overlay.height);
-  if(mode==='PS')drawBoxes();
+  if(mode==='PS'){
+    drawBoxes();
+    drawRgbReference();
+  }
 }
 
 function drawBoxes(){
@@ -394,8 +421,8 @@ $('style').onclick=()=>{style=style==='NEON'?'RGB':'NEON';$('style').textContent
 $('density').onclick=()=>{const o=['LOW','MED','HIGH'];density=o[(o.indexOf(density)+1)%o.length];$('density').textContent='DENSIDAD '+density;toast('Densidad: '+density)};
 $('labels').onclick=()=>{labels=!labels;$('labels').textContent='LABELS '+(labels?'ON':'OFF');$('labels').classList.toggle('on',labels);render()};
 $('persist').onclick=()=>{persistFrames=persistFrames===1?2:persistFrames===2?3:1;$('persist').textContent='PERSIST '+persistFrames+'F';history=history.slice(0,persistFrames);toast('Persistencia: '+persistFrames+' frames')};
-$('reset').onclick=()=>{cloud=[];history=[];shapes=[];trackedShapes=[];nextTrackId=1;lastAnalysis=null;$('pts').textContent='0';$('forms').textContent='0';ctx.clearRect(0,0,main.width,main.height);octx.clearRect(0,0,overlay.width,overlay.height);chips();toast('Escena reiniciada')};
-$('exit').onclick=()=>{if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}$('app').style.display='none';$('home').style.display='block'};
+$('reset').onclick=()=>{cloud=[];history=[];shapes=[];trackedShapes=[];nextTrackId=1;lastAnalysis=null;$('pts').textContent='0';$('forms').textContent='0';ctx.clearRect(0,0,main.width,main.height);octx.clearRect(0,0,overlay.width,overlay.height);rctx.clearRect(0,0,rgbRef.width,rgbRef.height);chips();toast('Escena reiniciada')};
+$('exit').onclick=()=>{if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}rctx.clearRect(0,0,rgbRef.width,rgbRef.height);$('app').style.display='none';$('home').style.display='block'};
 
 $('https').textContent=isSecureContext?'OK':'NO — requiere HTTPS';
 </script>

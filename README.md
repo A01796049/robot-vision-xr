@@ -1,22 +1,23 @@
-# Robot Vision XR — V24.3 Stable Obstacles
+# Robot Vision XR — V24.4 Zero Install
 
-## Objetivo
-Mantener intacto el point cloud de V24.2 y mejorar la estabilidad temporal de los recuadros.
+## Qué agrega frente a V24.3
+- Ventana `RGB REFERENCE` en la parte superior derecha
+- Visible únicamente en `POINT+SHAPES`
+- Permite comparar la escena real contra la reconstrucción de la nube de puntos
+- Conserva el point cloud de V24.2 y la estabilidad de obstáculos de V24.3
 
-## Cambios
-- Tracking temporal ligero de FLOOR / SURFACE / OBSTACLE
-- Suavizado de posición y tamaño
-- Confirmación de una región durante varios frames antes de mostrarla
-- Persistencia corta si la detección desaparece unos pocos frames
-- Matching por tipo, IoU y distancia entre centros
-- Máximo 2 etiquetas visibles para conservar limpieza visual
-
-## Se mantiene
+## Sigue siendo
+- 100% navegador
 - Zero-install
 - Sin WebXR / ARCore
-- Look del point cloud de V24.2
-- NEAR / MID / FAR
-- GEOM confidence
+- Sin APKs ni componentes extra
 
 ## GitHub Pages
-Prueba: https://a01796049.github.io/robot-vision-xr/?v=24.3
+Sube:
+- index.html
+- .nojekyll
+- README.md
+- VERSION.txt
+
+Prueba:
+https://a01796049.github.io/robot-vision-xr/?v=24.4

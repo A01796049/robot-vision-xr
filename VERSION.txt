@@ -1,2 +1,2 @@
 Robot Vision XR
-V24.3 Zero Install — Stable Obstacles
+V24.4 Zero Install — RGB Reference View
